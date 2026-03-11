@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1772878664106,
+      "tag": "0000_initial_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772947587362,
+      "tag": "0001_medical_patriot",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772949200000,
+      "tag": "0002_apikeys_plural",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1773034200000,
+      "tag": "0003_projects_default_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1773141000000,
+      "tag": "0004_collection_project_slug_scope",
+      "breakpoints": true
+    }
+  ]
+}

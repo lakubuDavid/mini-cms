@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mini-cms-rosy.vercel.app/schemas/mini.config.schema.json",
+  "title": "Mini CMS CLI Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "baseUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL for the Mini CMS app."
+    },
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace ID used by CLI commands and generated files."
+    },
+    "projectId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Project ID required for project-scoped pull and push commands, and used by generated clients by default."
+    },
+    "apiKey": {
+      "type": "string",
+      "minLength": 1,
+      "description": "API key used for protected schema and management endpoints."
+    },
+    "collectionId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional collection ID scope for pull, push, or generate."
+    },
+    "collectionsPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the collection definitions file or directory."
+    },
+    "typesPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Output path for generated TypeScript types."
+    },
+    "clientPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Output path for the generated browser client JavaScript file."
+    },
+    "declarationsPath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Output path for the generated browser client declaration file."
+    }
+  },
+  "required": ["baseUrl", "workspaceId"],
+  "examples": [
+    {
+      "baseUrl": "https://mini-cms-rosy.vercel.app",
+      "workspaceId": "org_123",
+      "projectId": "project_123",
+      "apiKey": "mcms_test_123",
+      "collectionsPath": "mini.collections.json",
+      "typesPath": "mini.types.ts",
+      "clientPath": "mini.client.js",
+      "declarationsPath": "mini.client.d.ts"
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { db } from "@/db";
+import { collectionItems } from "@/db/schema";
+import {
+  toStoredItemValues,
+  withSystemItemValues,
+} from "@/lib/collections-system-fields";
+import {
+  buildPagination,
+  normalizePagination,
+  type PaginatedResult,
+  type PaginationInput,
+} from "./shared";
+
+export type CollectionItemData = Record<
+  string,
+  string | number | boolean | null
+>;
+
+type CollectionItemFilterField = {
+  key: string;
+  type: "text" | "url" | "number" | "boolean" | "date";
+};
+
+export async function listItems(
+  collectionId: string,
+  input?: PaginationInput & {
+    publishedOnly?: boolean;
+    filters?: Record<string, string>;
+    query?: string;
+    schema?: CollectionItemFilterField[];
+  },
+): Promise<PaginatedResult<typeof collectionItems.$inferSelect>> {
+  const { limit, offset, page } = normalizePagination(input);
+  const conditions = [eq(collectionItems.collectionId, collectionId)];
+
+  if (input?.publishedOnly) {
+    conditions.push(
+      sql`json_extract(${collectionItems.data}, '$._published') = 1`,
+    );
+  }
+
+  const filterFields = new Map(
+    (input?.schema ?? []).map((field) => [field.key, field.type]),
+  );
+
+  for (const [key, rawValue] of Object.entries(input?.filters ?? {})) {
+    const normalizedValue = rawValue.trim();
+
+    if (!normalizedValue) {
+      continue;
+    }
+
+    const jsonPath = `$.${key}`;
+    const fieldType = filterFields.get(key);
+
+    if (fieldType === "number") {
+      const numericValue = Number(normalizedValue);
+
+      if (!Number.isNaN(numericValue)) {
+        conditions.push(
+          sql`json_extract(${collectionItems.data}, ${jsonPath}) = ${numericValue}`,
+        );
+      }
+
+      continue;
+    }
+
+    if (fieldType === "boolean" || key === "_published") {
+      const booleanValue = parseBooleanFilter(normalizedValue);
+
+      if (booleanValue !== null) {
+        conditions.push(
+          sql`json_extract(${collectionItems.data}, ${jsonPath}) = ${booleanValue ? 1 : 0}`,
+        );
+      }
+
+      continue;
+    }
+
+    conditions.push(
+      sql`lower(CAST(json_extract(${collectionItems.data}, ${jsonPath}) AS text)) = lower(${normalizedValue})`,
+    );
+  }
+
+  const query = input?.query?.trim();
+
+  if (query) {
+    const queryFields = ["_id", ...(input?.schema ?? []).map((field) => field.key)];
+    const uniqueFields = Array.from(new Set(queryFields));
+
+    if (uniqueFields.length) {
+      const queryValue = `%${query.toLowerCase()}%`;
+      const queryConditions = uniqueFields.map((key) => {
+        const jsonPath = `$.${key}`;
+        return sql`lower(COALESCE(CAST(json_extract(${collectionItems.data}, ${jsonPath}) AS text), '')) like ${queryValue}`;
+      });
+
+      const combinedQuery = or(...queryConditions);
+
+      if (combinedQuery) {
+        conditions.push(combinedQuery);
+      }
+    }
+  }
+
+  const where = and(...conditions);
+
+  const [items, totalResult] = await Promise.all([
+    db
+      .select()
+      .from(collectionItems)
+      .where(where)
+      .orderBy(asc(collectionItems.order), asc(collectionItems.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ value: count() })
+      .from(collectionItems)
+      .where(where),
+  ]);
+
+  const total = totalResult[0]?.value ?? 0;
+
+  return {
+    items: items.map(withSystemItemValues),
+    pagination: buildPagination(page, limit, total),
+  };
+}
+
+function parseBooleanFilter(value: string) {
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no"].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
+
+export async function getItemById(id: string) {
+  const item = await db.query.collectionItems.findFirst({
+    where: eq(collectionItems.id, id),
+  });
+
+  return item ? withSystemItemValues(item) : null;
+}
+
+export async function createItem(
+  collectionId: string,
+  data: CollectionItemData,
+  order = 0,
+) {
+  const id = nanoid();
+  const now = new Date().toISOString();
+
+  await db.insert(collectionItems).values({
+    id,
+    collectionId,
+    data: toStoredItemValues(data),
+    order,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return getItemById(id);
+}
+
+export async function updateItem(id: string, data: CollectionItemData) {
+  const existing = await db.query.collectionItems.findFirst({
+    where: eq(collectionItems.id, id),
+  });
+
+  if (!existing) {
+    return null;
+  }
+
+  await db
+    .update(collectionItems)
+    .set({
+      data: toStoredItemValues(data, existing.data._published === true),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(collectionItems.id, id));
+
+  return getItemById(id);
+}
+
+export async function deleteItem(id: string) {
+  await db.delete(collectionItems).where(eq(collectionItems.id, id));
+}
+
+export async function countItemsByCollectionIds(collectionIds: string[]) {
+  if (collectionIds.length === 0) return new Map<string, number>();
+
+  const results = await db
+    .select({
+      collectionId: collectionItems.collectionId,
+      count: count(),
+    })
+    .from(collectionItems)
+    .where(inArray(collectionItems.collectionId, collectionIds))
+    .groupBy(collectionItems.collectionId);
+
+  return new Map(results.map((r) => [r.collectionId, r.count]));
+}
+
+export async function reorderItems(collectionId: string, itemIds: string[]) {
+  const items = await db
+    .select({ id: collectionItems.id })
+    .from(collectionItems)
+    .where(eq(collectionItems.collectionId, collectionId));
+
+  const validIds = items
+    .map((item) => item.id)
+    .filter((id) => itemIds.includes(id));
+
+  await Promise.all(
+    validIds.map((id, index) =>
+      db
+        .update(collectionItems)
+        .set({ order: index, updatedAt: new Date().toISOString() })
+        .where(inArray(collectionItems.id, [id])),
+    ),
+  );
+}

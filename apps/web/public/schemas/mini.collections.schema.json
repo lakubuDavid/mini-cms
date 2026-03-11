@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mini-cms-rosy.vercel.app/schemas/mini.collections.schema.json",
+  "title": "Mini CMS Collections File",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Workspace ID recorded when the file was pulled."
+    },
+    "pulledAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp indicating when the file was last pulled."
+    },
+    "collections": {
+      "type": "array",
+      "description": "Collection definitions used by push and generate commands.",
+      "items": {
+        "$ref": "#/$defs/collection"
+      }
+    }
+  },
+  "required": ["collections"],
+  "$defs": {
+    "fieldType": {
+      "type": "string",
+      "enum": ["text", "url", "number", "boolean", "date"]
+    },
+    "collectionField": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!_).+",
+          "description": "Stored field key. Keys beginning with '_' are reserved for system fields."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable field label."
+        },
+        "type": {
+          "$ref": "#/$defs/fieldType",
+          "description": "Supported Mini CMS field type."
+        }
+      },
+      "required": ["key", "label", "type"]
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Existing collection ID from the dashboard."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable collection name."
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL-safe collection slug."
+        },
+        "description": {
+          "type": ["string", "null"],
+          "description": "Optional collection description."
+        },
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/collectionField"
+          },
+          "description": "Field definitions for collection items."
+        }
+      },
+      "required": ["name", "slug", "schema"]
+    }
+  },
+  "examples": [
+    {
+      "workspaceId": "org_123",
+      "pulledAt": "2026-03-09T12:00:00.000Z",
+      "collections": [
+        {
+          "id": "col_testimonials",
+          "name": "Testimonials",
+          "slug": "testimonials",
+          "description": "Client quotes and endorsements",
+          "schema": [
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text"
+            },
+            {
+              "key": "publishedAt",
+              "label": "Published At",
+              "type": "date"
+            },
+            {
+              "key": "featured",
+              "label": "Featured",
+              "type": "boolean"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

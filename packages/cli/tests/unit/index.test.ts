@@ -1,0 +1,437 @@
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import {
+  compactMiniConfig,
+  DEFAULT_CLIENT_PATH,
+  DEFAULT_COLLECTIONS_PATH,
+  DEFAULT_DECLARATIONS_PATH,
+  DEFAULT_TYPES_PATH,
+  formatCliError,
+  installSkill,
+  loadCollectionsInput,
+  parseKeyValueInput,
+  promptForMiniConfig,
+  pullSchemas,
+  readError,
+  resolveConfig,
+  writeClientFiles,
+  writeMiniConfig,
+  writeTypesFile,
+  type ResolvedConfig,
+} from "../../src/index";
+import { cleanupTempDir, createJsonResponse, createTempDir } from "../common";
+
+const originalCwd = process.cwd();
+
+describe("cli helpers", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await createTempDir();
+    process.chdir(tempDir);
+  });
+
+  afterEach(async () => {
+    mock.restore();
+    process.chdir(originalCwd);
+    await cleanupTempDir(tempDir);
+  });
+
+  test("resolveConfig prefers inline options and falls back to config file", async () => {
+    await writeFile(
+      join(tempDir, "mini.config.json"),
+      JSON.stringify({
+        baseUrl: "https://cms.example.com",
+        workspaceId: "ws_123",
+        apiKey: "mcms_test",
+        collectionsPath: "defs/content.json",
+        typesPath: "generated/types.ts",
+      }),
+    );
+
+    const config = await resolveConfig({
+      config: join(tempDir, "mini.config.json"),
+      workspaceId: "ws_override",
+    });
+
+    expect(config.baseUrl).toBe("https://cms.example.com");
+    expect(config.workspaceId).toBe("ws_override");
+    expect(config.apiKey).toBe("mcms_test");
+    expect(config.collectionsPath.endsWith("defs/content.json")).toBe(true);
+    expect(config.typesPath.endsWith("generated/types.ts")).toBe(true);
+  });
+
+  test("resolveConfig requires projectId when requested", async () => {
+    await expect(
+      resolveConfig(
+        {
+          baseUrl: "https://cms.example.com",
+          workspaceId: "ws_123",
+          apiKey: "mcms_test",
+        },
+        { requireProjectId: true },
+      ),
+    ).rejects.toThrow(
+      "Missing required projectId. Provide --project-id or define projectId in mini.config.json.",
+    );
+  });
+
+  test("loadCollectionsInput reads a directory of json files", async () => {
+    await writeFile(
+      join(tempDir, "projects.json"),
+      JSON.stringify({
+        name: "Projects",
+        slug: "projects",
+        description: null,
+        schema: [{ key: "title", label: "Title", type: "text" }],
+      }),
+    );
+    await writeFile(
+      join(tempDir, "team.json"),
+      JSON.stringify({
+        collections: [
+          {
+            id: "col_team",
+            name: "Team",
+            slug: "team",
+            description: "People",
+            schema: [{ key: "active", label: "Active", type: "boolean" }],
+          },
+        ],
+      }),
+    );
+
+    const collections = await loadCollectionsInput(tempDir);
+
+    expect(collections).toHaveLength(2);
+    expect(collections.map((item) => item.slug).sort()).toEqual([
+      "projects",
+      "team",
+    ]);
+  });
+
+  test("loadCollectionsInput deduplicates by slug and prefers entries with ids", async () => {
+    await writeFile(
+      join(tempDir, "projects.json"),
+      JSON.stringify({
+        name: "Projects",
+        slug: "projects",
+        description: null,
+        schema: [{ key: "title", label: "Title", type: "text" }],
+      }),
+    );
+    await writeFile(
+      join(tempDir, "mini.collections.json"),
+      JSON.stringify({
+        workspaceId: "ws_123",
+        pulledAt: new Date().toISOString(),
+        collections: [
+          {
+            id: "col_projects",
+            name: "Projects",
+            slug: "projects",
+            description: "Pulled from server",
+            schema: [
+              { key: "title", label: "Title", type: "text" },
+              { key: "url", label: "URL", type: "url" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const collections = await loadCollectionsInput(tempDir);
+
+    expect(collections).toHaveLength(1);
+    expect(collections[0].id).toBe("col_projects");
+    expect(collections[0].schema).toHaveLength(2);
+  });
+
+  test("writeTypesFile generates workspace and collection item types", async () => {
+    const output = join(tempDir, "mini.types.ts");
+
+    await writeTypesFile(
+      output,
+      [
+        {
+          id: "col_projects",
+          name: "Projects",
+          slug: "client-projects",
+          description: null,
+          schema: [
+            { key: "title", label: "Title", type: "text" },
+            { key: "published", label: "Published", type: "boolean" },
+          ],
+        },
+      ],
+      "ws_123",
+    );
+
+    const contents = await readFile(output, "utf8");
+
+    expect(contents).toContain('export const workspaceId = "ws_123" as const;');
+    expect(contents).toContain('export type CollectionSlug =');
+    expect(contents).toContain('"client-projects"');
+    expect(contents).toContain("export type ClientProjectsItem = {");
+    expect(contents).toContain("published: boolean;");
+  });
+
+  test("writeMiniConfig writes relative generated paths", async () => {
+    const config: ResolvedConfig = {
+      configPath: join(tempDir, "mini.config.json"),
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "mcms_test",
+      collectionsPath: join(process.cwd(), "content/mini.collections.json"),
+      typesPath: join(process.cwd(), "types/mini.types.ts"),
+      clientPath: join(process.cwd(), "client/mini.client.js"),
+      declarationsPath: join(process.cwd(), "client/mini.client.d.ts"),
+    };
+
+    await writeMiniConfig(config);
+
+    const file = JSON.parse(
+      await readFile(join(tempDir, "mini.config.json"), "utf8"),
+    ) as Record<string, string>;
+
+    expect(file.collectionsPath).toBe("content/mini.collections.json");
+    expect(file.typesPath).toBe("types/mini.types.ts");
+    expect(file.clientPath).toBe("client/mini.client.js");
+    expect(file.declarationsPath).toBe("client/mini.client.d.ts");
+  });
+
+  test("compactMiniConfig removes empty optional values", () => {
+    expect(
+      compactMiniConfig({
+        baseUrl: "https://cms.example.com",
+        workspaceId: "ws_123",
+        apiKey: "",
+        projectId: undefined,
+      }),
+    ).toEqual({
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+    });
+  });
+
+  test("promptForMiniConfig builds config from answers", async () => {
+    const answers = [
+      "https://cms.example.com",
+      "ws_123",
+      "proj_123",
+      "mcms_test",
+      "col_123",
+      "content/mini.collections.json",
+      "types/mini.types.ts",
+      "client/mini.client.js",
+      "client/mini.client.d.ts",
+    ];
+
+    const config = await promptForMiniConfig({}, async () => answers.shift() ?? "");
+
+    expect(config).toEqual({
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "mcms_test",
+      collectionId: "col_123",
+      collectionsPath: "content/mini.collections.json",
+      typesPath: "types/mini.types.ts",
+      clientPath: "client/mini.client.js",
+      declarationsPath: "client/mini.client.d.ts",
+    });
+  });
+
+  test("compactMiniConfig supports direct init-style config creation", () => {
+    const config = compactMiniConfig({
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "mcms_test",
+      collectionId: "col_123",
+      collectionsPath: DEFAULT_COLLECTIONS_PATH,
+      typesPath: DEFAULT_TYPES_PATH,
+      clientPath: DEFAULT_CLIENT_PATH,
+      declarationsPath: DEFAULT_DECLARATIONS_PATH,
+    });
+
+    expect(config).toEqual({
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "mcms_test",
+      collectionId: "col_123",
+      collectionsPath: DEFAULT_COLLECTIONS_PATH,
+      typesPath: DEFAULT_TYPES_PATH,
+      clientPath: DEFAULT_CLIENT_PATH,
+      declarationsPath: DEFAULT_DECLARATIONS_PATH,
+    });
+  });
+
+  test("parseKeyValueInput parses strings booleans numbers and null", () => {
+    expect(
+      parseKeyValueInput(
+        "title=Hello;published=true;views=42;summary=null;url=https://example.com",
+      ),
+    ).toEqual({
+      title: "Hello",
+      published: true,
+      views: 42,
+      summary: null,
+      url: "https://example.com",
+    });
+  });
+
+  test("formatCliError suggests renamed list commands", () => {
+    const error = formatCliError(
+      new Error("Unused args: `list-collections`"),
+      ["node", "mini-cms", "push", "list-collections"],
+    );
+
+    expect(error.message).toBe(
+      "Unknown command usage: push list-collections. Did you mean `list-collections`?",
+    );
+  });
+
+  test("formatCliError explains incomplete top-level command prefixes", () => {
+    const error = formatCliError(
+      new Error("Incomplete command: collection. Try `collection create`, `collection delete <collection>`, or `collection item list <collection>`."),
+      ["node", "mini-cms", "collection"],
+    );
+
+    expect(error.message).toBe(
+      "Incomplete command: collection. Try `collection create`, `collection delete <collection>`, or `collection item list <collection>`.",
+    );
+  });
+
+  test("formatCliError explains incomplete nested command prefixes", () => {
+    const error = formatCliError(
+      new Error("Incomplete command: collection item. Try `collection item list <collection>`, `collection item insert <collection>`, or `collection item update <collection>`."),
+      ["node", "mini-cms", "collection", "item"],
+    );
+
+    expect(error.message).toBe(
+      "Incomplete command: collection item. Try `collection item list <collection>`, `collection item insert <collection>`, or `collection item update <collection>`.",
+    );
+  });
+
+  test("formatCliError explains missing required positional args", () => {
+    const error = formatCliError(
+      new Error("Incomplete command: collection item list. Usage: `mini-cms collection item list <collection>`."),
+      ["node", "mini-cms", "collection", "item", "list"],
+    );
+
+    expect(error.message).toBe(
+      "Incomplete command: collection item list. Usage: `mini-cms collection item list <collection>`.",
+    );
+  });
+
+  test("writeClientFiles generates a fetch-based browser client", async () => {
+    const config: ResolvedConfig = {
+      configPath: join(tempDir, "mini.config.json"),
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "",
+      collectionsPath: join(tempDir, "mini.collections.json"),
+      typesPath: join(tempDir, "mini.types.ts"),
+      clientPath: join(tempDir, "mini.client.js"),
+      declarationsPath: join(tempDir, "mini.client.d.ts"),
+    };
+
+    await writeClientFiles(config, [
+      {
+        id: "col_projects",
+        name: "Projects",
+        slug: "projects",
+        description: null,
+        schema: [{ key: "title", label: "Title", type: "text" }],
+      },
+      {
+        id: "col_case_studies",
+        name: "Case Studies",
+        slug: "case-studies",
+        description: null,
+        schema: [{ key: "headline", label: "Headline", type: "text" }],
+      },
+    ]);
+
+    const clientContents = await readFile(config.clientPath, "utf8");
+    const dtsContents = await readFile(config.declarationsPath, "utf8");
+
+    expect(clientContents).toContain("async function getCollectionItems(collectionSlug, options = {})");
+    expect(clientContents).toContain("const collections = {");
+    expect(clientContents).toContain("collectionDefinitions: getMiniCmsCollections()");
+    expect(clientContents).toContain("projects: { query: (options = {}) => getCollectionItems(\"projects\", options) }");
+    expect(clientContents).toContain("case_studies: { query: (options = {}) => getCollectionItems(\"case-studies\", options) }");
+    expect(clientContents).toContain("await fetch(url.toString()");
+    expect(clientContents).toContain("filter.");
+    expect(clientContents).toContain("collection_slug");
+    expect(clientContents).toContain("collection_id");
+    expect(dtsContents).toContain("export type MiniCmsCollectionMap = {");
+    expect(dtsContents).toContain("export type ProjectsItem = {");
+    expect(dtsContents).toContain("export type MiniCmsGetCollectionItemsOptions<TSlug extends MiniCmsCollectionSlug");
+    expect(dtsContents).toContain("items: Array<MiniCmsCollectionItem<TSlug>>;");
+    expect(dtsContents).toContain("collectionDefinitions: MiniCmsCollectionDefinition[];");
+    expect(dtsContents).toContain("collections: {");
+    expect(dtsContents).toContain("getCollectionItems<TSlug extends MiniCmsCollectionSlug>(collectionSlug: TSlug, options?: MiniCmsGetCollectionItemsOptions<TSlug>)");
+    expect(dtsContents).toContain("case_studies: { query(options?: MiniCmsGetCollectionItemsOptions<\"case-studies\">)");
+    expect(dtsContents).toContain('export type MiniCmsCollectionSlug = "projects" | "case-studies";');
+  });
+
+  test("installSkill writes SKILL.md to local .skills directory", async () => {
+    const output = await installSkill(tempDir);
+    const contents = await readFile(output.skillPath, "utf8");
+
+    expect(output.directoryPath).toBe(join(tempDir, ".opencode/skills/mini-cms-cli"));
+    expect(output.skillPath).toBe(join(tempDir, ".opencode/skills/mini-cms-cli/SKILL.md"));
+    expect(contents).toContain("name: mini-cms-cli");
+    expect(contents).toContain("mini-cms add-skill");
+  });
+
+  test("pullSchemas sends workspace project and collection query params", async () => {
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        createJsonResponse({
+          workspaceId: "ws_123",
+          pulledAt: "2026-03-08T00:00:00.000Z",
+          collections: [],
+        }),
+      ),
+    );
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await pullSchemas({
+      configPath: join(tempDir, "mini.config.json"),
+      baseUrl: "https://cms.example.com",
+      workspaceId: "ws_123",
+      projectId: "proj_123",
+      apiKey: "mcms_key",
+      collectionId: "col_1",
+      collectionsPath: join(tempDir, "mini.collections.json"),
+      typesPath: join(tempDir, "mini.types.ts"),
+      clientPath: join(tempDir, "mini.client.js"),
+      declarationsPath: join(tempDir, "mini.client.d.ts"),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [URL, RequestInit];
+    expect(url.toString()).toContain("/api/schema/pull");
+    expect(url.searchParams.get("workspaceId")).toBe("ws_123");
+    expect(url.searchParams.get("projectId")).toBe("proj_123");
+    expect(url.searchParams.get("collectionId")).toBe("col_1");
+    expect((init.headers as Record<string, string>)["x-api-key"]).toBe(
+      "mcms_key",
+    );
+  });
+
+  test("readError falls back to status text when json parsing fails", async () => {
+    const response = new Response("bad gateway", { status: 502 });
+    await expect(readError(response)).resolves.toBe(
+      "Request failed with status 502.",
+    );
+  });
+});

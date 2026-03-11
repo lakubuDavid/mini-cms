@@ -1,0 +1,304 @@
+---
+title: Content API
+description: Public endpoint for reading published collection items by workspace, project, and collection ID.
+---
+
+Use this endpoint when your website or app needs to read published collection items.
+
+## Endpoint
+
+```text
+GET /api/collections/items?w=<workspace-id>&p=<project-id>&collection_id=<collection-id>
+```
+
+## Fetch Collection Content
+
+Use the workspace ID, project ID, and collection ID together. No API key is required.
+
+```bash
+curl "https://your-app.example.com/api/collections/items?w=org_123&p=project_123&collection_id=col_123&page=1&limit=10&q=acme&filter.title=homepage&filter._published=true"
+```
+
+Example response:
+
+```json
+{
+  "workspace": {
+    "id": "org_123",
+    "slug": "solution-inc",
+    "name": "Solution Incorporate"
+  },
+  "project": {
+    "id": "project_123",
+    "slug": "default",
+    "name": "Default"
+  },
+  "collection": {
+    "id": "col_123",
+    "organizationId": "org_123",
+    "name": "Testimonials",
+    "slug": "testimonials",
+    "description": "Client quotes and endorsements",
+      "schema": [{ "key": "title", "label": "Title", "type": "text" }],
+    "createdAt": "2026-03-08T00:00:00.000Z",
+    "updatedAt": "2026-03-08T00:00:00.000Z"
+  },
+  "items": [
+    {
+      "id": "item_123",
+      "collectionId": "col_123",
+      "data": {
+        "_id": "item_123",
+        "_published": true,
+        "title": "Acme says the new CMS is refreshingly simple",
+        "publishedAt": "2026-03-08"
+      },
+      "order": 0,
+      "createdAt": "2026-03-08T00:00:00.000Z",
+      "updatedAt": "2026-03-08T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1,
+    "hasMore": false
+  }
+}
+```
+
+## Query Parameters
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `w` | Yes | - | Workspace ID. |
+| `p` | Yes | - | Project ID inside the workspace. |
+| `collection_id` | Yes | - | Collection ID to read published items from. |
+| `page` | No | `1` | 1-based page number. |
+| `limit` | No | `10` | Page size. Maximum `100`. |
+| `q` | No | empty | Case-insensitive text search across `_id` and collection fields. |
+| `filter.<fieldKey>` | No | - | Exact-match field filter. Supports `_id`, `_published`, and schema field keys like `filter.title=Homepage`. |
+
+## Behavior
+
+- The endpoint is rate-limited per IP and workspace/collection pair.
+- Responses are cached for 60 seconds.
+- Collection and item changes invalidate cached collection payloads.
+- Only items with `_published: true` are returned.
+- Filters are validated against system fields and the collection schema.
+- `q` performs a broad text search; `filter.<fieldKey>` narrows to exact values.
+- This API is read-only and public.
+
+## Best Fit
+
+- use the dashboard for editing content
+- use `mini-cms` for schema sync and developer workflows
+- use this public API when another app needs to read collection items
+
+## Schema API (Protected)
+
+The schema API endpoints are used by `mini-cms pull` and `mini-cms push` to sync collection definitions between your dashboard and local files.
+
+These endpoints require an API key passed in the `Authorization` header:
+
+```bash
+Authorization: Bearer <your-api-key>
+```
+
+### List Projects
+
+```text
+GET /api/schema/projects
+```
+
+Returns all projects in the authenticated workspace.
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer mcms_test_123" \
+  "https://mini-cms-rosy.vercel.app/api/schema/projects"
+```
+
+```json
+{
+  "projects": [
+    {
+      "id": "project_default_abc123",
+      "name": "Default",
+      "slug": "default",
+      "metadata": { "isDefault": true },
+      "createdAt": "2026-03-08T00:00:00.000Z",
+      "updatedAt": "2026-03-08T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### List Collections (Schema)
+
+```text
+GET /api/schema/collections?project_id=<project-id>
+```
+
+Returns collection definitions including schema fields. Pass `project_id` to scope to a specific project.
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer mcms_test_123" \
+  "https://mini-cms-rosy.vercel.app/api/schema/collections?project_id=project_default_abc123"
+```
+
+```json
+{
+  "collections": [
+    {
+      "id": "col_testimonials",
+      "name": "Testimonials",
+      "slug": "testimonials",
+      "description": "Client quotes and endorsements",
+      "schema": [
+        { "key": "title", "label": "Title", "type": "text" },
+        { "key": "featured", "label": "Featured", "type": "boolean" }
+      ],
+      "projectId": "project_default_abc123",
+      "createdAt": "2026-03-08T00:00:00.000Z",
+      "updatedAt": "2026-03-08T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Create Collection
+
+```text
+POST /api/schema/collections
+```
+
+Create a new collection in a project.
+
+Headers:
+
+```text
+Authorization: Bearer <api-key>
+Content-Type: application/json
+```
+
+Body:
+
+```json
+{
+  "name": "Testimonials",
+  "slug": "testimonials",
+  "description": "Client quotes and endorsements",
+  "projectId": "project_default_abc123",
+  "schema": [
+    { "key": "title", "label": "Title", "type": "text" },
+    { "key": "featured", "label": "Featured", "type": "boolean" }
+  ]
+}
+```
+
+### Update Collection
+
+```text
+POST /api/schema/collections/<collection-id>
+```
+
+Update an existing collection's name, description, or schema.
+
+### Delete Collection
+
+```text
+DELETE /api/schema/collections/<collection-id>
+```
+
+Delete a collection and all its items.
+
+### List Collection Items (Protected)
+
+```text
+GET /api/schema/collection-items?collection_id=<collection-id>
+```
+
+Returns all items (including unpublished) in a collection. Requires API key auth.
+
+Example:
+
+```bash
+curl -H "Authorization: Bearer mcms_test_123" \
+  "https://mini-cms-rosy.vercel.app/api/schema/collection-items?collection_id=col_testimonials"
+```
+
+### Create Item
+
+```text
+POST /api/schema/items
+```
+
+Create a new item in a collection.
+
+Headers:
+
+```text
+Authorization: Bearer <api-key>
+Content-Type: application/json
+```
+
+Body:
+
+```json
+{
+  "collectionId": "col_testimonials",
+  "slug": "unique-item-slug",
+  "values": {
+    "title": "Great product!",
+    "featured": true
+  }
+}
+```
+
+### Update Item
+
+```text
+POST /api/schema/items/<item-id>
+```
+
+Update an item's values.
+
+### Delete Item
+
+```text
+DELETE /api/schema/items/<item-id>
+```
+
+Delete an item from its collection.
+
+### Batch Insert Items
+
+```text
+POST /api/schema/items
+```
+
+Send an array of items to insert multiple at once:
+
+```json
+{
+  "collectionId": "col_testimonials",
+  "items": [
+    { "slug": "item-1", "values": { "title": "First" } },
+    { "slug": "item-2", "values": { "title": "Second" } }
+  ]
+}
+```
+
+## API Key Scopes
+
+API keys can be:
+
+- **Workspace-scoped**: Full access to all projects and collections in the workspace.
+- **Project-scoped**: Restricted to a single project. The key cannot access collections in other projects.
+
+When you create an API key, you can optionally bind it to a project ID. The schema API validates this scope on each request.

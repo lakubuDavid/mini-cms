@@ -1,0 +1,4 @@
+[tools]
+gitleaks = "latest"
+"npm:oxfmt" = "latest"
+oxlint = "latest"
