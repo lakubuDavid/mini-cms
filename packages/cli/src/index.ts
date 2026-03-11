@@ -139,7 +139,21 @@ type CommandOptions = {
   verbose?: boolean;
 };
 
+type CliEnv = {
+  baseUrl?: string;
+  workspaceId?: string;
+  projectId?: string;
+  apiKey?: string;
+};
+
 let isVerboseLoggingEnabled = false;
+
+const CLI_ENV_KEYS = {
+  baseUrl: "MINI_CMS_BASE_URL",
+  workspaceId: "MINI_CMS_WORKSPACE_ID",
+  projectId: "MINI_CMS_PROJECT_ID",
+  apiKey: "MINI_CMS_API_KEY",
+} as const;
 
 const DEFAULT_CONFIG_PATH = "mini.config.json";
 const DEFAULT_COLLECTIONS_PATH = "mini.collections.json";
@@ -417,11 +431,14 @@ const miniCmsCommand = defineCommand({
         const options = toCommandOptions(args);
         const configPath = resolve(options.config ?? DEFAULT_CONFIG_PATH);
         const existingConfig = await readJsonFile<MiniConfig>(configPath, true) ?? {};
+        const envConfig = readCliEnv();
         const directConfig = compactMiniConfig({
-          baseUrl: options.baseUrl ?? existingConfig.baseUrl,
-          workspaceId: options.workspaceId ?? existingConfig.workspaceId,
-          projectId: options.projectId ?? existingConfig.projectId,
-          apiKey: options.apiKey ?? existingConfig.apiKey,
+          baseUrl: options.baseUrl ?? existingConfig.baseUrl ?? envConfig.baseUrl,
+          workspaceId:
+            options.workspaceId ?? existingConfig.workspaceId ?? envConfig.workspaceId,
+          projectId:
+            options.projectId ?? existingConfig.projectId ?? envConfig.projectId,
+          apiKey: options.apiKey ?? existingConfig.apiKey ?? envConfig.apiKey,
           collectionId: options.collectionId ?? existingConfig.collectionId,
           collectionsPath:
             options.collections ??
@@ -1253,11 +1270,14 @@ async function resolveConfig(
 ): Promise<ResolvedConfig> {
   const configPath = resolve(options.config ?? DEFAULT_CONFIG_PATH);
   const fileConfig = await readJsonFile<MiniConfig>(configPath, true);
+  const envConfig = readCliEnv();
 
-  const baseUrl = options.baseUrl ?? fileConfig?.baseUrl ?? "";
-  const workspaceId = options.workspaceId ?? fileConfig?.workspaceId ?? "";
-  const projectId = options.projectId ?? fileConfig?.projectId;
-  const apiKey = options.apiKey ?? fileConfig?.apiKey ?? "";
+  const baseUrl = options.baseUrl ?? fileConfig?.baseUrl ?? envConfig.baseUrl ?? "";
+  const workspaceId =
+    options.workspaceId ?? fileConfig?.workspaceId ?? envConfig.workspaceId ?? "";
+  const projectId =
+    options.projectId ?? fileConfig?.projectId ?? envConfig.projectId;
+  const apiKey = options.apiKey ?? fileConfig?.apiKey ?? envConfig.apiKey ?? "";
   const collectionId = options.collectionId ?? fileConfig?.collectionId;
   const collectionsPath = resolve(
     options.collections ??
@@ -1279,14 +1299,14 @@ async function resolveConfig(
   if (!baseUrl || !workspaceId || ((resolveOptions.requireApiKey ?? true) && !apiKey)) {
     throw new Error(
       (resolveOptions.requireApiKey ?? true)
-        ? "Missing required values. Provide --base-url, --workspace-id, and --api-key, or define them in mini.config.json."
-        : "Missing required values. Provide --base-url and --workspace-id, or define them in mini.config.json.",
+        ? "Missing required values. Provide --base-url, --workspace-id, and --api-key, define them in mini.config.json, or set MINI_CMS_BASE_URL, MINI_CMS_WORKSPACE_ID, and MINI_CMS_API_KEY."
+        : "Missing required values. Provide --base-url and --workspace-id, define them in mini.config.json, or set MINI_CMS_BASE_URL and MINI_CMS_WORKSPACE_ID.",
     );
   }
 
   if (resolveOptions.requireProjectId && !projectId) {
     throw new Error(
-      "Missing required projectId. Provide --project-id or define projectId in mini.config.json.",
+      "Missing required projectId. Provide --project-id, define projectId in mini.config.json, or set MINI_CMS_PROJECT_ID.",
     );
   }
 
@@ -1302,6 +1322,26 @@ async function resolveConfig(
     clientPath,
     declarationsPath,
   };
+}
+
+function readCliEnv(): CliEnv {
+  return {
+    baseUrl: readEnvValue(CLI_ENV_KEYS.baseUrl),
+    workspaceId: readEnvValue(CLI_ENV_KEYS.workspaceId),
+    projectId: readEnvValue(CLI_ENV_KEYS.projectId),
+    apiKey: readEnvValue(CLI_ENV_KEYS.apiKey),
+  };
+}
+
+function readEnvValue(key: string) {
+  const value = process.env[key];
+
+  if (!value) {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue.length > 0 ? normalizedValue : undefined;
 }
 
 async function pullSchemas(config: ResolvedConfig) {

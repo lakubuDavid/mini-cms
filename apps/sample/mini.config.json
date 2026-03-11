@@ -1,0 +1,10 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "workspaceId": "jHlwWJEXcYz62SSJNfkoU1CthfV73agR",
+  "projectId": "project_default_jHlwWJEXcYz62SSJNfkoU1CthfV73agR",
+  "apiKey": "mcms_FCRiWdQswenmwWAMWWrNNkelixGCisDerrHVcEjgMLsJxmnNaybWnMCNSzTCVJJr",
+  "collectionsPath": "mini.collections.json",
+  "typesPath": "mini.types.ts",
+  "clientPath": "mini.client.js",
+  "declarationsPath": "mini.client.d.ts"
+}

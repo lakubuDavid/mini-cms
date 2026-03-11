@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Batch One",
+    "logo": "https://example.com/batch-one.svg",
+    "website": "https://batch-one.example.com",
+    "sortOrder": 10,
+    "featured": true,
+    "_published": true
+  },
+  {
+    "name": "Batch Two",
+    "logo": "https://example.com/batch-two.svg",
+    "website": "https://batch-two.example.com",
+    "sortOrder": 11,
+    "featured": false,
+    "_published": true
+  }
+]

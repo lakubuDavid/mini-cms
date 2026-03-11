@@ -33,3 +33,8 @@ npm-debug.log*
 # Misc
 .DS_Store
 *.pem
+localhost-api-key-network.log
+localhost-api-key-network-after-fix.log
+localhost-api-key-console.log
+localhost-api-key-console-after-fix.log
+.plan

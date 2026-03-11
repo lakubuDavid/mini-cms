@@ -33,6 +33,10 @@ describe("cli helpers", () => {
   });
 
   afterEach(async () => {
+    delete process.env.MINI_CMS_BASE_URL;
+    delete process.env.MINI_CMS_WORKSPACE_ID;
+    delete process.env.MINI_CMS_PROJECT_ID;
+    delete process.env.MINI_CMS_API_KEY;
     mock.restore();
     process.chdir(originalCwd);
     await cleanupTempDir(tempDir);
@@ -73,8 +77,78 @@ describe("cli helpers", () => {
         { requireProjectId: true },
       ),
     ).rejects.toThrow(
-      "Missing required projectId. Provide --project-id or define projectId in mini.config.json.",
+      "Missing required projectId. Provide --project-id, define projectId in mini.config.json, or set MINI_CMS_PROJECT_ID.",
     );
+  });
+
+  test("resolveConfig falls back to MINI_CMS_ env vars", async () => {
+    process.env.MINI_CMS_BASE_URL = "https://env.example.com";
+    process.env.MINI_CMS_WORKSPACE_ID = "ws_env";
+    process.env.MINI_CMS_PROJECT_ID = "proj_env";
+    process.env.MINI_CMS_API_KEY = "mcms_env";
+
+    const config = await resolveConfig({});
+
+    expect(config.baseUrl).toBe("https://env.example.com");
+    expect(config.workspaceId).toBe("ws_env");
+    expect(config.projectId).toBe("proj_env");
+    expect(config.apiKey).toBe("mcms_env");
+  });
+
+  test("resolveConfig prefers config file over MINI_CMS_ env vars", async () => {
+    process.env.MINI_CMS_BASE_URL = "https://env.example.com";
+    process.env.MINI_CMS_WORKSPACE_ID = "ws_env";
+    process.env.MINI_CMS_PROJECT_ID = "proj_env";
+    process.env.MINI_CMS_API_KEY = "mcms_env";
+
+    await writeFile(
+      join(tempDir, "mini.config.json"),
+      JSON.stringify({
+        baseUrl: "https://cms.example.com",
+        workspaceId: "ws_file",
+        projectId: "proj_file",
+        apiKey: "mcms_file",
+      }),
+    );
+
+    const config = await resolveConfig({
+      config: join(tempDir, "mini.config.json"),
+    });
+
+    expect(config.baseUrl).toBe("https://cms.example.com");
+    expect(config.workspaceId).toBe("ws_file");
+    expect(config.projectId).toBe("proj_file");
+    expect(config.apiKey).toBe("mcms_file");
+  });
+
+  test("resolveConfig prefers inline options over config and MINI_CMS_ env vars", async () => {
+    process.env.MINI_CMS_BASE_URL = "https://env.example.com";
+    process.env.MINI_CMS_WORKSPACE_ID = "ws_env";
+    process.env.MINI_CMS_PROJECT_ID = "proj_env";
+    process.env.MINI_CMS_API_KEY = "mcms_env";
+
+    await writeFile(
+      join(tempDir, "mini.config.json"),
+      JSON.stringify({
+        baseUrl: "https://cms.example.com",
+        workspaceId: "ws_file",
+        projectId: "proj_file",
+        apiKey: "mcms_file",
+      }),
+    );
+
+    const config = await resolveConfig({
+      config: join(tempDir, "mini.config.json"),
+      baseUrl: "https://inline.example.com",
+      workspaceId: "ws_inline",
+      projectId: "proj_inline",
+      apiKey: "mcms_inline",
+    });
+
+    expect(config.baseUrl).toBe("https://inline.example.com");
+    expect(config.workspaceId).toBe("ws_inline");
+    expect(config.projectId).toBe("proj_inline");
+    expect(config.apiKey).toBe("mcms_inline");
   });
 
   test("loadCollectionsInput reads a directory of json files", async () => {

@@ -1,0 +1,348 @@
+{
+  "workspaceId": "jHlwWJEXcYz62SSJNfkoU1CthfV73agR",
+  "pulledAt": "2026-03-11T04:27:01.125Z",
+  "collections": [
+    {
+      "id": "Dg8hxaQPbpH9_LH0kv0EV",
+      "name": "Metrics",
+      "slug": "metrics",
+      "description": "Headline metrics and proof points used in the About section.",
+      "schema": [
+        {
+          "key": "label",
+          "label": "Label",
+          "type": "text"
+        },
+        {
+          "key": "value",
+          "label": "Value",
+          "type": "number"
+        },
+        {
+          "key": "icon",
+          "label": "Icon",
+          "type": "url"
+        },
+        {
+          "key": "sortOrder",
+          "label": "Sort Order",
+          "type": "number"
+        },
+        {
+          "key": "highlighted",
+          "label": "Highlighted",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "sHBT9uU7wGwUaYjKPGzAN",
+      "name": "Team Members",
+      "slug": "team-members",
+      "description": "People profiles for the about, members, and recruitment sections.",
+      "schema": [
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "role",
+          "label": "Role",
+          "type": "text"
+        },
+        {
+          "key": "bio",
+          "label": "Bio",
+          "type": "text"
+        },
+        {
+          "key": "photo",
+          "label": "Photo",
+          "type": "url"
+        },
+        {
+          "key": "sortOrder",
+          "label": "Sort Order",
+          "type": "number"
+        },
+        {
+          "key": "isHiringCard",
+          "label": "Is Hiring Card",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "txj2ITmYtxx65A3qMuusE",
+      "name": "Insights",
+      "slug": "insights",
+      "description": "Blog and editorial content used for the SolutionInc insights section.",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "headline",
+          "label": "Headline",
+          "type": "text"
+        },
+        {
+          "key": "author",
+          "label": "Author",
+          "type": "text"
+        },
+        {
+          "key": "excerpt",
+          "label": "Excerpt",
+          "type": "text"
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "text"
+        },
+        {
+          "key": "tags",
+          "label": "Tags",
+          "type": "text"
+        },
+        {
+          "key": "coverImage",
+          "label": "Cover Image",
+          "type": "url"
+        },
+        {
+          "key": "detailImage",
+          "label": "Detail Image",
+          "type": "url"
+        },
+        {
+          "key": "publishedAt",
+          "label": "Published At",
+          "type": "date"
+        },
+        {
+          "key": "featured",
+          "label": "Featured",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "kgx7GuxSZ5cg73euYuXWe",
+      "name": "Services",
+      "slug": "services",
+      "description": "Core service offerings used for listings and service detail pages.",
+      "schema": [
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "summary",
+          "label": "Summary",
+          "type": "text"
+        },
+        {
+          "key": "priceLabel",
+          "label": "Price Label",
+          "type": "text"
+        },
+        {
+          "key": "icon",
+          "label": "Icon",
+          "type": "url"
+        },
+        {
+          "key": "listImage",
+          "label": "List Image",
+          "type": "url"
+        },
+        {
+          "key": "detailImagePrimary",
+          "label": "Detail Image Primary",
+          "type": "url"
+        },
+        {
+          "key": "detailImageSecondary",
+          "label": "Detail Image Secondary",
+          "type": "url"
+        },
+        {
+          "key": "highlighted",
+          "label": "Highlighted",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "_LPyD1viMHdiU5aFHNkT9",
+      "name": "Partners",
+      "slug": "partners",
+      "description": "Partner and client logos shown in trust and partnership sections.",
+      "schema": [
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "logo",
+          "label": "Logo",
+          "type": "url"
+        },
+        {
+          "key": "website",
+          "label": "Website",
+          "type": "url"
+        },
+        {
+          "key": "sortOrder",
+          "label": "Sort Order",
+          "type": "number"
+        },
+        {
+          "key": "featured",
+          "label": "Featured",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "YQnq3HnCzAr6DRWIauGDz",
+      "name": "Projects",
+      "slug": "projects",
+      "description": "Featured website and product case studies shown across the SolutionInc site.",
+      "schema": [
+        {
+          "key": "title",
+          "label": "Title",
+          "type": "text"
+        },
+        {
+          "key": "summary",
+          "label": "Summary",
+          "type": "text"
+        },
+        {
+          "key": "serviceType",
+          "label": "Service Type",
+          "type": "text"
+        },
+        {
+          "key": "coverImage",
+          "label": "Cover Image",
+          "type": "url"
+        },
+        {
+          "key": "publishedAt",
+          "label": "Published At",
+          "type": "date"
+        },
+        {
+          "key": "featured",
+          "label": "Featured",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "XFtG3XB8Y3LHi_ZwWHUrg",
+      "name": "Testimonials",
+      "slug": "testimonials",
+      "description": "Client endorsements, quotes, and trust-building social proof.",
+      "schema": [
+        {
+          "key": "quote",
+          "label": "Quote",
+          "type": "text"
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "role",
+          "label": "Role",
+          "type": "text"
+        },
+        {
+          "key": "featured",
+          "label": "Featured",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "K9nCci7FI-ZxMfp6iRmP6",
+      "name": "Stock",
+      "slug": "stock",
+      "description": "Inventory records for products carried by partner shops.",
+      "schema": [
+        {
+          "key": "sku",
+          "label": "SKU",
+          "type": "text"
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "quantity",
+          "label": "Quantity",
+          "type": "number"
+        },
+        {
+          "key": "price",
+          "label": "Price",
+          "type": "number"
+        },
+        {
+          "key": "inStock",
+          "label": "In Stock",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "id": "Qs4Dl0YJoPtVsfsq5h2ub",
+      "name": "Shops",
+      "slug": "shops",
+      "description": "Storefronts that sell and manage stock items.",
+      "schema": [
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text"
+        },
+        {
+          "key": "city",
+          "label": "City",
+          "type": "text"
+        },
+        {
+          "key": "website",
+          "label": "Website",
+          "type": "url"
+        },
+        {
+          "key": "openSince",
+          "label": "Open Since",
+          "type": "date"
+        },
+        {
+          "key": "featured",
+          "label": "Featured",
+          "type": "boolean"
+        }
+      ]
+    }
+  ]
+}
