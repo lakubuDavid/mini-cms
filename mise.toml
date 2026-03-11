@@ -2,3 +2,4 @@
 gitleaks = "latest"
 "npm:oxfmt" = "latest"
 oxlint = "latest"
+trufflehog = "latest"
