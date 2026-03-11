@@ -236,7 +236,9 @@ export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
         name: apiKey.name ? String(apiKey.name) : null,
         start: apiKey.start ? String(apiKey.start) : null,
         prefix: apiKey.prefix ? String(apiKey.prefix) : null,
+        enabled: apiKey.enabled !== false,
         expiresAt: apiKey.expiresAt ? String(apiKey.expiresAt) : null,
+        createdAt: apiKey.createdAt ? String(apiKey.createdAt) : null,
         metadata:
           apiKey.metadata &&
           typeof apiKey.metadata === "object" &&
@@ -312,6 +314,88 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
     } catch (error) {
       throw new Error(
         error instanceof Error ? error.message : "Unable to delete API key.",
+      );
+    }
+  });
+
+export const updateApiKeyServerFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { keyId: string; enabled?: boolean; name?: string }) => data,
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
+
+      const result = await auth.api.updateApiKey({
+        headers,
+        body: {
+          keyId: data.keyId,
+          ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
+          ...(data.name !== undefined ? { name: data.name } : {}),
+        },
+      });
+
+      return toPlainJson({
+        id: String(result.id),
+        name: result.name ? String(result.name) : null,
+        enabled: result.enabled !== false,
+      });
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "Unable to update API key.",
+      );
+    }
+  });
+
+export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { keyId: string; name: string; projectId?: string | null }) =>
+      data,
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
+      const organizationId = await requireActiveOrganizationId();
+
+      // Delete old key
+      await auth.api.deleteApiKey({
+        headers,
+        body: { keyId: data.keyId },
+      });
+
+      // Create new key with same name and scope
+      const result = await auth.api.createApiKey({
+        headers,
+        body: {
+          name: data.name,
+          organizationId,
+          metadata: data.projectId ? { projectId: data.projectId } : null,
+        },
+      });
+
+      const plainResult = result
+        ? {
+            id: String(result.id),
+            name: result.name ? String(result.name) : null,
+            key: String(result.key),
+            start: result.start ? String(result.start) : null,
+            prefix: result.prefix ? String(result.prefix) : null,
+            expiresAt: result.expiresAt ? String(result.expiresAt) : null,
+            metadata:
+              result.metadata &&
+              typeof result.metadata === "object" &&
+              typeof result.metadata.projectId === "string"
+                ? { projectId: result.metadata.projectId }
+                : null,
+          }
+        : null;
+
+      return toPlainJson(plainResult);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "Unable to rotate API key.",
       );
     }
   });
