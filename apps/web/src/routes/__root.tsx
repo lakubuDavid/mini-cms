@@ -6,8 +6,11 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
+import { PostHogProvider } from "posthog-js/react";
 
+import { env } from "@/lib/env";
 import appCss from "@/styles/app.css?url";
+import type { PostHogConfig } from "posthog-js";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +20,13 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+const posthogKey = import.meta.env.PUBLIC_POSTHOG_KEY ?? "";
+const posthogOptions : PostHogConfig = {
+  //@ts-ignore the posthog povide won't be initialized if PUBLIC_POSTHOG_HOST is undefined so no need to care about this error
+  api_host: import.meta.env.PUBLIC_POSTHOG_HOST,
+} as const;
+const isWebAnalyticsEnabled = env.PUBLIC_ENABLE_WEB_ANALYTICS === true;
 
 export const Route = createRootRoute({
   head: () => ({
@@ -48,15 +58,25 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const content = (
+    <QueryClientProvider client={queryClient}>
+      <RootProvider>{children}</RootProvider>
+    </QueryClientProvider>
+  );
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="flex min-h-screen flex-col">
-        <QueryClientProvider client={queryClient}>
-          <RootProvider>{children}</RootProvider>
-        </QueryClientProvider>
+        {isWebAnalyticsEnabled && posthogKey ? (
+          <PostHogProvider apiKey={posthogKey} options={posthogOptions}>
+            {content}
+          </PostHogProvider>
+        ) : (
+          content
+        )}
         <Scripts />
       </body>
     </html>

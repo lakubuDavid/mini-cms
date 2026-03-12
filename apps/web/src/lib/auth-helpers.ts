@@ -1,4 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
+import {
+  captureServerError,
+  captureServerEvent,
+  createAnonymousServerIdentity,
+} from "@/lib/posthog";
 
 async function getHeaders() {
   const { getRequestHeaders } = await import("@tanstack/react-start/server");
@@ -110,24 +115,51 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 export const createOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; slug: string }) => data)
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
-    const session = await auth.api.getSession({ headers });
+    let userId: string | undefined;
 
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
+      const session = await auth.api.getSession({ headers });
+
+      if (!session?.user?.id) {
+        throw new Error("Unauthorized");
+      }
+
+      userId = session.user.id;
+
+      const { ensureWorkspaceLimit } = await import("./demo-limits");
+      await ensureWorkspaceLimit(session.user.id);
+
+      const organization = await auth.api.createOrganization({
+        headers,
+        body: {
+          name: data.name,
+          slug: data.slug,
+        },
+      });
+
+      await captureServerEvent({
+        event: "organization_created",
+        identity: createAnonymousServerIdentity({
+          subject: userId,
+          organizationId: organization.id,
+        }),
+        properties: {},
+      });
+
+      return organization;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({ subject: userId }),
+        properties: {
+          area: "organizations",
+          operation: "create",
+        },
+      });
+      throw error;
     }
-
-    const { ensureWorkspaceLimit } = await import("./demo-limits");
-    await ensureWorkspaceLimit(session.user.id);
-
-    return auth.api.createOrganization({
-      headers,
-      body: {
-        name: data.name,
-        slug: data.slug,
-      },
-    });
   });
 
 export const createInvitationAction = createServerFn({ method: "POST" })
@@ -139,16 +171,44 @@ export const createInvitationAction = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
-    return auth.api.createInvitation({
-      headers,
-      body: {
-        email: data.email,
-        role: data.role,
-        organizationId: data.organizationId,
-      },
-    });
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
+      const invitation = await auth.api.createInvitation({
+        headers,
+        body: {
+          email: data.email,
+          role: data.role,
+          organizationId: data.organizationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "invitation_created",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+          subject: data.email.toLowerCase(),
+        }),
+        properties: {
+          role: data.role,
+        },
+      });
+
+      return invitation;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {
+          area: "invitations",
+          operation: "create",
+          role: data.role,
+        },
+      });
+      throw error;
+    }
   });
 
 export const getInvitationById = createServerFn({ method: "GET" })
@@ -167,14 +227,34 @@ export const getInvitationById = createServerFn({ method: "GET" })
 export const acceptInvitationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { invitationId: string }) => data)
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
-    return auth.api.acceptInvitation({
-      headers,
-      body: {
-        invitationId: data.invitationId,
-      },
-    });
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
+      const result = await auth.api.acceptInvitation({
+        headers,
+        body: {
+          invitationId: data.invitationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "invitation_accepted",
+        identity: createAnonymousServerIdentity({ subject: data.invitationId }),
+        properties: {},
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({ subject: data.invitationId }),
+        properties: {
+          area: "invitations",
+          operation: "accept",
+        },
+      });
+      throw error;
+    }
   });
 
 export const getSession = createServerFn({ method: "GET" }).handler(
@@ -255,10 +335,12 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
     (data: { name: string; projectId?: string | null }) => data,
   )
   .handler(async ({ data }) => {
+    let organizationId: string | undefined;
+
     try {
       const { auth } = await import("./auth");
       const headers = await getHeaders();
-      const organizationId = await requireActiveOrganizationId();
+      organizationId = await requireActiveOrganizationId();
 
       const result = await auth.api.createApiKey({
         headers,
@@ -288,8 +370,32 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
           }
         : null;
 
+      await captureServerEvent({
+        event: "api_key_created",
+        identity: createAnonymousServerIdentity({
+          organizationId,
+          projectId: data.projectId,
+          subject: result?.id ? String(result.id) : data.name,
+        }),
+        properties: {
+          scoped_to_project: Boolean(data.projectId),
+        },
+      });
+
       return toPlainJson(plainResult);
     } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId,
+          projectId: data.projectId,
+        }),
+        properties: {
+          area: "api_keys",
+          operation: "create",
+          scoped_to_project: Boolean(data.projectId),
+        },
+      });
       throw new Error(
         error instanceof Error ? error.message : "Unable to create API key.",
       );
@@ -310,8 +416,22 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
         },
       });
 
+      await captureServerEvent({
+        event: "api_key_deleted",
+        identity: createAnonymousServerIdentity({ subject: data.keyId }),
+        properties: {},
+      });
+
       return { success: !!result?.success };
     } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({ subject: data.keyId }),
+        properties: {
+          area: "api_keys",
+          operation: "delete",
+        },
+      });
       throw new Error(
         error instanceof Error ? error.message : "Unable to delete API key.",
       );
@@ -336,12 +456,29 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
         },
       });
 
+      await captureServerEvent({
+        event: "api_key_updated",
+        identity: createAnonymousServerIdentity({ subject: data.keyId }),
+        properties: {
+          enabled_updated: data.enabled !== undefined,
+          name_updated: data.name !== undefined,
+        },
+      });
+
       return toPlainJson({
         id: String(result.id),
         name: result.name ? String(result.name) : null,
         enabled: result.enabled !== false,
       });
     } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({ subject: data.keyId }),
+        properties: {
+          area: "api_keys",
+          operation: "update",
+        },
+      });
       throw new Error(
         error instanceof Error ? error.message : "Unable to update API key.",
       );
@@ -354,10 +491,12 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
       data,
   )
   .handler(async ({ data }) => {
+    let organizationId: string | undefined;
+
     try {
       const { auth } = await import("./auth");
       const headers = await getHeaders();
-      const organizationId = await requireActiveOrganizationId();
+      organizationId = await requireActiveOrganizationId();
 
       // Delete old key
       await auth.api.deleteApiKey({
@@ -392,8 +531,33 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
           }
         : null;
 
+      await captureServerEvent({
+        event: "api_key_rotated",
+        identity: createAnonymousServerIdentity({
+          organizationId,
+          projectId: data.projectId,
+          subject: result?.id ? String(result.id) : data.keyId,
+        }),
+        properties: {
+          scoped_to_project: Boolean(data.projectId),
+        },
+      });
+
       return toPlainJson(plainResult);
     } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId,
+          projectId: data.projectId,
+          subject: data.keyId,
+        }),
+        properties: {
+          area: "api_keys",
+          operation: "rotate",
+          scoped_to_project: Boolean(data.projectId),
+        },
+      });
       throw new Error(
         error instanceof Error ? error.message : "Unable to rotate API key.",
       );
@@ -405,45 +569,120 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
     (data: { organizationId: string; name?: string; slug?: string }) => data,
   )
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
 
-    return auth.api.updateOrganization({
-      headers,
-      body: {
-        organizationId: data.organizationId,
-        data: {
-          ...(data.name !== undefined ? { name: data.name } : {}),
-          ...(data.slug !== undefined ? { slug: data.slug } : {}),
+      const result = await auth.api.updateOrganization({
+        headers,
+        body: {
+          organizationId: data.organizationId,
+          data: {
+            ...(data.name !== undefined ? { name: data.name } : {}),
+            ...(data.slug !== undefined ? { slug: data.slug } : {}),
+          },
         },
-      },
-    });
+      });
+
+      await captureServerEvent({
+        event: "organization_updated",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {
+          name_updated: data.name !== undefined,
+          slug_updated: data.slug !== undefined,
+        },
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {
+          area: "organizations",
+          operation: "update",
+        },
+      });
+      throw error;
+    }
   });
 
 export const setActiveOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { organizationId: string }) => data)
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
 
-    return auth.api.setActiveOrganization({
-      headers,
-      body: {
-        organizationId: data.organizationId,
-      },
-    });
+      const result = await auth.api.setActiveOrganization({
+        headers,
+        body: {
+          organizationId: data.organizationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "organization_switched",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {},
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {
+          area: "organizations",
+          operation: "set_active",
+        },
+      });
+      throw error;
+    }
   });
 
 export const deleteOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { organizationId: string }) => data)
   .handler(async ({ data }) => {
-    const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    try {
+      const { auth } = await import("./auth");
+      const headers = await getHeaders();
 
-    return auth.api.deleteOrganization({
-      headers,
-      body: {
-        organizationId: data.organizationId,
-      },
-    });
+      const result = await auth.api.deleteOrganization({
+        headers,
+        body: {
+          organizationId: data.organizationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "organization_deleted",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {},
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+        }),
+        properties: {
+          area: "organizations",
+          operation: "delete",
+        },
+      });
+      throw error;
+    }
   });

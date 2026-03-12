@@ -11,6 +11,8 @@
     "./components/button": "./src/components/button.tsx",
     "./components/switch": "./src/components/switch.tsx",
     "./components/skeleton": "./src/components/skeleton.tsx",
+    "./components/card": "./src/components/card.tsx",
+    "./components/chart": "./src/components/chart.tsx",
     "./lib/*": "./src/lib/*",
     "./hooks/*": "./src/hooks/*"
   },
@@ -21,8 +23,11 @@
   },
   "dependencies": {
     "@radix-ui/react-switch": "^1.2.6",
+    "clsx": "^2.1.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "recharts": "2.15.4",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -8,6 +8,12 @@ import {
 } from "@/db/queries/items";
 import { invalidateCollectionCache } from "@/lib/cache";
 import { ensureItemLimit } from "@/lib/demo-limits";
+import {
+  anonymizeServerValue,
+  captureServerError,
+  captureServerEvent,
+  createAnonymousServerIdentity,
+} from "@/lib/posthog";
 
 export async function listItemsAction(
   collectionId: string,
@@ -22,10 +28,35 @@ export async function createItemAction(
   data: CollectionItemData,
   order?: number,
 ) {
-  await ensureItemLimit(collectionId);
-  const item = await createItem(collectionId, data, order);
-  await invalidateCollectionCache(slug);
-  return item;
+  const identity = createAnonymousServerIdentity({ subject: collectionId });
+
+  try {
+    await ensureItemLimit(collectionId);
+    const item = await createItem(collectionId, data, order);
+    await invalidateCollectionCache(slug);
+
+    await captureServerEvent({
+      event: "item_created",
+      identity,
+      properties: {
+        collection_slug_hash: anonymizeServerValue(slug, "collection"),
+        field_count: Object.keys(data).length,
+        has_explicit_order: order !== undefined,
+      },
+    });
+
+    return item;
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "create",
+      },
+    });
+    throw error;
+  }
 }
 
 export async function updateItemAction(
@@ -33,14 +64,60 @@ export async function updateItemAction(
   slug: string,
   data: CollectionItemData,
 ) {
-  const item = await updateItem(id, data);
-  await invalidateCollectionCache(slug);
-  return item;
+  const identity = createAnonymousServerIdentity({ subject: id });
+
+  try {
+    const item = await updateItem(id, data);
+    await invalidateCollectionCache(slug);
+
+    await captureServerEvent({
+      event: "item_updated",
+      identity,
+      properties: {
+        collection_slug_hash: anonymizeServerValue(slug, "collection"),
+        field_count: Object.keys(data).length,
+      },
+    });
+
+    return item;
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "update",
+      },
+    });
+    throw error;
+  }
 }
 
 export async function deleteItemAction(id: string, slug: string) {
-  await deleteItem(id);
-  await invalidateCollectionCache(slug);
+  const identity = createAnonymousServerIdentity({ subject: id });
+
+  try {
+    await deleteItem(id);
+    await invalidateCollectionCache(slug);
+
+    await captureServerEvent({
+      event: "item_deleted",
+      identity,
+      properties: {
+        collection_slug_hash: anonymizeServerValue(slug, "collection"),
+      },
+    });
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "delete",
+      },
+    });
+    throw error;
+  }
 }
 
 export async function reorderItemsAction(
@@ -48,6 +125,29 @@ export async function reorderItemsAction(
   slug: string,
   itemIds: string[],
 ) {
-  await reorderItems(collectionId, itemIds);
-  await invalidateCollectionCache(slug);
+  const identity = createAnonymousServerIdentity({ subject: collectionId });
+
+  try {
+    await reorderItems(collectionId, itemIds);
+    await invalidateCollectionCache(slug);
+
+    await captureServerEvent({
+      event: "items_reordered",
+      identity,
+      properties: {
+        collection_slug_hash: anonymizeServerValue(slug, "collection"),
+        item_count: itemIds.length,
+      },
+    });
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "reorder",
+      },
+    });
+    throw error;
+  }
 }

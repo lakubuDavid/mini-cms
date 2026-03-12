@@ -36,6 +36,13 @@
       "when": 1773141000000,
       "tag": "0004_collection_project_slug_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1773556200000,
+      "tag": "0005_request_logs",
+      "breakpoints": true
     }
   ]
 }

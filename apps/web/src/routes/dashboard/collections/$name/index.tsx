@@ -80,7 +80,7 @@ function CollectionPage() {
         <div>
           <Link
             to="/dashboard"
-            search={{}}
+            search={{ projectId: undefined }}
             className="inline-flex items-center gap-1.5 text-sm text-stone-500 transition hover:text-stone-900"
           >
             <ArrowLeft className="h-4 w-4" />

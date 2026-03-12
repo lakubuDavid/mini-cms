@@ -48,7 +48,7 @@ function InvitePage() {
       return;
     }
 
-    await navigate({ to: "/dashboard", search: {} });
+    await navigate({ to: "/dashboard", search: { projectId: undefined } });
   }
 
   return (

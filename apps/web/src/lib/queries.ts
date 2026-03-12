@@ -5,6 +5,7 @@ import {
   getCollectionSchemaServerFn,
 } from "./collections-helpers";
 import { listProjectsServerFn } from "./projects-helpers";
+import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
 import {
   getActiveOrganization,
   listAdminUsers,
@@ -12,6 +13,7 @@ import {
   listApiKeysServerFn,
   listOrganizations,
 } from "./auth-helpers";
+import type { DateRange } from "@/db/queries/analytics";
 
 // ── Query keys ──────────────────────────────────────────────
 
@@ -27,6 +29,8 @@ export const queryKeys = {
   team: () => ["team"] as const,
   invites: () => ["invites"] as const,
   apiKeys: () => ["api-keys"] as const,
+  analytics: (projectId: string, range: DateRange) =>
+    ["analytics", { projectId, range }] as const,
 };
 
 // ── Query options factories ─────────────────────────────────
@@ -104,5 +108,15 @@ export function apiKeysQueryOptions() {
     queryKey: queryKeys.apiKeys(),
     queryFn: () => listApiKeysServerFn(),
     staleTime: 15_000,
+  });
+}
+
+export function analyticsQueryOptions(projectId: string, range: DateRange) {
+  return queryOptions({
+    queryKey: queryKeys.analytics(projectId, range),
+    queryFn: () =>
+      getAnalyticsOverviewServerFn({ data: { projectId, range } }),
+    staleTime: 30_000,
+    enabled: !!projectId,
   });
 }

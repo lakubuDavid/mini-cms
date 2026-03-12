@@ -21,6 +21,7 @@ import { Route as DashboardTeamRouteImport } from './routes/dashboard/team'
 import { Route as DashboardProjectsRouteImport } from './routes/dashboard/projects'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardApiKeysRouteImport } from './routes/dashboard/api-keys'
+import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSchemaPushRouteImport } from './routes/api/schema/push'
 import { Route as ApiSchemaPullRouteImport } from './routes/api/schema/pull'
@@ -94,6 +95,11 @@ const DashboardApiKeysRoute = DashboardApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
   id: '/api/search',
   path: '/api/search',
@@ -165,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/api/search': typeof ApiSearchRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/api/search': typeof ApiSearchRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/api/search': typeof ApiSearchRoute
+  '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/api/search'
+    | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/api/search'
+    | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/api/search'
+    | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
@@ -419,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardApiKeysRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/analytics': {
+      id: '/dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/api/search': {
       id: '/api/search'
       path: '/api/search'
@@ -523,6 +542,7 @@ const DashboardCollectionsNameRouteRouteWithChildren =
   )
 
 interface DashboardRouteRouteChildren {
+  DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardApiKeysRoute: typeof DashboardApiKeysRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardProjectsRoute: typeof DashboardProjectsRoute
@@ -533,6 +553,7 @@ interface DashboardRouteRouteChildren {
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardApiKeysRoute: DashboardApiKeysRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardProjectsRoute: DashboardProjectsRoute,

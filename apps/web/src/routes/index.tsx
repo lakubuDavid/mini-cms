@@ -46,7 +46,7 @@ function HomePage() {
             {isLoggedIn ? (
               <Link
                 to="/dashboard"
-                search={{}}
+                search={{ projectId: undefined }}
                 className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-stone-700 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
               >
                 Dashboard

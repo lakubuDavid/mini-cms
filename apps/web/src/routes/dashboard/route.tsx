@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getSession } from "@/lib/auth-helpers";
 import { authClient } from "@/lib/auth-client";
+import { env } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Link,
@@ -20,6 +21,7 @@ import {
   ExternalLink,
   User,
   ChevronUp,
+  BarChart3,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -58,7 +60,7 @@ function DashboardLayout() {
           </Link>
           <Link
             to="/dashboard"
-            search={{}}
+            search={{ projectId: undefined }}
             activeOptions={{ exact: true }}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
           >
@@ -79,6 +81,16 @@ function DashboardLayout() {
             <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
             API Keys
           </Link>
+          {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
+            <Link
+              to="/dashboard/analytics"
+              search={{ projectId: undefined, range: "30d" }}
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+            >
+              <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+              Analytics
+            </Link>
+          ) : null}
           <Link
             to="/dashboard/workspace"
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"

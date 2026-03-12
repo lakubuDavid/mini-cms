@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { organizations, projects } from "@/db/schema";
+import { organizations, projects, requestLogs } from "@/db/schema";
 import { getCollectionById, getCollectionBySlug } from "@/db/queries/collections";
 import { listItems } from "@/db/queries/items";
 import { normalizePagination } from "@/db/queries/shared";
 import { apiRateLimit, getCached, setCached } from "@/lib/cache";
+import {
+  anonymizeServerValue,
+  captureServerError,
+  captureServerEvent,
+  createAnonymousServerIdentity,
+} from "@/lib/posthog";
 
 type CollectionItemsPayload = {
   workspace: {
@@ -24,8 +30,18 @@ type CollectionItemsPayload = {
 };
 
 export async function handleCollectionItems(request: Request) {
+  const url = new URL(request.url);
+  const requestIdentity = createAnonymousServerIdentity({
+    subject: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? request.headers.get("x-real-ip")
+      ?? request.headers.get("origin")
+      ?? request.headers.get("referer")
+      ?? "public-request",
+    organizationId: url.searchParams.get("w"),
+    projectId: url.searchParams.get("p"),
+  });
+
   try {
-    const url = new URL(request.url);
     const {
       workspaceId,
       projectId,
@@ -61,6 +77,16 @@ export async function handleCollectionItems(request: Request) {
         Math.ceil((rateLimit.reset - Date.now()) / 1000),
       );
 
+      await captureServerEvent({
+        event: "public_collection_items_rate_limited",
+        identity: requestIdentity,
+        properties: {
+          collection_slug_hash: anonymizeServerValue(collectionSlug, "collection"),
+          has_collection_id: Boolean(collectionId),
+          retry_after_seconds: retryAfter,
+        },
+      });
+
       return json(
         { error: "Too many requests." },
         429,
@@ -95,6 +121,36 @@ export async function handleCollectionItems(request: Request) {
       return json({ error: "Collection not found." }, 404);
     }
 
+    // Fire-and-forget request logging for analytics
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "unknown";
+    const originDomain = extractDomain(origin);
+    void db
+      .insert(requestLogs)
+      .values({
+        projectId,
+        collectionSlug: collection.slug,
+        originDomain,
+        timestamp: new Date().toISOString(),
+      })
+      .catch(() => {});
+
+    await captureServerEvent({
+      event: "public_collection_items_requested",
+      identity: createAnonymousServerIdentity({
+        subject: ip,
+        organizationId: workspaceId,
+        projectId,
+      }),
+      properties: {
+        collection_slug_hash: anonymizeServerValue(collection.slug, "collection"),
+        origin_domain_hash: anonymizeServerValue(originDomain, "origin"),
+        page,
+        limit,
+        has_query: Boolean(query),
+        filter_count: Object.keys(rawFilters).length,
+      },
+    });
+
     const filters = validateFilters(rawFilters, collection.schema);
     const cacheKey = buildCacheKey({
       workspaceId,
@@ -108,6 +164,18 @@ export async function handleCollectionItems(request: Request) {
     const cached = await getCached<CollectionItemsPayload>(cacheKey);
 
     if (cached) {
+      await captureServerEvent({
+        event: "public_collection_items_cache_hit",
+        identity: createAnonymousServerIdentity({
+          subject: ip,
+          organizationId: workspaceId,
+          projectId,
+        }),
+        properties: {
+          collection_slug_hash: anonymizeServerValue(collection.slug, "collection"),
+        },
+      });
+
       return json(cached, 200, { "x-cache": "HIT" });
     }
 
@@ -138,8 +206,29 @@ export async function handleCollectionItems(request: Request) {
 
     await setCached(cacheKey, payload, 60);
 
+    await captureServerEvent({
+      event: "public_collection_items_cache_miss",
+      identity: createAnonymousServerIdentity({
+        subject: ip,
+        organizationId: workspaceId,
+        projectId,
+      }),
+      properties: {
+        collection_slug_hash: anonymizeServerValue(collection.slug, "collection"),
+        item_count: items.items.length,
+      },
+    });
+
     return json(payload, 200, { "x-cache": "MISS" });
   } catch (error) {
+    await captureServerError({
+      error,
+      identity: requestIdentity,
+      properties: {
+        area: "public_api",
+        operation: "collection_items",
+      },
+    });
     return handleError(error);
   }
 }
@@ -249,4 +338,13 @@ function buildCacheKey(input: {
     input.query,
     filters,
   ].join(":");
+}
+
+function extractDomain(origin: string): string {
+  if (!origin || origin === "unknown") return "unknown";
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return origin;
+  }
 }
