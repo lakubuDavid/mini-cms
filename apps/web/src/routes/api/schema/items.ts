@@ -36,6 +36,7 @@ export async function handleSchemaItems(
       values?: Record<string, string | number | boolean | null>;
       items?: Array<Record<string, string | number | boolean | null>>;
       order?: number;
+      merge?: boolean;
     };
 
     if (!body.workspaceId || body.workspaceId !== auth.workspaceId) {
@@ -105,10 +106,17 @@ export async function handleSchemaItems(
     }
 
     if (body.action === "update") {
+      const nextValues = body.merge
+        ? {
+            ...existingItem.data,
+            ...(body.values ?? {}),
+          }
+        : (body.values ?? {});
+
       const item = await deps.updateItemAction(
         body.itemId,
         collection.slug,
-        body.values ?? {},
+        nextValues,
       );
 
       return json({ collectionId: collection.id, item });
