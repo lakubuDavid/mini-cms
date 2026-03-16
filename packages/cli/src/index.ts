@@ -895,6 +895,10 @@ const miniCmsCommand = defineCommand({
                   type: "string",
                   description: 'Updated values like "field1=value;field2=value"',
                 },
+                merge: {
+                  type: "boolean",
+                  description: "Merge provided fields into the existing item data",
+                },
                 collection: {
                   type: "positional",
                   description: "Collection slug or id",
@@ -917,6 +921,7 @@ const miniCmsCommand = defineCommand({
                   collectionId: resolvedCollection.id,
                   itemId: id,
                   values: parseKeyValueInput(value),
+                  merge: args.merge === true,
                 });
 
                 console.log(JSON.stringify(payload, null, 2));
@@ -1780,6 +1785,7 @@ async function mutateCollectionItemWithApi(
     itemId?: string;
     values?: Record<string, string | number | boolean | null>;
     items?: Array<Record<string, string | number | boolean | null>>;
+    merge?: boolean;
   },
 ) {
   const response = await fetch(
@@ -1799,6 +1805,7 @@ async function mutateCollectionItemWithApi(
         itemId: input.itemId,
         values: input.values,
         items: input.items,
+        merge: input.merge,
       }),
     },
   );
