@@ -3,9 +3,5 @@
   "bunVersion": "1.3.10",
   "buildCommand": "bun run build",
   "installCommand": "bun install",
-  "outputDirectory": ".output/public",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/_shell.html" }
-  ]
+  "framework": "tanstack-start"
 }

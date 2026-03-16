@@ -18,7 +18,7 @@ export default defineConfig({
       spa: {
         enabled: true,
         prerender: {
-          enabled: true,
+          enabled: false,
           crawlLinks: true,
         },
       },
