@@ -1,12 +1,38 @@
 #!/usr/bin/env node
 
-import { readdir } from "node:fs/promises";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 import Table from "cli-table3";
 import { defineCommand, renderUsage, runCommand } from "citty";
+import {
+  DEFAULT_CLIENT_PATH,
+  DEFAULT_COLLECTIONS_PATH,
+  DEFAULT_CONFIG_PATH,
+  DEFAULT_DECLARATIONS_PATH,
+  DEFAULT_SKILL_DIRECTORY,
+  DEFAULT_TYPES_PATH,
+} from "./constants";
+import {
+  loadCollectionsInput as importedLoadCollectionsInput,
+  normalizeCollections as importedNormalizeCollections,
+} from "./collections";
+import {
+  toJsPropertyName as importedToJsPropertyName,
+  toPascalCase as importedToPascalCase,
+  toTsType as importedToTsType,
+  writeClientFiles as importedWriteClientFiles,
+  writeTypesFile as importedWriteTypesFile,
+} from "./codegen";
+import {
+  normalizeBaseUrl as importedNormalizeBaseUrl,
+  readError as importedReadError,
+  readJsonFile as importedReadJsonFile,
+  relativeSafe as importedRelativeSafe,
+  writeJson as importedWriteJson,
+} from "./file-utils";
+import { installSkill as importedInstallSkill } from "./skill";
 
 type FieldType = "text" | "url" | "number" | "boolean" | "date";
 
@@ -79,6 +105,34 @@ type ListCollectionsResponse = {
     description: string | null;
     schema: CollectionField[];
   }>;
+};
+
+type AssetRecord = {
+  id: string;
+  organizationId: string;
+  projectId: string;
+  filename: string;
+  originalFilename: string;
+  contentType: string;
+  size: number;
+  storageKey: string;
+  publicUrl: string;
+  status: "pending" | "active";
+  uploadedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ListAssetsResponse = {
+  workspaceId: string;
+  items: AssetRecord[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
 };
 
 type GenerateResponse = {
@@ -157,214 +211,6 @@ const CLI_ENV_KEYS = {
   apiKey: "MINI_CMS_API_KEY",
 } as const;
 
-const DEFAULT_CONFIG_PATH = "mini.config.json";
-const DEFAULT_COLLECTIONS_PATH = "mini.collections.json";
-const DEFAULT_TYPES_PATH = "mini.types.ts";
-const DEFAULT_CLIENT_PATH = "mini.client.js";
-const DEFAULT_DECLARATIONS_PATH = "mini.client.d.ts";
-const DEFAULT_SKILL_DIRECTORY = ".opencode/skills/mini-cms-cli";
-const DEFAULT_SKILL_FILE = "SKILL.md";
-const PACKAGED_SKILL_CONTENT = `---
-name: mini-cms-cli
-description: Use the Mini CMS CLI to initialize config, sync schemas, generate client files, and inspect collections
-compatibility: opencode
-metadata:
-  audience: developers
-  category: cli
----
-
-# Mini CMS CLI
-
-## Purpose
-
-Use this skill when you need to work with the \`mini-cms\` command-line tool.
-
-This skill is for people using the CLI to sync schemas, inspect collections, and generate local client files.
-
-## Commands
-
-- \`mini-cms init\`
-- \`mini-cms pull\`
-- \`mini-cms push\`
-- \`mini-cms generate\`
-- \`mini-cms list\`
-- \`mini-cms list-collection\`
-- \`mini-cms add-skill\`
-
-## What each command does
-
-### \`mini-cms init\`
-
-Creates \`mini.config.json\` with an interactive prompt.
-
-Use this first when setting up the CLI in a new project.
-
-### \`mini-cms pull\`
-
-Pulls collection schemas from a workspace and writes local files.
-
-Typical result:
-
-- creates or updates \`mini.config.json\`
-- creates or updates \`mini.collections.json\`
-- creates or updates \`mini.types.ts\`
-
-### \`mini-cms push\`
-
-Pushes local collection definitions from \`mini.collections.json\` or a directory of JSON files to the workspace.
-
-Use this after editing your local collection schema.
-
-### \`mini-cms generate\`
-
-Generates local developer files from your saved config and collection definitions.
-
-Typical result:
-
-- updates \`mini.types.ts\`
-- creates or updates \`mini.client.js\`
-- creates or updates \`mini.client.d.ts\`
-
-The generated client is browser-friendly and uses \`fetch\`.
-
-### \`mini-cms list\`
-
-Lists collections available to the current workspace and API key.
-
-### \`mini-cms list-collection <collection-id>\`
-
-Lists items in one collection.
-
-Useful for checking content, pagination, and raw API output.
-
-### \`mini-cms add-skill\`
-
-Copies this skill into the current project at \`.opencode/skills/mini-cms-cli/SKILL.md\`.
-
-Use this when you want a local project skill that follows common coding-agent conventions.
-
-## Core files
-
-### \`mini.config.json\`
-
-Stores saved defaults for the CLI.
-
-Common fields:
-
-- \`baseUrl\`
-- \`workspaceId\`
-- \`projectId\`
-- \`apiKey\`
-- \`collectionId\`
-- \`collectionsPath\`
-- \`typesPath\`
-- \`clientPath\`
-- \`declarationsPath\`
-
-### \`mini.collections.json\`
-
-Stores collection definitions.
-
-Each collection usually includes:
-
-- \`id\`
-- \`name\`
-- \`slug\`
-- \`description\`
-- \`schema\`
-
-Each schema field includes:
-
-- \`key\`
-- \`label\`
-- \`type\`
-
-Supported field types:
-
-- \`text\`
-- \`url\`
-- \`number\`
-- \`boolean\`
-- \`date\`
-
-Keys starting with \`_\` are reserved for system fields and should not be defined as custom schema fields.
-
-### \`mini.types.ts\`
-
-Generated TypeScript helpers for your collection shapes.
-
-This file gives you:
-
-- \`workspaceId\`
-- \`CollectionSlug\`
-- one generated item type per collection
-- \`CollectionMap\`
-- \`CollectionItem<T>\`
-
-### \`mini.client.js\`
-
-Generated JavaScript client for the public content API.
-
-Main exports:
-
-- \`miniCmsConfig\`
-- \`getMiniCmsCollections()\`
-- \`createMiniCmsClient()\`
-
-### \`mini.client.d.ts\`
-
-Generated declarations for \`mini.client.js\`.
-
-Use this in TypeScript projects for editor autocomplete and type checking.
-
-## Common usage flow
-
-### First setup
-
-1. Run \`mini-cms init\`
-2. Create an API key in the dashboard
-3. Run \`mini-cms pull\`
-4. Review \`mini.config.json\` and \`mini.collections.json\`
-5. Use \`mini-cms generate\` if you want local client files
-
-### Schema workflow
-
-1. Run \`mini-cms pull\`
-2. Edit \`mini.collections.json\`
-3. Run \`mini-cms push\`
-4. Run \`mini-cms generate\` if your app uses generated types or the client
-
-### Inspect content
-
-1. Use \`mini-cms list\` to find collections
-2. Use \`mini-cms list-collection <collection-id>\` to inspect items
-
-## Public API expectations
-
-The generated client works with the public content API and sends query params like:
-
-- \`w\`
-- \`p\`
-- \`collection_id\`
-- \`page\`
-- \`limit\`
-- \`q\`
-- \`filter.<fieldKey>\`
-
-## Good practices
-
-- keep \`mini.config.json\` checked carefully if it contains an API key
-- treat \`mini.collections.json\` as the source of truth for local schema work
-- run \`mini-cms generate\` after schema changes if your app uses generated files
-- use \`projectId\` when you want the generated client to default to one project
-
-## Avoid
-
-- do not define custom schema fields that start with \`_\`
-- do not edit \`mini.types.ts\` by hand
-- do not edit \`mini.client.d.ts\` by hand
-- do not assume \`generate\` pulls remote schema; it uses local config and collection files
-`;
 
 const sharedArgs = {
   config: {
@@ -971,6 +817,180 @@ const miniCmsCommand = defineCommand({
         }),
       },
     }),
+    asset: defineCommand({
+      meta: {
+        name: "asset",
+        description: "Manage project assets",
+      },
+      subCommands: {
+        list: defineCommand({
+          meta: {
+            name: "list",
+            description: "List assets in the current project",
+          },
+          args: {
+            config: sharedArgs.config,
+            baseUrl: sharedArgs.baseUrl,
+            workspaceId: sharedArgs.workspaceId,
+            projectId: sharedArgs.projectId,
+            apiKey: sharedArgs.apiKey,
+            page: {
+              type: "string",
+              description: "Page number",
+              default: "1",
+            },
+            limit: {
+              type: "string",
+              description: "Assets per page",
+              default: "100",
+            },
+            json: sharedArgs.json,
+          },
+          async run({ args }) {
+            const config = await resolveConfig(toCommandOptions(args), {
+              requireProjectId: true,
+            });
+
+            const payload = await listAssetsWithApi(config, {
+              page: getNumberArg(args.page) ?? 1,
+              limit: getNumberArg(args.limit) ?? 100,
+              projectId: config.projectId,
+            });
+
+            if (args.json === true) {
+              console.log(JSON.stringify(payload, null, 2));
+              return;
+            }
+
+            if (!payload.items.length) {
+              console.log("No assets found.");
+              return;
+            }
+
+            printTable(
+              payload.items.map((asset) => ({
+                id: asset.id,
+                filename: asset.filename,
+                contentType: asset.contentType,
+                size: asset.size,
+                status: asset.status,
+                createdAt: asset.createdAt,
+              })),
+            );
+          },
+        }),
+        upload: defineCommand({
+          meta: {
+            name: "upload",
+            description: "Upload an asset file",
+          },
+          args: {
+            config: sharedArgs.config,
+            baseUrl: sharedArgs.baseUrl,
+            workspaceId: sharedArgs.workspaceId,
+            projectId: sharedArgs.projectId,
+            apiKey: sharedArgs.apiKey,
+            file: {
+              type: "positional",
+              description: "Path to the file to upload",
+            },
+            json: sharedArgs.json,
+          },
+          async run({ args }) {
+            const config = await resolveConfig(toCommandOptions(args), {
+              requireProjectId: true,
+            });
+            const filePath = getRequiredStringArg(args.file, "file");
+            const file = Bun.file(resolve(filePath));
+            const exists = await file.exists();
+
+            if (!exists) {
+              throw new Error(`File not found: ${filePath}`);
+            }
+
+            const body = await file.arrayBuffer();
+            const filename = filePath.split("/").at(-1) ?? "file";
+            const contentType = file.type || inferContentType(filename);
+            const size = body.byteLength;
+
+            const requested = await requestAssetUploadWithApi(config, {
+              projectId: config.projectId!,
+              filename,
+              contentType,
+              size,
+            });
+
+            const uploadResponse = await fetch(requested.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": contentType,
+              },
+              body,
+            });
+
+            if (!uploadResponse.ok) {
+              throw new Error(`Upload failed with status ${uploadResponse.status}.`);
+            }
+
+            const payload = await confirmAssetUploadWithApi(config, {
+              assetId: requested.assetId,
+            });
+
+            console.log(JSON.stringify(args.json === true ? payload : payload.asset, null, 2));
+          },
+        }),
+        info: defineCommand({
+          meta: {
+            name: "info",
+            description: "Get asset metadata",
+          },
+          args: {
+            config: sharedArgs.config,
+            baseUrl: sharedArgs.baseUrl,
+            workspaceId: sharedArgs.workspaceId,
+            projectId: sharedArgs.projectId,
+            apiKey: sharedArgs.apiKey,
+            id: {
+              type: "positional",
+              description: "Asset ID",
+            },
+            json: sharedArgs.json,
+          },
+          async run({ args }) {
+            const config = await resolveConfig(toCommandOptions(args));
+            const id = getRequiredStringArg(args.id, "id");
+            const payload = await getAssetInfoWithApi(config, { assetId: id });
+
+            console.log(JSON.stringify(args.json === true ? payload : payload.asset, null, 2));
+          },
+        }),
+        delete: defineCommand({
+          meta: {
+            name: "delete",
+            description: "Delete an asset",
+          },
+          args: {
+            config: sharedArgs.config,
+            baseUrl: sharedArgs.baseUrl,
+            workspaceId: sharedArgs.workspaceId,
+            projectId: sharedArgs.projectId,
+            apiKey: sharedArgs.apiKey,
+            id: {
+              type: "positional",
+              description: "Asset ID",
+            },
+            json: sharedArgs.json,
+          },
+          async run({ args }) {
+            const config = await resolveConfig(toCommandOptions(args));
+            const id = getRequiredStringArg(args.id, "id");
+            const payload = await deleteAssetWithApi(config, { assetId: id });
+
+            console.log(JSON.stringify(payload, null, 2));
+          },
+        }),
+      },
+    }),
     generate: defineCommand({
       meta: {
         name: "generate",
@@ -1065,6 +1085,10 @@ const commandSpecs = [
     usage: "collection item delete <collection>",
     requiredArgs: 1,
   },
+  { words: ["asset", "list"], usage: "asset list", requiredArgs: 0 },
+  { words: ["asset", "upload"], usage: "asset upload <file>", requiredArgs: 1 },
+  { words: ["asset", "info"], usage: "asset info <id>", requiredArgs: 1 },
+  { words: ["asset", "delete"], usage: "asset delete <id>", requiredArgs: 1 },
   { words: ["generate"], usage: "generate", requiredArgs: 0 },
   { words: ["add-skill"], usage: "add-skill", requiredArgs: 0 },
 ] as const;
@@ -1817,6 +1841,142 @@ async function mutateCollectionItemWithApi(
   return response.json();
 }
 
+async function listAssetsWithApi(
+  config: ResolvedConfig,
+  input: { projectId?: string; page: number; limit: number },
+) {
+  const url = new URL("/api/schema/assets", normalizeBaseUrl(config.baseUrl));
+  url.searchParams.set("workspaceId", config.workspaceId);
+  if (input.projectId) {
+    url.searchParams.set("projectId", input.projectId);
+  }
+  url.searchParams.set("page", String(input.page));
+  url.searchParams.set("limit", String(input.limit));
+
+  const response = await fetch(url, {
+    headers: {
+      "x-api-key": config.apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as ListAssetsResponse;
+}
+
+async function requestAssetUploadWithApi(
+  config: ResolvedConfig,
+  input: { projectId: string; filename: string; contentType: string; size: number },
+) {
+  const response = await fetch(
+    new URL("/api/schema/assets", normalizeBaseUrl(config.baseUrl)),
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": config.apiKey,
+      },
+      body: JSON.stringify({
+        action: "request-upload",
+        workspaceId: config.workspaceId,
+        projectId: input.projectId,
+        filename: input.filename,
+        contentType: input.contentType,
+        size: input.size,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as {
+    asset: AssetRecord;
+    assetId: string;
+    publicUrl: string;
+    uploadUrl: string;
+    workspaceId: string;
+  };
+}
+
+async function confirmAssetUploadWithApi(
+  config: ResolvedConfig,
+  input: { assetId: string },
+) {
+  const response = await fetch(
+    new URL("/api/schema/assets", normalizeBaseUrl(config.baseUrl)),
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": config.apiKey,
+      },
+      body: JSON.stringify({
+        action: "confirm-upload",
+        workspaceId: config.workspaceId,
+        assetId: input.assetId,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as { asset: AssetRecord; workspaceId: string };
+}
+
+async function getAssetInfoWithApi(
+  config: ResolvedConfig,
+  input: { assetId: string },
+) {
+  const url = new URL("/api/schema/assets", normalizeBaseUrl(config.baseUrl));
+  url.searchParams.set("workspaceId", config.workspaceId);
+  url.searchParams.set("assetId", input.assetId);
+
+  const response = await fetch(url, {
+    headers: {
+      "x-api-key": config.apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return (await response.json()) as { asset: AssetRecord; workspaceId: string };
+}
+
+async function deleteAssetWithApi(
+  config: ResolvedConfig,
+  input: { assetId: string },
+) {
+  const response = await fetch(
+    new URL("/api/schema/assets", normalizeBaseUrl(config.baseUrl)),
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": config.apiKey,
+      },
+      body: JSON.stringify({
+        action: "delete",
+        workspaceId: config.workspaceId,
+        assetId: input.assetId,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+
+  return response.json();
+}
+
 async function writeMiniConfig(config: ResolvedConfig) {
   const value: MiniConfig = {
     baseUrl: config.baseUrl,
@@ -1836,7 +1996,7 @@ async function writeMiniConfig(config: ResolvedConfig) {
 async function writeCollectionsFile(filePath: string, payload: PullResponse) {
   const outputPath = await resolveCollectionsOutputPath(filePath);
 
-  await writeJson(outputPath, {
+  await importedWriteJson(outputPath, {
     workspaceId: payload.workspaceId,
     pulledAt: payload.pulledAt,
     collections: payload.collections,
@@ -1856,105 +2016,11 @@ async function resolveCollectionsOutputPath(filePath: string) {
 }
 
 async function loadCollectionsInput(filePath: string, collectionId?: string) {
-  const stats = await stat(filePath).catch(() => null);
-
-  if (!stats) {
-    throw new Error(
-      `Collections source not found: ${relativeSafe(filePath)}. Run pull first or create mini.collections.json.`,
-    );
-  }
-
-  const collections = stats.isDirectory()
-    ? await loadCollectionsFromDirectory(filePath)
-    : await loadCollectionsFromFile(filePath);
-
-  const filtered = collectionId
-    ? collections.filter((collection) => collection.id === collectionId)
-    : collections;
-
-  if (collectionId && !filtered.length) {
-    throw new Error(
-      `Collection ${collectionId} was not found in ${relativeSafe(filePath)}.`,
-    );
-  }
-
-  return filtered;
-}
-
-async function loadCollectionsFromDirectory(directoryPath: string) {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
-  const allCollections: SyncedCollection[] = [];
-
-  for (const entry of entries) {
-    if (!entry.isFile() || extname(entry.name) !== ".json") {
-      continue;
-    }
-
-    const filePath = join(directoryPath, entry.name);
-    const fileCollections = await loadCollectionsFromFile(filePath);
-    allCollections.push(...fileCollections);
-  }
-
-  return deduplicateCollections(allCollections);
-}
-
-function deduplicateCollections(collections: SyncedCollection[]) {
-  const bySlug = new Map<string, SyncedCollection>();
-
-  for (const collection of collections) {
-    const existing = bySlug.get(collection.slug);
-
-    if (!existing || (!existing.id && collection.id)) {
-      bySlug.set(collection.slug, collection);
-    }
-  }
-
-  return Array.from(bySlug.values());
-}
-
-async function loadCollectionsFromFile(filePath: string) {
-  const json = await readJsonFile<
-    PullResponse | { collections: SyncedCollection[] } | SyncedCollection
-  >(filePath);
-
-  if (Array.isArray((json as { collections?: unknown }).collections)) {
-    return normalizeCollections(
-      (json as PullResponse | { collections: SyncedCollection[] }).collections,
-    );
-  }
-
-  if (isCollectionShape(json)) {
-    return normalizeCollections([json]);
-  }
-
-  throw new Error(`Invalid collections file: ${relativeSafe(filePath)}.`);
+  return importedLoadCollectionsInput(filePath, collectionId);
 }
 
 function normalizeCollections(collections: SyncedCollection[]) {
-  return collections.map((collection) => ({
-    id: collection.id,
-    name: collection.name,
-    slug: collection.slug,
-    description: collection.description ?? null,
-    schema: collection.schema.map((field) => ({
-      key: field.key,
-      label: field.label,
-      type: field.type,
-    })),
-  }));
-}
-
-function isCollectionShape(value: unknown): value is SyncedCollection {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  return (
-    "name" in value &&
-    "slug" in value &&
-    "schema" in value &&
-    Array.isArray(value.schema)
-  );
+  return importedNormalizeCollections(collections);
 }
 
 async function writeTypesFile(
@@ -1962,412 +2028,18 @@ async function writeTypesFile(
   collections: SyncedCollection[],
   workspaceId: string,
 ) {
-  const lines: string[] = [
-    "/* eslint-disable */",
-    "",
-    `export const workspaceId = ${JSON.stringify(workspaceId)} as const;`,
-    "",
-  ];
-
-  if (!collections.length) {
-    lines.push("export type CollectionSlug = never;");
-    lines.push("", "export type CollectionMap = {};", "");
-    lines.push(
-      "export type CollectionItem<T extends CollectionSlug> = CollectionMap[T];",
-      "",
-    );
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
-    return;
-  }
-
-  lines.push(
-    "export type CollectionSlug =",
-    ...collections.map((collection, index) => {
-      const suffix = index === collections.length - 1 ? ";" : "";
-      return `  | ${JSON.stringify(collection.slug)}${suffix}`;
-    }),
-    "",
-  );
-
-  for (const collection of collections) {
-    const typeName = `${toPascalCase(collection.slug)}Item`;
-
-    lines.push(`export type ${typeName} = {`);
-
-    if (!collection.schema.length) {
-      lines.push("  [key: string]: never;");
-    }
-
-    for (const field of collection.schema) {
-      lines.push(`  ${safePropertyName(field.key)}: ${toTsType(field.type)};`);
-    }
-
-    lines.push("};", "");
-  }
-
-  lines.push("export type CollectionMap = {");
-
-  for (const collection of collections) {
-    lines.push(
-      `  ${JSON.stringify(collection.slug)}: ${toPascalCase(collection.slug)}Item;`,
-    );
-  }
-
-  lines.push(
-    "};",
-    "",
-    "export type CollectionItem<T extends CollectionSlug> = CollectionMap[T];",
-    "",
-  );
-
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
+  return importedWriteTypesFile(filePath, collections, workspaceId);
 }
 
 async function writeClientFiles(
   config: ResolvedConfig,
   collections: SyncedCollection[],
 ): Promise<GenerateResponse> {
-  await writeClientFile(config.clientPath, config, collections);
-  await writeClientDeclarationsFile(config.declarationsPath, config, collections);
-
-  return {
-    clientPath: config.clientPath,
-    declarationsPath: config.declarationsPath,
-  };
-}
-
-async function writeClientFile(
-  filePath: string,
-  config: ResolvedConfig,
-  collections: SyncedCollection[],
-) {
-  const collectionUnion = collections.length
-    ? collections.map((collection) => JSON.stringify(collection.slug)).join(" | ")
-    : "never";
-  const collectionMapEntries = collections.length
-    ? collections.map((collection) => {
-        const typeName = `${toPascalCase(collection.slug)}Item`;
-        return ` *   ${JSON.stringify(collection.slug)}: ${typeName};`;
-      })
-    : [" *   [key: string]: never;"];
-  const lines: string[] = [
-    "/* eslint-disable */",
-    "",
-    "/**",
-    " * @typedef {object} MiniCmsCollectionDefinition",
-    " * @property {string | null} id",
-    " * @property {string} name",
-    " * @property {string} slug",
-    " */",
-    "",
-    ...collections.flatMap((collection) => {
-      const typeName = `${toPascalCase(collection.slug)}Item`;
-
-      if (!collection.schema.length) {
-        return [
-          "/**",
-          ` * @typedef {Record<string, never>} ${typeName}`,
-          " */",
-          "",
-        ];
-      }
-
-      return [
-        "/**",
-        ` * @typedef {object} ${typeName}`,
-        ...collection.schema.map((field) =>
-          ` * @property {${toTsType(field.type)}} ${field.key}`
-        ),
-        " */",
-        "",
-      ];
-    }),
-    `/** @typedef {${collectionUnion}} MiniCmsCollectionSlug */`,
-    "",
-    "/**",
-    " * @typedef {object} MiniCmsCollectionMap",
-    ...collectionMapEntries,
-    " */",
-    "",
-    "/**",
-    " * @typedef {object} MiniCmsClientConfig",
-    " * @property {string} [baseUrl]",
-    " * @property {string} [workspaceId]",
-    " * @property {string} [projectId]",
-    " */",
-    "",
-    "/** @typedef {Record<string, string | number | boolean | null | undefined>} MiniCmsQueryFilters */",
-    "",
-    "/**",
-    " * @template {MiniCmsCollectionSlug} TSlug",
-    " * @typedef {object} MiniCmsGetCollectionItemsOptions",
-    " * @property {string} [collectionId]",
-    " * @property {string} [workspaceId]",
-    " * @property {string} [projectId]",
-    " * @property {number} [page]",
-    " * @property {number} [limit]",
-    " * @property {string} [query]",
-    " * @property {MiniCmsQueryFilters} [filters]",
-    " * @property {HeadersInit} [headers]",
-    " */",
-    "",
-    "/**",
-    " * @template {MiniCmsCollectionSlug} TSlug",
-    " * @typedef {object} MiniCmsCollectionItemsResponse",
-    " * @property {{ id: string, slug: string, name: string }} workspace",
-    " * @property {{ id: string, slug: string, name: string }} project",
-    " * @property {MiniCmsCollectionDefinition & { slug: TSlug, description?: string | null, schema?: Array<{ key: string, label: string, type: string }> }} collection",
-    " * @property {Array<MiniCmsCollectionMap[TSlug]>} items",
-    " * @property {{ page: number, limit: number, total: number, totalPages: number, hasMore: boolean }} pagination",
-    " */",
-    "",
-    "/** @type {MiniCmsClientConfig} */",
-    "const defaultConfig = {",
-    `  baseUrl: ${JSON.stringify(normalizeBaseUrl(config.baseUrl).replace(/\/$/, ""))},`,
-    `  workspaceId: ${JSON.stringify(config.workspaceId)},`,
-    `  projectId: ${JSON.stringify(config.projectId ?? "")},`,
-    "};",
-    "",
-    "/** @type {MiniCmsCollectionDefinition[]} */",
-    "const collections = ",
-    `${JSON.stringify(
-      collections.map((collection) => ({
-        id: collection.id ?? null,
-        name: collection.name,
-        slug: collection.slug,
-      })),
-      null,
-      2,
-    )} ;`,
-    "",
-    "/** @returns {MiniCmsCollectionDefinition[]} */",
-    "export function getMiniCmsCollections() {",
-    "  return collections.slice();",
-    "}",
-    "",
-    "/**",
-    " * @param {MiniCmsClientConfig} [overrides={}]",
-    " */",
-    "export function createMiniCmsClient(overrides = {}) {",
-    "  const runtimeConfig = { ...defaultConfig, ...overrides };",
-    "  const collections = {",
-    ...collections.map((collection) => {
-      const propertyName = toJsPropertyName(collection.slug);
-      return `    ${propertyName}: { query: (options = {}) => getCollectionItems(${JSON.stringify(collection.slug)}, options) },`;
-    }),
-    "  };",
-    "",
-    "  return {",
-    "    config: runtimeConfig,",
-    "    collectionDefinitions: getMiniCmsCollections(),",
-    "    collections,",
-    "    /**",
-    "     * @template {MiniCmsCollectionSlug} TSlug",
-    "     * @param {TSlug} collectionSlug",
-    "     * @param {MiniCmsGetCollectionItemsOptions<TSlug>} [options={}]",
-    "     * @returns {Promise<MiniCmsCollectionItemsResponse<TSlug>>}",
-    "     */",
-    "    getCollectionItems,",
-    "  };",
-    "",
-    "  async function getCollectionItems(collectionSlug, options = {}) {",
-    "      const workspaceId = options?.workspaceId ?? runtimeConfig.workspaceId;",
-    "      const projectId = options?.projectId ?? runtimeConfig.projectId;",
-    "",
-    "      if (!runtimeConfig.baseUrl || !workspaceId || !projectId || !collectionSlug) {",
-    '      throw new Error("baseUrl, workspaceId, projectId, and collectionSlug are required.");',
-    "      }",
-    "",
-    "      const url = new URL('/api/collections/items', ensureTrailingSlash(runtimeConfig.baseUrl));",
-    "      url.searchParams.set('w', workspaceId);",
-    "      url.searchParams.set('p', projectId);",
-    "",
-    "      if (options?.collectionId) {",
-    "        url.searchParams.set('collection_id', options.collectionId);",
-    "      } else {",
-    "        url.searchParams.set('collection_slug', collectionSlug);",
-    "      }",
-    "",
-    "      if (options?.page != null) url.searchParams.set('page', String(options.page));",
-    "      if (options?.limit != null) url.searchParams.set('limit', String(options.limit));",
-    "      if (options?.query) url.searchParams.set('q', options.query);",
-    "",
-    "      if (options?.filters) {",
-    "        for (const [key, value] of Object.entries(options.filters)) {",
-    "          if (value == null || value === '') continue;",
-    "          url.searchParams.set(`filter.${key}`, String(value));",
-    "        }",
-    "      }",
-    "",
-    "      const response = await fetch(url.toString(), {",
-    "        headers: options?.headers ?? {},",
-    "      });",
-    "",
-    "      if (!response.ok) {",
-    "        const message = await readMiniCmsError(response);",
-    "        throw new Error(message);",
-    "      }",
-    "",
-    "      return response.json();",
-    "    }",
-    "}",
-    "",
-    "/**",
-    " * @param {Response} response",
-    " * @returns {Promise<string>}",
-    " */",
-    "async function readMiniCmsError(response) {",
-    "  try {",
-    "    const body = await response.json();",
-    "    return body?.error ?? `Request failed with status ${response.status}.`;",
-    "  } catch {",
-    "    return `Request failed with status ${response.status}.`;",
-    "  }",
-    "}",
-    "",
-    "/**",
-    " * @param {string} baseUrl",
-    " * @returns {string}",
-    " */",
-    "function ensureTrailingSlash(baseUrl) {",
-    "  return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;",
-    "}",
-    "",
-    "export { defaultConfig as miniCmsConfig };",
-  ];
-
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
-}
-
-async function writeClientDeclarationsFile(
-  filePath: string,
-  config: ResolvedConfig,
-  collections: SyncedCollection[],
-) {
-  const collectionUnion = collections.length
-    ? collections.map((collection) => JSON.stringify(collection.slug)).join(" | ")
-    : "never";
-  const collectionMapEntries = collections.length
-    ? collections.map((collection) => {
-        const typeName = `${toPascalCase(collection.slug)}Item`;
-        return `  ${JSON.stringify(collection.slug)}: ${typeName};`;
-      })
-    : ["  [key: string]: never;"];
-  const collectionHelperEntries = collections.length
-    ? collections.map((collection) => {
-        const propertyName = toJsPropertyName(collection.slug);
-        const slugLiteral = JSON.stringify(collection.slug);
-        return `  ${propertyName}: { query(options?: MiniCmsGetCollectionItemsOptions<${slugLiteral}>): Promise<MiniCmsCollectionItemsResponse<${slugLiteral}>>; };`;
-      })
-    : [];
-
-  const lines: string[] = [
-    "export type CollectionSlug = MiniCmsCollectionSlug;",
-    "",
-    "export type MiniCmsCollectionDefinition = {",
-    "  id: string | null;",
-    "  name: string;",
-    "  slug: string;",
-    "};",
-    "",
-    `export type MiniCmsCollectionSlug = ${collectionUnion};`,
-    "",
-    ...collections.flatMap((collection) => {
-      const typeName = `${toPascalCase(collection.slug)}Item`;
-
-      if (!collection.schema.length) {
-        return [
-          `export type ${typeName} = {`,
-          "  [key: string]: never;",
-          "};",
-          "",
-        ];
-      }
-
-      return [
-        `export type ${typeName} = {`,
-        ...collection.schema.map((field) =>
-          `  ${safePropertyName(field.key)}: ${toTsType(field.type)};`
-        ),
-        "};",
-        "",
-      ];
-    }),
-    "export type MiniCmsCollectionMap = {",
-    ...collectionMapEntries,
-    "};",
-    "",
-    "export type MiniCmsCollectionItem<T extends MiniCmsCollectionSlug> = MiniCmsCollectionMap[T];",
-    "",
-    "export type MiniCmsClientConfig = {",
-    "  baseUrl?: string;",
-    "  workspaceId?: string;",
-    "  projectId?: string;",
-    "};",
-    "",
-    "export type MiniCmsQueryFilters = Record<string, string | number | boolean | null | undefined>;",
-    "",
-    "export type MiniCmsGetCollectionItemsOptions<TSlug extends MiniCmsCollectionSlug = MiniCmsCollectionSlug> = {",
-    "  collectionId?: string;",
-    "  workspaceId?: string;",
-    "  projectId?: string;",
-    "  page?: number;",
-    "  limit?: number;",
-    "  query?: string;",
-    "  filters?: MiniCmsQueryFilters;",
-    "  headers?: HeadersInit;",
-    "};",
-    "",
-    "export type MiniCmsCollectionItemsResponse<TSlug extends MiniCmsCollectionSlug = MiniCmsCollectionSlug> = {",
-    "  workspace: { id: string; slug: string; name: string; };",
-    "  project: { id: string; slug: string; name: string; };",
-    "  collection: MiniCmsCollectionDefinition & { slug: TSlug; description?: string | null; schema?: Array<{ key: string; label: string; type: string; }>; };",
-    "  items: Array<MiniCmsCollectionItem<TSlug>>;",
-    "  pagination: {",
-    "    page: number;",
-    "    limit: number;",
-    "    total: number;",
-    "    totalPages: number;",
-    "    hasMore: boolean;",
-    "  };",
-    "};",
-    "",
-    "export declare const miniCmsConfig: {",
-    `  baseUrl: ${JSON.stringify(normalizeBaseUrl(config.baseUrl).replace(/\/$/, ""))};`,
-    `  workspaceId: ${JSON.stringify(config.workspaceId)};`,
-    `  projectId: ${JSON.stringify(config.projectId ?? "")};`,
-    "};",
-    "",
-    "export declare function getMiniCmsCollections(): MiniCmsCollectionDefinition[];",
-    "",
-    "export declare function createMiniCmsClient(overrides?: MiniCmsClientConfig): {",
-    "  config: { baseUrl?: string; workspaceId?: string; projectId?: string; };",
-    "  collectionDefinitions: MiniCmsCollectionDefinition[];",
-    "  collections: {",
-    ...collectionHelperEntries,
-    "  };",
-    "  getCollectionItems<TSlug extends MiniCmsCollectionSlug>(collectionSlug: TSlug, options?: MiniCmsGetCollectionItemsOptions<TSlug>): Promise<MiniCmsCollectionItemsResponse<TSlug>>;",
-    "};",
-  ];
-
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${lines.join("\n")}\n`, "utf8");
+  return importedWriteClientFiles(config, collections);
 }
 
 async function installSkill(projectRoot: string): Promise<AddSkillResponse> {
-  const directoryPath = resolve(projectRoot, DEFAULT_SKILL_DIRECTORY);
-  const skillPath = join(directoryPath, DEFAULT_SKILL_FILE);
-
-  await mkdir(directoryPath, { recursive: true });
-  await writeFile(skillPath, `${PACKAGED_SKILL_CONTENT.trim()}\n`, "utf8");
-
-  return {
-    directoryPath,
-    skillPath,
-  };
+  return importedInstallSkill(projectRoot);
 }
 
 async function promptForMiniConfig(
@@ -2603,79 +2275,64 @@ async function resolveProjectIdentifier(config: ResolvedConfig, value: string) {
   return project;
 }
 
-function safePropertyName(value: string) {
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value)
-    ? value
-    : JSON.stringify(value);
-}
-
 function toJsPropertyName(value: string) {
-  const normalized = value.replace(/-/g, "_");
-  return safePropertyName(normalized);
+  return importedToJsPropertyName(value);
 }
 
 function toPascalCase(value: string) {
-  const normalized = value.replace(/[^a-zA-Z0-9]+/g, " ").trim();
-  const words = normalized ? normalized.split(/\s+/) : ["Collection"];
-  return words
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
+  return importedToPascalCase(value);
 }
 
 function toTsType(type: FieldType) {
-  switch (type) {
-    case "text":
-    case "url":
-    case "date":
-      return "string";
-    case "number":
-      return "number";
-    case "boolean":
-      return "boolean";
-  }
+  return importedToTsType(type);
 }
 
 async function readJsonFile<T>(filePath: string, optional = false) {
-  try {
-    const content = await readFile(filePath, "utf8");
-    return JSON.parse(content) as T;
-  } catch (error) {
-    if (
-      optional &&
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return null;
-    }
-
-    throw error;
-  }
+  return importedReadJsonFile<T>(filePath, optional);
 }
 
 async function writeJson(filePath: string, value: unknown) {
-  await mkdir(dirname(filePath), { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  return importedWriteJson(filePath, value);
 }
 
 async function readError(response: Response) {
-  try {
-    const body = (await response.json()) as { error?: string };
-    return body.error ?? `Request failed with status ${response.status}.`;
-  } catch {
-    return `Request failed with status ${response.status}.`;
-  }
+  return importedReadError(response);
 }
 
 function normalizeBaseUrl(baseUrl: string) {
-  return baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return importedNormalizeBaseUrl(baseUrl);
 }
 
 function relativeSafe(filePath: string) {
-  return filePath.startsWith(`${process.cwd()}/`)
-    ? filePath.slice(process.cwd().length + 1)
-    : basename(filePath);
+  return importedRelativeSafe(filePath);
+}
+
+function inferContentType(filename: string) {
+  const extension = filename.split(".").pop()?.toLowerCase();
+
+  switch (extension) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "svg":
+      return "image/svg+xml";
+    case "ico":
+      return "image/x-icon";
+    case "pdf":
+      return "application/pdf";
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    default:
+      return "application/octet-stream";
+  }
 }
 
 export {

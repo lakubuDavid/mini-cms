@@ -68,6 +68,9 @@ Item mutations use key/value strings like:
 
 - `title=Hello;published=true`
 
+`mini-cms collection item update` replaces the full item data by default. Use
+`--merge` to preserve existing fields and only overwrite the keys you pass.
+
 ### `mini-cms generate`
 
 Generates local developer files from your saved config and collection definitions.

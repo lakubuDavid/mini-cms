@@ -2,6 +2,14 @@
 
 A minimalist, self-hosted CMS for development agencies to manage projects and team members.
 
+## Working Rules
+
+- Treat `apps/web` as the product app, `packages/cli` as the developer/admin CLI, and `apps/docs` as the main product documentation source.
+- The docs describe user-facing app features, public API behavior, environment setup, hosting, and CLI usage. Changes in `apps/web` or `packages/cli` often require matching doc updates.
+- If you change an existing feature or add a new one, check `apps/docs/` to see whether the docs should be updated.
+- When a feature affects both the dashboard and CLI, keep the terminology and behavior aligned across `apps/web`, `packages/cli`, and `apps/docs`.
+- If docs are duplicated elsewhere, update the canonical docs in `apps/docs` first, then mirror changes where appropriate.
+
 ## Tech Stack
 
 | Component        | Technology                   |
@@ -17,32 +25,29 @@ A minimalist, self-hosted CMS for development agencies to manage projects and te
 ## Project Structure
 
 ```
-apps/web/src/
-├── db/
-│   ├── schema/          # Drizzle schema definitions
-│   │   ├── collections.ts
-│   │   ├── collection-items.ts
-│   │   ├── users.ts
-│   │   └── invites.ts
-│   ├── queries/         # Drizzle query builders
-│   │   └── collections.ts
-│   └── index.ts         # DB client & config
-├── lib/
-│   ├── auth.ts         # Better-auth config
-│   ├── cache.ts        # Upstash client
-│   ├── env.ts          # Env validation (t3env)
-│   └── email/
-│       ├── index.ts    # Resend client
-│       └── templates.ts # Email templates
-├── server/functions/   # Server functions (RPC)
-│   ├── collections.ts
-│   ├── items.ts
-│   └── invites.ts
-└── routes/
-    ├── api.collections.$name.ts  # Public API
-    ├── dashboard.tsx              # Protected routes
-    └── index.tsx                 # Public homepage
+apps/
+├── web/                 # Main app: dashboard, API routes, auth, db, server functions
+│   └── src/
+│       ├── db/
+│       ├── lib/
+│       ├── server/functions/
+│       └── routes/
+├── docs/                # Canonical product docs for app features, API, env, hosting, CLI
+│   ├── content/docs/
+│   └── public/docs/assets/
+└── docs/             # New docs app/migration target; keep content aligned with apps/docs
+
+packages/
+└── cli/                 # Mini CMS CLI for schema sync and content operations
 ```
+
+## App, CLI, and Docs Relationship
+
+- `apps/web` implements the dashboard UX, public/content APIs, schema routes, auth, and server-side behavior.
+- `packages/cli` depends on API behavior exposed by `apps/web`, especially the `/api/schema/*` endpoints.
+- `apps/docs` explains how to use the app and CLI, and documents environment variables, API behavior, and hosting.
+- A change in app behavior may require CLI changes, and a change in CLI or app behavior may require docs changes.
+- Before finishing feature work, check whether the user-facing docs and CLI examples still match the implementation.
 
 ## Environment Variables
 

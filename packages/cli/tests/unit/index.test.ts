@@ -279,6 +279,12 @@ describe("cli helpers", () => {
     expect(contents).toContain('"client-projects"');
     expect(contents).toContain("export type ClientProjectsItem = {");
     expect(contents).toContain("published: boolean;");
+    expect(contents).toContain("export type CollectionItemData<T> = {");
+    expect(contents).toContain("type _DefaultFields = {");
+    expect(contents).toContain("_id: string;");
+    expect(contents).toContain("_published: boolean;");
+    expect(contents).toContain("data: T & _DefaultFields;");
+    expect(contents).toContain("export type CollectionItem<T extends CollectionSlug> = CollectionItemData<CollectionMap[T]>;");
   });
 
   test("writeMiniConfig writes relative generated paths", async () => {
@@ -474,10 +480,19 @@ describe("cli helpers", () => {
     expect(clientContents).toContain("filter.");
     expect(clientContents).toContain("collection_slug");
     expect(clientContents).toContain("collection_id");
+    expect(clientContents).toContain("@typedef {object} MiniCmsColllectionItemData");
+    expect(clientContents).toContain("@typedef {object} MiniCmsDefaultFields");
+    expect(clientContents).toContain("@property {T & MiniCmsDefaultFields} data");
+    expect(clientContents).toContain("@typedef {MiniCmsColllectionItemData<MiniCmsCollectionMap[TSlug]>} MiniCmsCollectionItem");
+    expect(clientContents).toContain("createdAt: new Date(item.createdAt)");
     expect(dtsContents).toContain("export type MiniCmsCollectionMap = {");
     expect(dtsContents).toContain("export type ProjectsItem = {");
+    expect(dtsContents).toContain("type _DefaultFields = {");
+    expect(dtsContents).toContain("data: T & _DefaultFields;");
+    expect(dtsContents).toContain("export type MiniCmsColllectionItemData<T> = {");
+    expect(dtsContents).toContain("export type MiniCmsCollectionItem<T extends MiniCmsCollectionSlug> = MiniCmsColllectionItemData<MiniCmsCollectionMap[T]>;");
     expect(dtsContents).toContain("export type MiniCmsGetCollectionItemsOptions<TSlug extends MiniCmsCollectionSlug");
-    expect(dtsContents).toContain("items: Array<MiniCmsCollectionItem<TSlug>>;");
+    expect(dtsContents).toContain("items: Array<MiniCmsCollectionItem<TSlug> & { order: number; }>;");
     expect(dtsContents).toContain("collectionDefinitions: MiniCmsCollectionDefinition[];");
     expect(dtsContents).toContain("collections: {");
     expect(dtsContents).toContain("getCollectionItems<TSlug extends MiniCmsCollectionSlug>(collectionSlug: TSlug, options?: MiniCmsGetCollectionItemsOptions<TSlug>)");
