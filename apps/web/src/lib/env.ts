@@ -20,6 +20,7 @@ export const env = createEnv({
       .transform((value) => value === "true"),
     PUBLIC_POSTHOG_KEY: z.string().optional(),
     PUBLIC_POSTHOG_HOST: z.string().optional(),
+    PUBLIC_DOCS_URL: z.string().url(),
   },
   server: {
     AUTH_SECRET: z.string().min(1),
@@ -49,7 +50,7 @@ export const env = createEnv({
   },
   shared: {
     APP_URL: z.string().url().default("http://localhost:3000"),
-    DOCS_URL: z.string().url().default("http://localhost:3001/docs"),
+    DOCS_URL: z.string().url(),
     POSTHOG_KEY: z.string().optional(),
   },
   runtimeEnv,
