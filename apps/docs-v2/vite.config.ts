@@ -6,6 +6,8 @@ import * as MdxConfig from "./source.config";
 
 export default defineConfig({
   plugins: [mdx(MdxConfig), tailwindcss(), reactRouter()],
+  build:{
+  },
   resolve: {
     tsconfigPaths: true,
   },
