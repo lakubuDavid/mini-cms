@@ -9,6 +9,15 @@ import * as MdxConfig from "./source.config";
 
 const config = defineConfig({
   envPrefix: ["VITE_", "PUBLIC_"],
+  resolve: {
+    // add other Fumadocs deps as needed
+    noExternal: [
+      "fumadocs-core",
+      "fumadocs-ui",
+      "fumadocs-openapi",
+      "@fumadocs/base-ui",
+    ],
+  },
   plugins: [
     nitro(),
     mdx(MdxConfig),
