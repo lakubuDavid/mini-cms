@@ -1,0 +1,47 @@
+---
+title: Hosting
+description: Deploy Mini CMS with TanStack Start and Nitro.
+---
+
+Mini CMS is built with TanStack Start on top of Nitro, so the app can target multiple hosting providers.
+
+## Hosting Model
+
+- The app renders through TanStack Start routes.
+- Public and auth endpoints run as server handlers.
+- The stack is provider-agnostic at the app level because Nitro can emit different server targets.
+- The default production output is a Node server.
+
+## Provider Notes
+
+- **Vercel**: works well and is currently used for the deployed app.
+- **Netlify / Cloudflare / other Nitro targets**: possible through Nitro presets.
+- **Node hosts**: supported through Nitro's default Node output.
+
+## What To Deploy
+
+- Deploy the `apps/web` app.
+- Make sure your platform builds the app with its production env vars available.
+- If your platform needs an explicit Nitro target, set `NITRO_PRESET` for that provider.
+
+## Build And Run
+
+From the repo root:
+
+```bash
+bun install
+bun run build
+```
+
+For production preview from the built output:
+
+```bash
+node apps/web/.output/server/index.mjs
+```
+
+## Operational Notes
+
+- Turso is the primary database target.
+- Upstash Redis is used for cache and rate limiting.
+- Resend is currently used for email invites.
+- Other service alternatives are not documented here yet because they are not an active target today.

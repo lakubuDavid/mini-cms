@@ -1,0 +1,157 @@
+---
+title: Dashboard Guide
+description: Create projects, manage collections and items, and generate API keys from the Mini CMS dashboard.
+---
+
+The dashboard is the easiest way to manage content if you are not working from code.
+
+## What You Can Do Here
+
+- create workspaces for each team or organization
+- create projects for each client site or content area
+- create collections for each content type inside a project
+- define the fields each item should have
+- add and edit content with a generated form
+- create API keys for developers and automation
+- manage team members through invite links
+
+## Workspace Overview
+
+When you sign in, the dashboard shows your workspace:
+
+- **Name**: Your organization or team name
+- **Slug**: URL-friendly identifier used in API requests
+- **ID**: Unique identifier for API integration
+
+The workspace ID (`w`) is used in the public content API and schema API requests.
+
+## Create A Project
+
+1. Sign in to the dashboard.
+2. Open `Collections`.
+3. Choose `New project`.
+4. Enter a name and slug.
+5. Create the project.
+
+Projects group related collections inside a workspace. Each project has its own:
+
+- Collections and items
+- Schema definitions
+- API key scope (optional)
+
+You can switch between projects using the dropdown selector in the Collections view.
+
+## Create A Collection
+
+1. Sign in to the dashboard.
+2. Open `Collections`.
+3. Select the project the collection should belong to.
+4. Click `New collection`.
+5. Enter a name, slug, and optional description.
+6. Create the collection.
+
+![Create collection dialog](/docs/assets/docs-create-collection-dialog.png)
+
+After creation, the collection appears in the list with its item count.
+
+![Collections list](/docs/assets/docs-collections-list.png)
+
+## Collection Actions
+
+Each collection in the list has an actions menu (...) with:
+
+- **Open**: View and manage collection items
+- **Edit**: Modify collection name, slug, or description
+- **Delete**: Remove the collection and all its items
+
+Deleting a collection is permanent. All items in that collection will be lost.
+
+## Open A Collection
+
+1. From `Collections`, click `Open` on the collection you want.
+2. Review the schema columns and current items.
+
+Empty collection example:
+
+![Empty collection state](/docs/assets/docs-collection-empty-state.png)
+
+## Create An Item
+
+1. Open the collection.
+2. Click `Add item`.
+3. Fill the form generated from the collection schema.
+4. Save the item.
+
+Mini CMS supports `text`, `url`, `number`, `boolean`, and `date` fields.
+Every item also includes two built-in system fields:
+
+- `_id`: generated automatically and shown in the items table
+- `_published`: controlled in the item editor and used by the public API
+
+![Item editor](/docs/assets/docs-item-editor.png)
+
+Saved item example:
+
+![Collection items](/docs/assets/docs-collection-items.png)
+
+## Edit Schema
+
+1. Open the collection.
+2. Click `Edit schema`.
+3. Update fields like `text`, `url`, `number`, `boolean`, or `date`.
+
+Keys starting with `_` are reserved for system fields and cannot be used for custom fields.
+
+### Field Types
+
+| Type | Editor | Use Case |
+| --- | --- | --- |
+| `text` | Text input | Short or long text content |
+| `url` | URL input | Links with thumbnail preview |
+| `number` | Number input | Numeric values |
+| `boolean` | Toggle | Yes/no flags |
+| `date` | Date picker | Timestamps and dates |
+
+## Publishing Items
+
+Every item has a `_published` system field:
+
+- When `true`: The item appears in the public content API
+- When `false` or missing: The item is only visible in the dashboard
+
+Use unpublished items for drafts or items you don't want exposed publicly.
+
+## Generate An API Key
+
+1. Open `API Keys` in the sidebar.
+2. Enter a key name.
+3. Optionally scope it to a single project.
+4. Click `Create key`.
+5. Copy the revealed key immediately.
+
+This API key is what `mini-cms` uses for schema pull, push, collection listing, and protected item listing.
+
+The public content API does not use API keys.
+
+### API Key Scopes
+
+- **Workspace-scoped**: Full access to all projects and collections
+- **Project-scoped**: Limited to a specific project only
+
+## Invite Team Members
+
+1. Open `Team` in the sidebar.
+2. Click `Invite member`.
+3. Enter the email address.
+4. Send the invite.
+
+The invitee receives an email with a link to create an account and join your workspace.
+
+## Environment
+
+The Environment section shows:
+
+- Current deployment URL
+- API version information
+
+This helps developers verify their integration is pointing at the correct instance.
