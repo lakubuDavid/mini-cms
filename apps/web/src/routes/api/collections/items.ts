@@ -29,7 +29,19 @@ type CollectionItemsPayload = {
   pagination: Awaited<ReturnType<typeof listItems>>["pagination"];
 };
 
+const PUBLIC_CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-headers": "content-type, x-requested-with",
+  "access-control-max-age": "86400",
+  "access-control-expose-headers": "retry-after, x-cache",
+} as const;
+
 export async function handleCollectionItems(request: Request) {
+  if (request.method === "OPTIONS") {
+    return withCors(new Response(null, { status: 204 }));
+  }
+
   const url = new URL(request.url);
   const requestIdentity = createAnonymousServerIdentity({
     subject: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -238,29 +250,47 @@ export const Route = createFileRoute("/api/collections/items")({
     handlers: {
       GET: async ({ request }: { request: Request }) =>
         handleCollectionItems(request),
+      OPTIONS: async ({ request }: { request: Request }) =>
+        handleCollectionItems(request),
     },
   },
 });
 
 function json(data: unknown, status = 200, headers?: HeadersInit) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      ...headers,
-    },
-  });
+  return withCors(
+    new Response(JSON.stringify(data, null, 2), {
+      status,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        ...headers,
+      },
+    }),
+  );
 }
 
 function handleError(error: unknown) {
   if (error instanceof Response) {
-    return error;
+    return withCors(error);
   }
 
   return json(
     { error: error instanceof Error ? error.message : "Unexpected error." },
     500,
   );
+}
+
+function withCors(response: Response) {
+  const headers = new Headers(response.headers);
+
+  for (const [key, value] of Object.entries(PUBLIC_CORS_HEADERS)) {
+    headers.set(key, value);
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 function parseCollectionItemsSearch(url: URL) {
