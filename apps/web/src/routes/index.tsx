@@ -37,7 +37,7 @@ function HomePage() {
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <a
-              href="/docs"
+              href={env.DOCS_URL}
               className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:border-stone-900 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:text-white"
             >
               <BookOpen className="h-3.5 w-3.5" />

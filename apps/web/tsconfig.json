@@ -42,9 +42,6 @@
       ],
       "@workspace/ui/*": [
         "../../packages/ui/src/*"
-      ],
-      "fumadocs-mdx:collections/*": [
-        ".source/*"
       ]
     }
   }

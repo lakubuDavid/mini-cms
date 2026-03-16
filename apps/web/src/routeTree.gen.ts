@@ -15,14 +15,12 @@ import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as DocsSplatRouteImport } from './routes/docs/$'
 import { Route as DashboardWorkspaceRouteImport } from './routes/dashboard/workspace'
 import { Route as DashboardTeamRouteImport } from './routes/dashboard/team'
 import { Route as DashboardProjectsRouteImport } from './routes/dashboard/projects'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
 import { Route as DashboardApiKeysRouteImport } from './routes/dashboard/api-keys'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
-import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSchemaPushRouteImport } from './routes/api/schema/push'
 import { Route as ApiSchemaPullRouteImport } from './routes/api/schema/pull'
 import { Route as ApiSchemaProjectsRouteImport } from './routes/api/schema/projects'
@@ -65,11 +63,6 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocsSplatRoute = DocsSplatRouteImport.update({
-  id: '/docs/$',
-  path: '/docs/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardWorkspaceRoute = DashboardWorkspaceRouteImport.update({
   id: '/workspace',
   path: '/workspace',
@@ -99,11 +92,6 @@ const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
   getParentRoute: () => DashboardRouteRoute,
-} as any)
-const ApiSearchRoute = ApiSearchRouteImport.update({
-  id: '/api/search',
-  path: '/api/search',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSchemaPushRoute = ApiSchemaPushRouteImport.update({
   id: '/api/schema/push',
@@ -170,14 +158,12 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/api/search': typeof ApiSearchRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
-  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
@@ -196,14 +182,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/api/search': typeof ApiSearchRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
-  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -223,14 +207,12 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/api/search': typeof ApiSearchRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
-  '/docs/$': typeof DocsSplatRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
@@ -252,14 +234,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
-    | '/api/search'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
-    | '/docs/$'
     | '/invite/$token'
     | '/dashboard/'
     | '/dashboard/collections/$name'
@@ -278,14 +258,12 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
-    | '/api/search'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
-    | '/docs/$'
     | '/invite/$token'
     | '/dashboard'
     | '/api/auth/$'
@@ -304,14 +282,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/signup'
-    | '/api/search'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
-    | '/docs/$'
     | '/invite/$token'
     | '/dashboard/'
     | '/dashboard/collections/$name'
@@ -332,8 +308,6 @@ export interface RootRouteChildren {
   DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
-  ApiSearchRoute: typeof ApiSearchRoute
-  DocsSplatRoute: typeof DocsSplatRoute
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollectionsItemsRoute: typeof ApiCollectionsItemsRoute
@@ -389,13 +363,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/docs/$': {
-      id: '/docs/$'
-      path: '/docs/$'
-      fullPath: '/docs/$'
-      preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/dashboard/workspace': {
       id: '/dashboard/workspace'
       path: '/workspace'
@@ -437,13 +404,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/analytics'
       preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRouteRoute
-    }
-    '/api/search': {
-      id: '/api/search'
-      path: '/api/search'
-      fullPath: '/api/search'
-      preLoaderRoute: typeof ApiSearchRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/schema/push': {
       id: '/api/schema/push'
@@ -573,8 +533,6 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRouteRoute: DashboardRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
-  ApiSearchRoute: ApiSearchRoute,
-  DocsSplatRoute: DocsSplatRoute,
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollectionsItemsRoute: ApiCollectionsItemsRoute,
@@ -588,12 +546,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

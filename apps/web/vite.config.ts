@@ -1,16 +1,18 @@
 import { defineConfig } from "vite";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import viteTsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
-import mdx from "fumadocs-mdx/vite";
-import * as MdxConfig from "./source.config";
 
 const config = defineConfig({
   envPrefix: ["VITE_", "PUBLIC_"],
   resolve: {
-    // add other Fumadocs deps as needed
+    tsconfigPaths: true,
+    alias: {
+      tslib: "tslib/tslib.es6.js",
+    },
     noExternal: [
       "fumadocs-core",
       "fumadocs-ui",
@@ -19,8 +21,8 @@ const config = defineConfig({
     ],
   },
   plugins: [
+    TanStackRouterVite(),
     nitro(),
-    mdx(MdxConfig),
     viteTsConfigPaths({
       projects: ["./tsconfig.json"],
     }),

@@ -5,7 +5,6 @@ import {
   createRootRoute,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RootProvider } from "fumadocs-ui/provider/tanstack";
 import { PostHogProvider } from "posthog-js/react";
 
 import { env } from "@/lib/env";
@@ -60,7 +59,7 @@ export const Route = createRootRoute({
 function RootDocument({ children }: { children: React.ReactNode }) {
   const content = (
     <QueryClientProvider client={queryClient}>
-      <RootProvider>{children}</RootProvider>
+      {children}
     </QueryClientProvider>
   );
 
