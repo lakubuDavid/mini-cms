@@ -14,33 +14,10 @@ export default defineConfig({
     TanStackRouterVite(),
     mdx(await import('./source.config')),
     tailwindcss(),
-    tanstackStart({
-      spa: {
-        enabled: true,
-        prerender: {
-          enabled: false,
-          crawlLinks: true,
-        },
-      },
-
-      pages: [
-        {
-          path: '/docs',
-        },
-        {
-          path: '/api/search',
-        },
-        {
-          path: 'llms-full.txt',
-        },
-        {
-          path: 'llms.txt',
-        },
-      ],
-    }),
-    react(),
+    tanstackStart(),
     // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
     nitro(),
+    react(),
   ],
   resolve: {
     tsconfigPaths: true,
