@@ -188,7 +188,10 @@ export async function handleCollectionItems(request: Request) {
         },
       });
 
-      return json(cached, 200, { "x-cache": "HIT" });
+      return json(cached, 200, {
+        "x-cache": "HIT",
+        "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=30",
+      });
     }
 
     const items = await listItems(collection.id, {
@@ -231,7 +234,10 @@ export async function handleCollectionItems(request: Request) {
       },
     });
 
-    return json(payload, 200, { "x-cache": "MISS" });
+    return json(payload, 200, {
+      "x-cache": "MISS",
+      "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=30",
+    });
   } catch (error) {
     await captureServerError({
       error,

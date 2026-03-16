@@ -3,6 +3,7 @@ import {
   listCollectionsServerFn,
   getCollectionPageServerFn,
   getCollectionSchemaServerFn,
+  getCollectionItemCountsServerFn,
 } from "./collections-helpers";
 import { listAssetsServerFn } from "./assets-helpers";
 import { listProjectsServerFn } from "./projects-helpers";
@@ -16,6 +17,14 @@ import {
 } from "./auth-helpers";
 import type { DateRange } from "@/db/queries/analytics";
 
+// ── Stale time presets ──────────────────────────────────────
+// Stable data that rarely changes within a session.
+const STALE_LONG = 5 * 60_000; // 5 minutes
+// Data that changes occasionally (collection lists, invites, keys).
+const STALE_MEDIUM = 2 * 60_000; // 2 minutes
+// Actively-edited data (items, assets, analytics).
+const STALE_SHORT = 30_000; // 30 seconds
+
 // ── Query keys ──────────────────────────────────────────────
 
 export const queryKeys = {
@@ -27,6 +36,8 @@ export const queryKeys = {
   collectionPage: (slug: string, page: number, limit: number) =>
     ["collection-page", slug, { page, limit }] as const,
   collectionSchema: (slug: string) => ["collection-schema", slug] as const,
+  collectionItemCounts: (collectionIds: string[]) =>
+    ["collection-item-counts", collectionIds] as const,
   team: () => ["team"] as const,
   invites: () => ["invites"] as const,
   apiKeys: () => ["api-keys"] as const,
@@ -42,7 +53,7 @@ export function organizationQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.organization(),
     queryFn: () => getActiveOrganization(),
-    staleTime: 30_000,
+    staleTime: STALE_LONG,
   });
 }
 
@@ -50,7 +61,7 @@ export function organizationsQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.organizations(),
     queryFn: () => listOrganizations(),
-    staleTime: 30_000,
+    staleTime: STALE_LONG,
   });
 }
 
@@ -58,7 +69,7 @@ export function projectsQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.projects(),
     queryFn: () => listProjectsServerFn(),
-    staleTime: 30_000,
+    staleTime: STALE_LONG,
   });
 }
 
@@ -66,7 +77,7 @@ export function collectionsQueryOptions(page = 1, limit = 24, projectId?: string
   return queryOptions({
     queryKey: [...queryKeys.collections(page, limit), { projectId }] as const,
     queryFn: () => listCollectionsServerFn({ data: { page, limit, projectId } }),
-    staleTime: 15_000,
+    staleTime: STALE_MEDIUM,
   });
 }
 
@@ -78,7 +89,7 @@ export function collectionPageQueryOptions(
   return queryOptions({
     queryKey: queryKeys.collectionPage(slug, page, limit),
     queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit } }),
-    staleTime: 10_000,
+    staleTime: STALE_SHORT,
   });
 }
 
@@ -86,7 +97,16 @@ export function collectionSchemaQueryOptions(slug: string) {
   return queryOptions({
     queryKey: queryKeys.collectionSchema(slug),
     queryFn: () => getCollectionSchemaServerFn({ data: { slug } }),
-    staleTime: 30_000,
+    staleTime: STALE_LONG,
+  });
+}
+
+export function collectionItemCountsQueryOptions(collectionIds: string[]) {
+  return queryOptions({
+    queryKey: queryKeys.collectionItemCounts(collectionIds),
+    queryFn: () => getCollectionItemCountsServerFn({ data: { collectionIds } }),
+    staleTime: STALE_SHORT,
+    enabled: collectionIds.length > 0,
   });
 }
 
@@ -94,7 +114,7 @@ export function teamQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.team(),
     queryFn: () => listAdminUsers(),
-    staleTime: 30_000,
+    staleTime: STALE_LONG,
   });
 }
 
@@ -102,7 +122,7 @@ export function invitesQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.invites(),
     queryFn: () => listPendingInvitations(),
-    staleTime: 15_000,
+    staleTime: STALE_MEDIUM,
   });
 }
 
@@ -110,7 +130,7 @@ export function apiKeysQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.apiKeys(),
     queryFn: () => listApiKeysServerFn(),
-    staleTime: 15_000,
+    staleTime: STALE_MEDIUM,
   });
 }
 
@@ -119,7 +139,7 @@ export function analyticsQueryOptions(projectId: string, range: DateRange) {
     queryKey: queryKeys.analytics(projectId, range),
     queryFn: () =>
       getAnalyticsOverviewServerFn({ data: { projectId, range } }),
-    staleTime: 30_000,
+    staleTime: STALE_SHORT,
     enabled: !!projectId,
   });
 }
@@ -133,6 +153,6 @@ export function assetsQueryOptions(
   return queryOptions({
     queryKey: queryKeys.assets(page, limit, projectId, status),
     queryFn: () => listAssetsServerFn({ data: { page, limit, projectId, status } }),
-    staleTime: 10_000,
+    staleTime: STALE_SHORT,
   });
 }

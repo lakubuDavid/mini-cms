@@ -4,12 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCollectionServerFn,
   deleteCollectionServerFn,
-  getCollectionItemCountsServerFn,
 } from "@/lib/collections-helpers";
 import { createProjectServerFn } from "@/lib/projects-helpers";
 import {
   organizationQueryOptions,
   collectionsQueryOptions,
+  collectionItemCountsQueryOptions,
   projectsQueryOptions,
 } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
@@ -50,14 +50,9 @@ function DashboardHome() {
   );
 
   const collectionIds = collectionsQuery.data?.items.map((c) => c.id) ?? [];
-  const itemCountsQuery = useQuery({
-    queryKey: ["collection-item-counts", collectionIds],
-    queryFn: () =>
-      getCollectionItemCountsServerFn({
-        data: { collectionIds },
-      }),
-    enabled: collectionIds.length > 0,
-  });
+  const itemCountsQuery = useQuery(
+    collectionItemCountsQueryOptions(collectionIds),
+  );
 
   const isLoading =
     orgQuery.isLoading ||

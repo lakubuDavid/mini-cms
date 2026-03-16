@@ -3,7 +3,7 @@ title: Environment Variables
 description: Required environment variables for deploying Mini CMS.
 ---
 
-Set these variables for the production app deployment.
+Set these variables for the production app deployment. Once deployed, manage content from the [dashboard](/docs/dashboard).
 
 ## Required
 
@@ -53,6 +53,16 @@ S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 S3_PUBLIC_URL=
 ```
+
+## Docs App (Optional)
+
+The docs app (`apps/docs`) accepts one optional variable:
+
+```bash
+VITE_APP_URL=
+```
+
+When set, the docs navigation bar includes a "Dashboard" link pointing to the deployed app. Leave empty if the docs site is standalone.
 
 ## Variable Notes
 

@@ -15,8 +15,9 @@ import type { PostHogConfig } from "posthog-js";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 15_000,
+      staleTime: 2 * 60_000, // 2 minutes — individual queries override as needed
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     },
   },
 });

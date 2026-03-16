@@ -16,6 +16,7 @@
       "dependencies": {
         "@orama/orama": "^3.1.18",
         "@react-router/node": "^7.13.1",
+        "@t3-oss/env-core": "^0.13.10",
         "fumadocs-core": "16.6.17",
         "fumadocs-mdx": "14.2.10",
         "fumadocs-ui": "16.6.17",
@@ -25,6 +26,7 @@
         "react-dom": "^19.2.4",
         "react-router": "^7.13.1",
         "tailwind-merge": "^3.5.0",
+        "zod": "^4.3.6",
       },
       "devDependencies": {
         "@react-router/dev": "^7.13.1",
@@ -2626,6 +2628,8 @@
     "cross-fetch/node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
 
     "degenerator/ast-types": ["ast-types@0.13.4", "", { "dependencies": { "tslib": "^2.0.1" } }, "sha512-x1FCFnFifvYDDzTaLII71vG5uvDwgtmDTEVWAxrgeiR8VjMONcCXJx7E+USjDtHlwFmt9MysbqgF9b9Vjr6w+w=="],
+
+    "docs/zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
 
     "dom-serializer/entities": ["entities@4.5.0", "", {}, "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw=="],
 
