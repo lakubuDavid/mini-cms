@@ -14,9 +14,9 @@ export default defineConfig({
     TanStackRouterVite(),
     mdx(await import('./source.config')),
     tailwindcss(),
+    nitro(),
     tanstackStart(),
     // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
-    nitro(),
     react(),
   ],
   resolve: {
