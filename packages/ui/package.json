@@ -31,13 +31,13 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "@turbo/gen": "^2.8.1",
-    "@types/node": "^25.1.0",
-    "@types/react": "^19.2.10",
+    "@tailwindcss/vite": "^4.2.1",
+    "@turbo/gen": "^2.8.17",
+    "@types/node": "^25.5.0",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "oxlint": "^1.51.0",
-    "tailwindcss": "^4.1.18",
+    "oxlint": "^1.55.0",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3"
   }
 }
