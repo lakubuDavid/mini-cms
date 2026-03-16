@@ -47,6 +47,7 @@ export const env = createEnv({
     TURSO_DB_URL: z.string().min(1),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    RATE_LIMIT_TOKENS_PER_MINUTE:z.coerce.number().default(100)
   },
   shared: {
     APP_URL: z.string().url().default("http://localhost:3000"),

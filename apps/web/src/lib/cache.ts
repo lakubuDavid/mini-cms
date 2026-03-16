@@ -15,7 +15,7 @@ export const redis = new Redis({
 
 export const apiRateLimit = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(100, "1 m"),
+  limiter: Ratelimit.slidingWindow(env.RATE_LIMIT_TOKENS_PER_MINUTE, "1 m"),
   analytics: true,
   prefix: "mini-cms:ratelimit",
 });
