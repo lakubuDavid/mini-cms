@@ -14,11 +14,15 @@ export default defineConfig({
     TanStackRouterVite(),
     mdx(await import('./source.config')),
     tailwindcss(),
-    nitro({
-      preset:process.env.NITRO_PRESET ?? "node-server"
-    }),
     tanstackStart(),
-    // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
+    nitro({
+      preset: 'vercel',
+      vercel: {
+        functions: {
+          runtime: 'nodejs20.x'
+        }
+      }
+    }),
     react(),
   ],
   resolve: {
