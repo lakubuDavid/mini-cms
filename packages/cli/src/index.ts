@@ -5,6 +5,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
+import Table from "cli-table3";
 import { defineCommand, renderUsage, runCommand } from "citty";
 
 type FieldType = "text" | "url" | "number" | "boolean" | "date";
@@ -136,6 +137,7 @@ type CommandOptions = {
   declarations?: string;
   page?: number;
   limit?: number;
+  json?: boolean;
   verbose?: boolean;
 };
 
@@ -406,6 +408,10 @@ const sharedArgs = {
     type: "string",
     description: "Generated declaration file path",
   },
+  json: {
+    type: "boolean",
+    description: "Print raw JSON output",
+  },
   verbose: {
     type: "boolean",
     description: "Enable verbose CLI logging",
@@ -528,6 +534,7 @@ const miniCmsCommand = defineCommand({
         workspaceId: sharedArgs.workspaceId,
         projectId: sharedArgs.projectId,
         apiKey: sharedArgs.apiKey,
+        json: sharedArgs.json,
       },
       async run({ args }) {
         const config = await resolveConfig(toCommandOptions(args));
@@ -538,9 +545,18 @@ const miniCmsCommand = defineCommand({
           return;
         }
 
-        for (const project of payload.projects) {
-          console.log(`${project.id ?? "-"}  ${project.slug}  ${project.name}`);
+        if (args.json === true) {
+          console.log(JSON.stringify(payload, null, 2));
+          return;
         }
+
+        printTable(
+          payload.projects.map((project) => ({
+            id: project.id ?? "-",
+            slug: project.slug,
+            name: project.name,
+          })),
+        );
       },
     }),
     project: defineCommand({
@@ -619,6 +635,7 @@ const miniCmsCommand = defineCommand({
         workspaceId: sharedArgs.workspaceId,
         projectId: sharedArgs.projectId,
         apiKey: sharedArgs.apiKey,
+        json: sharedArgs.json,
       },
       async run({ args }) {
         const config = await resolveConfig(toCommandOptions(args));
@@ -629,9 +646,20 @@ const miniCmsCommand = defineCommand({
           return;
         }
 
-        for (const collection of payload.collections) {
-          console.log(`${collection.id ?? "-"}  ${collection.slug}  ${collection.name}`);
+        if (args.json === true) {
+          console.log(JSON.stringify(payload, null, 2));
+          return;
         }
+
+        printTable(
+          payload.collections.map((collection) => ({
+            id: collection.id ?? "-",
+            slug: collection.slug,
+            name: collection.name,
+            projectId: collection.projectId,
+            description: collection.description ?? "",
+          })),
+        );
       },
     }),
     collection: defineCommand({
@@ -679,7 +707,7 @@ const miniCmsCommand = defineCommand({
 
             const schemaPath = getStringArg(args.schema);
             const schema = schemaPath
-              ? (await readJsonFile<CollectionField[]>(resolve(schemaPath)))
+              ? ((await readJsonFile<CollectionField[]>(resolve(schemaPath))) ?? [])
               : [];
 
             const payload = await createCollectionWithApi(config, {
@@ -751,6 +779,7 @@ const miniCmsCommand = defineCommand({
                   type: "positional",
                   description: "Collection slug or id",
                 },
+                json: sharedArgs.json,
               },
               async run({ args }) {
                 const config = await resolveConfig(toCommandOptions(args));
@@ -763,7 +792,17 @@ const miniCmsCommand = defineCommand({
                   limit: getNumberArg(args.limit) ?? 100,
                 });
 
-                console.log(JSON.stringify(payload, null, 2));
+                if (args.json === true) {
+                  console.log(JSON.stringify(payload, null, 2));
+                  return;
+                }
+
+                if (!payload.items.length) {
+                  console.log(`No items found in ${payload.collection.slug}.`);
+                  return;
+                }
+
+                printTable(formatCollectionItemsTableRows(payload));
               },
             }),
             insert: defineCommand({
@@ -822,8 +861,8 @@ const miniCmsCommand = defineCommand({
 
                 const batchItems = itemsFile
                   ? await readJsonFile<Array<Record<string, string | number | boolean | null>>>(
-                    resolve(itemsFile),
-                  )
+                      resolve(itemsFile),
+                    ) ?? undefined
                   : undefined;
 
                 const payload = await mutateCollectionItemWithApi(config, {
@@ -1247,8 +1286,136 @@ function toCommandOptions(args: Record<string, unknown>): CommandOptions {
     declarations: getStringArg(args.declarations),
     page: getNumberArg(args.page),
     limit: getNumberArg(args.limit),
+    json: args.json === true,
     verbose: args.verbose === true,
   };
+}
+
+function formatCollectionItemsTableRows(payload: ListCollectionItemsResponse) {
+  const fieldKeys = collectItemFieldKeys(payload.items);
+
+  return payload.items.map((item) => ({
+    id: item.id,
+    order: item.order,
+    ...Object.fromEntries(
+      fieldKeys.map((fieldKey) => [fieldKey, formatTableValue(item.data[fieldKey])]),
+    ),
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  }));
+}
+
+function collectItemFieldKeys(items: ListCollectionItemsResponse["items"]) {
+  const keys: string[] = [];
+
+  for (const item of items) {
+    for (const key of Object.keys(item.data)) {
+      if (!keys.includes(key)) {
+        keys.push(key);
+      }
+    }
+  }
+
+  return keys;
+}
+
+function printTable(rows: Array<Record<string, unknown>>) {
+  if (!rows.length) {
+    return;
+  }
+
+  const columns = selectVisibleTableColumns(rows, Object.keys(rows[0]));
+
+  if (!columns.length) {
+    return;
+  }
+
+  console.log(renderTable(rows, columns));
+}
+
+function formatTableValue(value: unknown) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return JSON.stringify(value);
+}
+
+function renderTable(rows: Array<Record<string, unknown>>, columns: string[]) {
+  const table = new Table({
+    head: columns,
+    style: {
+      head: [],
+      border: [],
+      compact: false,
+    },
+    chars: {
+      top: "-",
+      "top-mid": "+",
+      "top-left": "+",
+      "top-right": "+",
+      bottom: "-",
+      "bottom-mid": "+",
+      "bottom-left": "+",
+      "bottom-right": "+",
+      left: "|",
+      "left-mid": "+",
+      mid: "-",
+      "mid-mid": "+",
+      right: "|",
+      "right-mid": "+",
+      middle: "|",
+    },
+    colWidths: columns.map((column) => getColumnWidth(rows, column)),
+    wordWrap: false,
+  });
+
+  table.push(
+    ...rows.map((row) => columns.map((column) => formatTableValue(row[column]))),
+  );
+
+  return table.toString();
+}
+
+function selectVisibleTableColumns(
+  rows: Array<Record<string, unknown>>,
+  columns: string[],
+) {
+  const maxWidth = getTerminalWidth();
+  const visibleColumns: string[] = [];
+
+  for (const column of columns) {
+    const nextColumns = [...visibleColumns, column];
+    const preview = renderTable(rows, nextColumns);
+    const previewWidth = Math.max(...preview.split("\n").map((line) => line.length));
+
+    if (previewWidth <= maxWidth || visibleColumns.length === 0) {
+      visibleColumns.push(column);
+    }
+  }
+
+  return visibleColumns;
+}
+
+function getColumnWidth(rows: Array<Record<string, unknown>>, column: string) {
+  return Math.max(
+    column.length,
+    ...rows.map((row) => formatTableValue(row[column]).length),
+  ) + 2;
+}
+
+function getTerminalWidth() {
+  return typeof process.stdout.columns === "number" && process.stdout.columns > 0
+    ? process.stdout.columns
+    : 120;
 }
 
 function logVerbose(message: string, details?: unknown) {
@@ -2512,12 +2679,15 @@ export {
   DEFAULT_SKILL_DIRECTORY,
   DEFAULT_TYPES_PATH,
   compactMiniConfig,
+  collectItemFieldKeys,
   formatCliError,
+  formatCollectionItemsTableRows,
   installSkill,
   loadCollectionsInput,
   normalizeBaseUrl,
   normalizeCollections,
   parseKeyValueInput,
+  printTable,
   promptForMiniConfig,
   pullSchemas,
   pushSchemas,

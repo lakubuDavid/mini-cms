@@ -15,6 +15,7 @@ import {
   pullSchemas,
   readError,
   resolveConfig,
+  run,
   writeClientFiles,
   writeMiniConfig,
   writeTypesFile,
@@ -23,6 +24,33 @@ import {
 import { cleanupTempDir, createJsonResponse, createTempDir } from "../common";
 
 const originalCwd = process.cwd();
+const originalConsoleLog = console.log;
+const originalFetch = globalThis.fetch;
+
+function getLoggedLines(logMock: ReturnType<typeof mock>) {
+  return (logMock.mock.calls as Array<[string]>)
+    .flatMap((call) => call[0].split("\n"))
+    .filter((line) => line.length > 0);
+}
+
+async function withMockedTerminalWidth<T>(width: number, runTest: () => Promise<T>) {
+  const descriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");
+
+  Object.defineProperty(process.stdout, "columns", {
+    configurable: true,
+    value: width,
+  });
+
+  try {
+    return await runTest();
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(process.stdout, "columns", descriptor);
+    } else {
+      Reflect.deleteProperty(process.stdout, "columns");
+    }
+  }
+}
 
 describe("cli helpers", () => {
   let tempDir: string;
@@ -37,6 +65,8 @@ describe("cli helpers", () => {
     delete process.env.MINI_CMS_WORKSPACE_ID;
     delete process.env.MINI_CMS_PROJECT_ID;
     delete process.env.MINI_CMS_API_KEY;
+    console.log = originalConsoleLog;
+    globalThis.fetch = originalFetch;
     mock.restore();
     process.chdir(originalCwd);
     await cleanupTempDir(tempDir);
@@ -507,5 +537,302 @@ describe("cli helpers", () => {
     await expect(readError(response)).resolves.toBe(
       "Request failed with status 502.",
     );
+  });
+
+  test("list-projects prints a table by default", async () => {
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        createJsonResponse({
+          workspaceId: "ws_123",
+          projects: [
+            { id: "proj_1", slug: "alpha", name: "Alpha Project" },
+            { id: "proj_2", slug: "beta", name: "Beta Project" },
+          ],
+        }),
+      ),
+    );
+    const logMock = mock(() => {});
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    console.log = logMock as unknown as typeof console.log;
+
+    await withMockedTerminalWidth(120, async () => {
+      await run([
+        "node",
+        "mini-cms",
+        "list-projects",
+        "--base-url",
+        "https://cms.example.com",
+        "--workspace-id",
+        "ws_123",
+        "--api-key",
+        "mcms_test",
+      ]);
+    });
+
+    expect(getLoggedLines(logMock)).toEqual([
+      "+--------+-------+---------------+",
+      "| id     | slug  | name          |",
+      "+--------+-------+---------------+",
+      "| proj_1 | alpha | Alpha Project |",
+      "+--------+-------+---------------+",
+      "| proj_2 | beta  | Beta Project  |",
+      "+--------+-------+---------------+",
+    ]);
+  });
+
+  test("list-projects prints json when --json is passed", async () => {
+    const payload = {
+      workspaceId: "ws_123",
+      projects: [{ id: "proj_1", slug: "alpha", name: "Alpha Project" }],
+    };
+    const fetchMock = mock(() => Promise.resolve(createJsonResponse(payload)));
+    const logMock = mock(() => {});
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    console.log = logMock as unknown as typeof console.log;
+
+    await run([
+      "node",
+      "mini-cms",
+      "list-projects",
+      "--base-url",
+      "https://cms.example.com",
+      "--workspace-id",
+      "ws_123",
+      "--api-key",
+      "mcms_test",
+      "--json",
+    ]);
+
+    expect(logMock).toHaveBeenCalledWith(JSON.stringify(payload, null, 2));
+  });
+
+  test("list-collections prints a table by default", async () => {
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        createJsonResponse({
+          workspaceId: "ws_123",
+          collections: [
+            {
+              id: "col_1",
+              slug: "projects",
+              name: "Projects",
+              projectId: "proj_1",
+              description: "Client work",
+              schema: [],
+            },
+          ],
+        }),
+      ),
+    );
+    const logMock = mock(() => {});
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    console.log = logMock as unknown as typeof console.log;
+
+    await withMockedTerminalWidth(120, async () => {
+      await run([
+        "node",
+        "mini-cms",
+        "list-collections",
+        "--base-url",
+        "https://cms.example.com",
+        "--workspace-id",
+        "ws_123",
+        "--project-id",
+        "proj_1",
+        "--api-key",
+        "mcms_test",
+      ]);
+    });
+
+    expect(getLoggedLines(logMock)).toEqual([
+      "+-------+----------+----------+-----------+-------------+",
+      "| id    | slug     | name     | projectId | description |",
+      "+-------+----------+----------+-----------+-------------+",
+      "| col_1 | projects | Projects | proj_1    | Client work |",
+      "+-------+----------+----------+-----------+-------------+",
+    ]);
+  });
+
+  test("collection item list prints a table by default", async () => {
+    const fetchMock = mock((input: string | URL | Request) => {
+      const url = new URL(
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+            ? input.url
+            : input.toString(),
+      );
+
+      if (url.pathname === "/api/schema/collections") {
+        return Promise.resolve(
+          createJsonResponse({
+            workspaceId: "ws_123",
+            collections: [
+              {
+                id: "col_1",
+                slug: "projects",
+                name: "Projects",
+                projectId: "proj_1",
+                description: "Client work",
+                schema: [],
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === "/api/schema/collection-items") {
+        return Promise.resolve(
+          createJsonResponse({
+            workspaceId: "ws_123",
+            collection: { id: "col_1", slug: "projects", name: "Projects" },
+            items: [
+              {
+                id: "item_1",
+                order: 1,
+                data: { title: "Homepage", featured: true },
+                createdAt: "2026-03-16T10:00:00.000Z",
+                updatedAt: "2026-03-16T11:00:00.000Z",
+              },
+            ],
+            pagination: {
+              page: 1,
+              limit: 100,
+              total: 1,
+              totalPages: 1,
+              hasMore: false,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unexpected URL: ${url.toString()}`);
+    });
+    const logMock = mock(() => {});
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    console.log = logMock as unknown as typeof console.log;
+
+    await withMockedTerminalWidth(120, async () => {
+      await run([
+        "node",
+        "mini-cms",
+        "collection",
+        "item",
+        "list",
+        "projects",
+        "--base-url",
+        "https://cms.example.com",
+        "--workspace-id",
+        "ws_123",
+        "--project-id",
+        "proj_1",
+        "--api-key",
+        "mcms_test",
+      ]);
+    });
+
+    expect(getLoggedLines(logMock)).toEqual([
+      "+--------+-------+----------+----------+--------------------------+--------------------------+",
+      "| id     | order | title    | featured | createdAt                | updatedAt                |",
+      "+--------+-------+----------+----------+--------------------------+--------------------------+",
+      "| item_1 | 1     | Homepage | true     | 2026-03-16T10:00:00.000Z | 2026-03-16T11:00:00.000Z |",
+      "+--------+-------+----------+----------+--------------------------+--------------------------+",
+    ]);
+  });
+
+  test("collection item list hides columns that exceed terminal width", async () => {
+    const fetchMock = mock((input: string | URL | Request) => {
+      const url = new URL(
+        typeof input === "string"
+          ? input
+          : input instanceof Request
+            ? input.url
+            : input.toString(),
+      );
+
+      if (url.pathname === "/api/schema/collections") {
+        return Promise.resolve(
+          createJsonResponse({
+            workspaceId: "ws_123",
+            collections: [
+              {
+                id: "col_1",
+                slug: "projects",
+                name: "Projects",
+                projectId: "proj_1",
+                description: "Client work",
+                schema: [],
+              },
+            ],
+          }),
+        );
+      }
+
+      if (url.pathname === "/api/schema/collection-items") {
+        return Promise.resolve(
+          createJsonResponse({
+            workspaceId: "ws_123",
+            collection: { id: "col_1", slug: "projects", name: "Projects" },
+            items: [
+              {
+                id: "item_1",
+                order: 1,
+                data: {
+                  title: "Homepage",
+                  featured: true,
+                  summary: "A very long summary column",
+                },
+                createdAt: "2026-03-16T10:00:00.000Z",
+                updatedAt: "2026-03-16T11:00:00.000Z",
+              },
+            ],
+            pagination: {
+              page: 1,
+              limit: 100,
+              total: 1,
+              totalPages: 1,
+              hasMore: false,
+            },
+          }),
+        );
+      }
+
+      throw new Error(`Unexpected URL: ${url.toString()}`);
+    });
+    const logMock = mock(() => {});
+
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    console.log = logMock as unknown as typeof console.log;
+
+    await withMockedTerminalWidth(35, async () => {
+      await run([
+        "node",
+        "mini-cms",
+        "collection",
+        "item",
+        "list",
+        "projects",
+        "--base-url",
+        "https://cms.example.com",
+        "--workspace-id",
+        "ws_123",
+        "--project-id",
+        "proj_1",
+        "--api-key",
+        "mcms_test",
+      ]);
+    });
+
+    expect(getLoggedLines(logMock)).toEqual([
+      "+--------+-------+----------+",
+      "| id     | order | title    |",
+      "+--------+-------+----------+",
+      "| item_1 | 1     | Homepage |",
+      "+--------+-------+----------+",
+    ]);
   });
 });
