@@ -14,7 +14,9 @@ export default defineConfig({
     TanStackRouterVite(),
     mdx(await import('./source.config')),
     tailwindcss(),
-    nitro(),
+    nitro({
+      preset:process.env.NITRO_PRESET ?? "node-server"
+    }),
     tanstackStart(),
     // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
     react(),
