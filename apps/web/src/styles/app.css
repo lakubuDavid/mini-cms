@@ -6,6 +6,29 @@
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 /*
+ * Shimmer skeleton animation
+ * A gradient sweep that moves left-to-right continuously.
+ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+:root {
+  --skeleton-from: #e7e5e4;
+  --skeleton-via: #d6d3d1;
+}
+
+.dark {
+  --skeleton-from: #292524;
+  --skeleton-via: #44403c;
+}
+
+/*
  * Dashboard dark mode
  * Scoped to .dash-dark so it doesn't conflict with fumadocs' own dark theme.
  * The dashboard layout wrapper gets class "dash-dark" in dark mode.

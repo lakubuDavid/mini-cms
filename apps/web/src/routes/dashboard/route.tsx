@@ -108,7 +108,7 @@ function DashboardLayout() {
             Workspace
           </Link>
           <a
-            href={env.DOCS_URL}
+            href={env.PUBLIC_DOCS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
