@@ -50,9 +50,9 @@ export const env = createEnv({
   },
   shared: {
     APP_URL: z.string().url().default("http://localhost:3000"),
-    DOCS_URL: z.string().url(),
+    DOCS_URL: z.string().url().default(""),
     POSTHOG_KEY: z.string().optional(),
   },
   runtimeEnv,
-  emptyStringAsUndefined: true,
+  emptyStringAsUndefined: false,
 });
