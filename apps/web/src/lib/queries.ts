@@ -4,6 +4,7 @@ import {
   getCollectionPageServerFn,
   getCollectionSchemaServerFn,
 } from "./collections-helpers";
+import { listAssetsServerFn } from "./assets-helpers";
 import { listProjectsServerFn } from "./projects-helpers";
 import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
 import {
@@ -31,6 +32,8 @@ export const queryKeys = {
   apiKeys: () => ["api-keys"] as const,
   analytics: (projectId: string, range: DateRange) =>
     ["analytics", { projectId, range }] as const,
+  assets: (page: number, limit: number, projectId?: string, status?: "pending" | "active") =>
+    ["assets", { page, limit, projectId, status }] as const,
 };
 
 // ── Query options factories ─────────────────────────────────
@@ -118,5 +121,18 @@ export function analyticsQueryOptions(projectId: string, range: DateRange) {
       getAnalyticsOverviewServerFn({ data: { projectId, range } }),
     staleTime: 30_000,
     enabled: !!projectId,
+  });
+}
+
+export function assetsQueryOptions(
+  page = 1,
+  limit = 24,
+  projectId?: string,
+  status?: "pending" | "active",
+) {
+  return queryOptions({
+    queryKey: queryKeys.assets(page, limit, projectId, status),
+    queryFn: () => listAssetsServerFn({ data: { page, limit, projectId, status } }),
+    staleTime: 10_000,
   });
 }

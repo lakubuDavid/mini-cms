@@ -294,6 +294,18 @@ export async function requireActiveOrganizationId() {
   return organizationId;
 }
 
+export async function requireSessionUserId() {
+  const { auth } = await import("./auth");
+  const headers = await getHeaders();
+  const session = await auth.api.getSession({ headers });
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  return session.user.id;
+}
+
 export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");

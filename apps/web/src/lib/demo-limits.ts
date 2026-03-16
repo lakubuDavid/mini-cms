@@ -1,6 +1,6 @@
 import { count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { collectionItems, collections, projects } from "@/db/schema";
+import { assets, collectionItems, collections, projects } from "@/db/schema";
 import { env } from "./env";
 
 export const demoLimits = {
@@ -8,6 +8,7 @@ export const demoLimits = {
   maxProjectsPerWorkspace: env.DEMO_MAX_PROJECTS_PER_WORKSPACE,
   maxCollectionsPerProject: env.DEMO_MAX_COLLECTIONS_PER_PROJECT,
   maxItemsPerCollection: env.DEMO_MAX_ITEMS_PER_COLLECTION,
+  maxAssetsPerProject: env.DEMO_MAX_ASSETS_PER_PROJECT,
 };
 
 export async function ensureWorkspaceLimit(userId: string) {
@@ -76,5 +77,22 @@ export async function ensureItemLimit(collectionId: string) {
 
   if ((result[0]?.value ?? 0) >= limit) {
     throw new Error(`Item limit reached. Max ${limit} item(s) per collection.`);
+  }
+}
+
+export async function ensureAssetLimit(projectId: string) {
+  const limit = demoLimits.maxAssetsPerProject;
+
+  if (!limit) {
+    return;
+  }
+
+  const result = await db
+    .select({ value: count() })
+    .from(assets)
+    .where(eq(assets.projectId, projectId));
+
+  if ((result[0]?.value ?? 0) >= limit) {
+    throw new Error(`Asset limit reached. Max ${limit} asset(s) per project.`);
   }
 }

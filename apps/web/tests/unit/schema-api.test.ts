@@ -169,7 +169,7 @@ describe("schema api routes", () => {
         verifySchemaApiKey,
         getCollectionById,
         listItems,
-      },
+      } as never,
     );
 
     expect(response.status).toBe(200);
@@ -233,7 +233,7 @@ describe("schema api routes", () => {
         createProject: mock(() => Promise.resolve(null)),
         deleteProject: mock(() => Promise.resolve(null)),
         getProjectById: mock(() => Promise.resolve(null)),
-      },
+      } as never,
     );
 
     expect(response.status).toBe(200);
@@ -271,7 +271,7 @@ describe("schema api routes", () => {
         getCollectionBySlug: mock(() => Promise.resolve(null)),
         createCollectionAction: mock(() => Promise.resolve(null)),
         deleteCollectionAction: mock(() => Promise.resolve(null)),
-      },
+      } as never,
     );
 
     expect(response.status).toBe(403);
@@ -313,7 +313,7 @@ describe("schema api routes", () => {
         createItemAction,
         updateItemAction: mock(() => Promise.resolve(null)),
         deleteItemAction: mock(() => Promise.resolve(null)),
-      },
+      } as never,
     );
 
     expect(response.status).toBe(200);
@@ -356,7 +356,7 @@ describe("schema api routes", () => {
         createItemAction,
         updateItemAction: mock(() => Promise.resolve(null)),
         deleteItemAction: mock(() => Promise.resolve(null)),
-      },
+      } as never,
     );
 
     expect(response.status).toBe(200);
