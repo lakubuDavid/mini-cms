@@ -1,26 +1,14 @@
-import react from '@vitejs/plugin-react';
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
-import { tanstackStart } from '@tanstack/react-start/plugin/vite';
-import { defineConfig } from 'vite';
-import tailwindcss from '@tailwindcss/vite';
-import mdx from 'fumadocs-mdx/vite';
-import { nitro } from 'nitro/vite';
+import { reactRouter } from "@react-router/dev/vite";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+import mdx from "fumadocs-mdx/vite";
+import * as MdxConfig from "./source.config";
 
 export default defineConfig({
-  plugins: [
-    TanStackRouterVite(),
-    mdx(await import('./source.config')),
-    tailwindcss(),
-    tanstackStart(),
-    nitro({
-      preset: 'vercel',
-    }),
-    react(),
-  ],
+  plugins: [mdx(MdxConfig), tailwindcss(), reactRouter()],
+  build:{
+  },
   resolve: {
     tsconfigPaths: true,
-    alias: {
-      tslib: 'tslib/tslib.es6.js',
-    },
   },
 });

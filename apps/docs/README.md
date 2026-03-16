@@ -1,11 +1,14 @@
 # docs
 
-Documentation site for Mini CMS.
+This is a React Router application generated with
+[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
 
-Run the docs app locally:
+Run development server:
 
 ```bash
-bun run dev
+npm run dev
+# or
+pnpm dev
+# or
+yarn dev
 ```
-
-Deploy the static output from `.output/public`.

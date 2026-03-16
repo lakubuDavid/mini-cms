@@ -257,6 +257,15 @@ const sameResponse = await client.collections.testimonials.query();
 sameResponse.items[0]?.title;
 ```
 
+Collection item records returned by the generated client are wrapped objects:
+
+```ts
+response.items[0]?.data.title;
+response.items[0]?.data._published;
+response.items[0]?.id;
+response.items[0]?.createdAt;
+```
+
 Hyphenated slugs are converted into JS-safe helper keys:
 
 ```ts
@@ -298,10 +307,19 @@ Key declarations:
 | `MiniCmsCollectionDefinition` | type | Collection metadata shape. |
 | `MiniCmsCollectionSlug` | type | Union of generated collection slugs. |
 | `MiniCmsCollectionMap` | type | Maps collection slugs to generated item types. |
-| `MiniCmsCollectionItem<T>` | generic type | Looks up the generated item type for a collection slug. |
+| `MiniCmsCollectionItem<T>` | generic type | Wrapped item record with `data`, `id`, `createdAt`, and `updatedAt`. |
 | `MiniCmsClientConfig` | type | Overrides for `baseUrl`, `workspaceId`, and `projectId`. |
 | `MiniCmsGetCollectionItemsOptions<T>` | generic type | Options shape for `getCollectionItems(collectionSlug, options?)`. |
 | `MiniCmsCollectionItemsResponse<T>` | generic type | Response shape returned by the public API client with typed `items`. |
+
+## Asset Commands
+
+```bash
+mini-cms asset list --project-id <project-id>
+mini-cms asset upload ./logo.png --project-id <project-id>
+mini-cms asset info <asset-id>
+mini-cms asset delete <asset-id>
+```
 
 ## Create A Collection From Code
 
@@ -394,6 +412,7 @@ mini-cms collection item insert testimonials --items="title=Hello;published=true
 mini-cms collection item insert testimonials --items-file ./items.json
 cat ./items.json | mini-cms collection item insert testimonials
 mini-cms collection item update testimonials --id="item_123" --value="title=Updated"
+mini-cms collection item update testimonials --id="item_123" --value="title=Updated" --merge
 mini-cms collection item delete testimonials --id="item_123"
 ```
 
@@ -412,8 +431,12 @@ mini-cms collection item delete testimonials --id="item_123"
 | `mini-cms collection delete <slug-or-id>` | Delete a collection. | `mini.config.json` | - |
 | `mini-cms collection item list <slug-or-id>` | List items in a collection. | `mini.config.json` | - |
 | `mini-cms collection item insert <slug-or-id>` | Insert one item with `--items` or many with `--items-file`. | `mini.config.json` | - |
-| `mini-cms collection item update <slug-or-id>` | Update an item in a collection. | `mini.config.json` | - |
+| `mini-cms collection item update <slug-or-id>` | Update an item in a collection. Use `--merge` to keep existing fields. | `mini.config.json` | - |
 | `mini-cms collection item delete <slug-or-id>` | Delete an item from a collection. | `mini.config.json` | - |
+| `mini-cms asset list` | List uploaded project assets. | `mini.config.json` | - |
+| `mini-cms asset upload <file>` | Upload an asset file using a presigned URL. | `mini.config.json` | - |
+| `mini-cms asset info <asset-id>` | Show metadata for one asset. | `mini.config.json` | - |
+| `mini-cms asset delete <asset-id>` | Delete an uploaded asset. | `mini.config.json` | - |
 | `mini-cms generate` | Generate a fetch-based browser client from local config and collection files. | `mini.config.json`, `mini.collections.json` | `mini.config.json`, `mini.types.ts`, `mini.client.js`, `mini.client.d.ts` |
 | `mini-cms add-skill` | Install the packaged CLI skill into the current project. | - | `.opencode/skills/mini-cms-cli/SKILL.md` |
 
@@ -1152,10 +1175,14 @@ cat ./items.json | mini-cms collection item insert testimonials
 
 ### `mini-cms collection item update`
 
-Updates an existing item's values.
+Updates an existing item's values. By default this replaces the stored item data with only the fields you pass. Use `--merge` to preserve existing fields and only overwrite the provided keys.
 
 ```bash
 mini-cms collection item update <slug-or-id> --id <item-id> --value "key=value"
+```
+
+```bash
+mini-cms collection item update <slug-or-id> --id <item-id> --value "key=value" --merge
 ```
 
 #### Basic Usage
@@ -1174,6 +1201,14 @@ mini-cms collection item update testimonials \
   --value "title=New title;author=New Author;featured=false"
 ```
 
+```bash
+# Merge fields into the existing item without removing other keys
+mini-cms collection item update testimonials \
+  --id item_abc123 \
+  --value "title=Updated title" \
+  --merge
+```
+
 #### Options
 
 | Option | Type | Required | Description |
@@ -1181,6 +1216,7 @@ mini-cms collection item update testimonials \
 | `<slug-or-id>` | string | **Yes** | Collection slug or ID |
 | `--id` | string | **Yes** | Item ID to update |
 | `--value` | string | **Yes** | Updated values as `key=value;key=value` |
+| `--merge` | boolean | No | Merge provided values into the existing item instead of replacing all fields |
 | `--project-id` | string | No* | Project scope |
 | `--base-url` | string | No* | Mini CMS base URL |
 | `--workspace-id` | string | No* | Workspace ID |
@@ -1191,6 +1227,7 @@ mini-cms collection item update testimonials \
 - Editing content from CLI
 - Bulk updates via scripts
 - Fixing typos in published content
+- Partial updates without resending the whole item payload
 
 ---
 

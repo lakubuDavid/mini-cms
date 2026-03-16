@@ -10,6 +10,7 @@ The dashboard is the easiest way to manage content if you are not working from c
 - create workspaces for each team or organization
 - create projects for each client site or content area
 - create collections for each content type inside a project
+- upload and manage reusable project assets
 - define the fields each item should have
 - add and edit content with a generated form
 - create API keys for developers and automation
@@ -132,6 +133,23 @@ Use unpublished items for drafts or items you don't want exposed publicly.
 This API key is what `mini-cms` uses for schema pull, push, collection listing, and protected item listing.
 
 The public content API does not use API keys.
+
+## Manage Assets
+
+1. Open `Assets` in the dashboard sidebar.
+2. Select the project the files should belong to.
+3. Click `Upload asset`.
+4. Choose an image, PDF, or video file.
+5. Copy the generated public URL and use it in collection items or frontend code.
+
+Assets are project-scoped, just like collections. Supported file types are common images, PDFs, and MP4/WebM videos up to 10MB.
+
+The Assets page also lets you:
+
+- browse uploaded files in a visual grid
+- preview image assets
+- copy the public URL for any asset
+- delete files that are no longer needed
 
 ### API Key Scopes
 
