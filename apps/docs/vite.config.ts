@@ -14,11 +14,6 @@ export default defineConfig({
     tanstackStart(),
     nitro({
       preset: 'vercel',
-      vercel: {
-        functions: {
-          runtime: 'nodejs20.x'
-        }
-      }
     }),
     react(),
   ],
