@@ -7,9 +7,6 @@ import mdx from 'fumadocs-mdx/vite';
 import { nitro } from 'nitro/vite';
 
 export default defineConfig({
-  server: {
-    port: 3001,
-  },
   plugins: [
     TanStackRouterVite(),
     mdx(await import('./source.config')),
