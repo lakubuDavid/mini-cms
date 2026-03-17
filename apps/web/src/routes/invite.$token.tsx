@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { acceptInvitationAction, getInvitationById } from "@/lib/auth-helpers";
 import { AlertCircle, LogIn, LogOut, UserPlus } from "lucide-react";
@@ -13,6 +14,7 @@ function InvitePage() {
   const { token } = Route.useParams();
   const invitation = Route.useLoaderData();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,6 +49,8 @@ function InvitePage() {
       return;
     }
 
+    await queryClient.invalidateQueries({ queryKey: ["invites"] });
+    await queryClient.invalidateQueries({ queryKey: ["team"] });
     await navigate({ to: "/dashboard", search: { projectId: undefined } });
   }
 
@@ -64,6 +68,8 @@ function InvitePage() {
         return;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ["invites"] });
+      await queryClient.invalidateQueries({ queryKey: ["team"] });
       await navigate({ to: "/dashboard", search: { projectId: undefined } });
     } catch (cause) {
       setError(

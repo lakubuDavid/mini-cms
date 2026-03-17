@@ -39,6 +39,34 @@ import {
   Plus,
 } from "lucide-react";
 
+function getProjectStorageKey(organizationId: string) {
+  return `mini-cms:last-project:${organizationId}`;
+}
+
+function readStoredProjectId(organizationId: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(getProjectStorageKey(organizationId));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredProjectId(organizationId: string, projectId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getProjectStorageKey(organizationId), projectId);
+  } catch {
+    // Ignore local storage failures.
+  }
+}
+
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
     const session = await getSession();
@@ -87,19 +115,52 @@ function DashboardLayout() {
       return;
     }
 
+    if (!organization || projects.length === 0) {
+      return;
+    }
+
+    const hasValidCurrentProject = projects.some(
+      (project) => project.id === currentProjectId,
+    );
+
+    if (hasValidCurrentProject && currentProjectId) {
+      writeStoredProjectId(organization.id, currentProjectId);
+      return;
+    }
+
     if (
-      projects.length > 0 &&
-      !currentProjectId &&
-      (currentPath === "/dashboard" || currentPath === "/dashboard/assets" || currentPath === "/dashboard/analytics")
+      currentPath === "/dashboard" ||
+      currentPath === "/dashboard/assets" ||
+      currentPath === "/dashboard/analytics"
     ) {
+      const storedProjectId = readStoredProjectId(organization.id);
+      const preferredProjectId = projects.some(
+        (project) => project.id === storedProjectId,
+      )
+        ? storedProjectId
+        : projects[0]?.id;
+
+      if (!preferredProjectId) {
+        return;
+      }
+
       const params = new URLSearchParams(currentSearch);
-      params.set("projectId", projects[0].id);
+      params.set("projectId", preferredProjectId);
       if (currentPath === "/dashboard/analytics" && !params.get("range")) {
         params.set("range", "30d");
       }
       window.history.replaceState({}, "", `${currentPath}?${params.toString()}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
     }
-  }, [currentPath, currentProjectId, currentSearch, hasWorkspace, navigate, projects]);
+  }, [
+    currentPath,
+    currentProjectId,
+    currentSearch,
+    hasWorkspace,
+    navigate,
+    organization,
+    projects,
+  ]);
 
   async function handleWorkspaceSwitch(organizationId: string) {
     await setActiveOrganizationAction({ data: { organizationId } });
@@ -118,6 +179,10 @@ function DashboardLayout() {
   }
 
   function handleProjectSelect(projectId: string) {
+    if (organization && projectId) {
+      writeStoredProjectId(organization.id, projectId);
+    }
+
     const params = new URLSearchParams(currentSearch);
     if (projectId) {
       params.set("projectId", projectId);
