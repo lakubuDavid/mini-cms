@@ -1,10 +1,18 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { assets, collectionItems, collections, projects } from "@/db/schema";
+import {
+  assets,
+  collectionItems,
+  collections,
+  invitations,
+  members,
+  projects,
+} from "@/db/schema";
 import { env } from "./env";
 
 export const demoLimits = {
   maxWorkspacesPerUser: env.DEMO_MAX_WORKSPACES_PER_USER,
+  maxUsersPerWorkspace: env.DEMO_MAX_USERS_PER_WORKSPACE,
   maxProjectsPerWorkspace: env.DEMO_MAX_PROJECTS_PER_WORKSPACE,
   maxCollectionsPerProject: env.DEMO_MAX_COLLECTIONS_PER_PROJECT,
   maxItemsPerCollection: env.DEMO_MAX_ITEMS_PER_COLLECTION,
@@ -43,6 +51,51 @@ export async function ensureProjectLimit(organizationId: string) {
 
   if ((result[0]?.value ?? 0) >= limit) {
     throw new Error(`Project limit reached. Max ${limit} project(s) per workspace.`);
+  }
+}
+
+export async function ensureWorkspaceUserLimit(
+  organizationId: string,
+  options?: { mode?: "create-invite" | "accept-invite" },
+) {
+  const limit = demoLimits.maxUsersPerWorkspace;
+
+  if (!limit) {
+    return;
+  }
+
+  const [memberResult, inviteResult] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(members)
+      .where(eq(members.organizationId, organizationId)),
+    db
+      .select({ value: count() })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.organizationId, organizationId),
+          eq(invitations.status, "pending"),
+        ),
+      ),
+  ]);
+
+  const occupiedSlots = (memberResult[0]?.value ?? 0) + (inviteResult[0]?.value ?? 0);
+
+  if (options?.mode === "accept-invite") {
+    if (occupiedSlots > limit) {
+      throw new Error(
+        `Workspace member limit reached. Max ${limit} user(s) and pending invite(s) per workspace.`,
+      );
+    }
+
+    return;
+  }
+
+  if (occupiedSlots >= limit) {
+    throw new Error(
+      `Workspace member limit reached. Max ${limit} user(s) and pending invite(s) per workspace.`,
+    );
   }
 }
 

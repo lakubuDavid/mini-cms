@@ -18,6 +18,20 @@
 - [ ] Verify lint works
   - [ ] Run `bun run lint`
 
+- [ ] Verify invite flows
+  - [ ] Signed-out invite path
+  - [ ] Signed-in matching-email invite path
+  - [ ] Signed-in mismatched-email blocking path
+
+- [ ] Verify onboarding flows
+  - [ ] Signup without workspace
+  - [ ] Login without workspace
+  - [ ] Workspace creation after account creation
+
+- [ ] Verify demo limits
+  - [ ] `DEMO_MAX_USERS_PER_WORKSPACE` blocks new invites at cap
+  - [ ] Invite acceptance is blocked at cap
+
 - [x] Test locally
   - [x] Start dev server
   - [x] Test public API

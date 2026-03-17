@@ -5,8 +5,10 @@
 - [x] Configure Resend client in `src/lib/email/index.ts`
 - [x] Create email templates in `src/lib/email/templates.ts`
   - [x] Invite email template
+- [ ] Signup verification email template
 
 - [x] Better Auth organization invite emails wired through Resend
+- [ ] Better Auth signup confirmation email wired through Resend
 - [ ] Test email sending
 
 ## Files to Create
@@ -24,3 +26,4 @@ export async function sendEmail(to: string, subject: string, html: string);
 ### src/lib/email/templates.ts
 
 - Invite email template with acceptance link
+- Signup verification email template with confirmation link

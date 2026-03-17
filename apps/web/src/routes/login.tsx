@@ -1,14 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { getActiveOrganization } from "@/lib/auth-helpers";
 import { Layers, LogIn, Mail, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect:
+      typeof search.redirect === "string" && search.redirect.startsWith("/")
+        ? search.redirect
+        : undefined,
+  }),
   component: LoginPage,
 });
 
 function LoginPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +36,19 @@ function LoginPage() {
 
     if (result.error) {
       setError(result.error.message ?? "Unable to sign in.");
+      return;
+    }
+
+    if (search.redirect) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await navigate({ to: search.redirect as any });
+      return;
+    }
+
+    const organization = await getActiveOrganization();
+
+    if (!organization) {
+      await navigate({ to: "/dashboard/workspace" });
       return;
     }
 

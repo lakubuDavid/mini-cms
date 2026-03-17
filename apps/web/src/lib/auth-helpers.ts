@@ -102,9 +102,16 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
     const headers = await getHeaders();
-    return auth.api.listUsers({
+    const { organizationId } = await ensureActiveOrganization();
+
+    if (!organizationId) {
+      return { users: [] };
+    }
+
+    return auth.api.listMembers({
       headers,
       query: {
+        organizationId,
         limit: 100,
         offset: 0,
       },
@@ -162,6 +169,76 @@ export const createOrganizationAction = createServerFn({ method: "POST" })
     }
   });
 
+export const createWorkspaceAction = createServerFn({ method: "POST" })
+  .inputValidator((data: { name: string; slug: string }) => data)
+  .handler(async ({ data }) => {
+    let organizationId: string | undefined;
+    let userId: string | undefined;
+
+    try {
+      const { auth } = await import("./auth");
+      const { createProject } = await import("../db/queries/projects");
+      const headers = await getHeaders();
+      const session = await auth.api.getSession({ headers });
+
+      if (!session?.user?.id) {
+        throw new Error("Unauthorized");
+      }
+
+      userId = session.user.id;
+
+      const { ensureWorkspaceLimit } = await import("./demo-limits");
+      await ensureWorkspaceLimit(userId);
+
+      const organization = await auth.api.createOrganization({
+        headers,
+        body: {
+          name: data.name,
+          slug: data.slug,
+        },
+      });
+
+      organizationId = organization.id;
+
+      const defaultProject = await createProject({
+        organizationId,
+        name: "Default",
+        slug: "default",
+        isDefault: true,
+      });
+
+      await captureServerEvent({
+        event: "workspace_created",
+        identity: createAnonymousServerIdentity({
+          subject: userId,
+          organizationId,
+          projectId: defaultProject?.id,
+        }),
+        properties: {
+          default_project_created: Boolean(defaultProject),
+        },
+      });
+
+      return {
+        organization,
+        defaultProject,
+      };
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({
+          subject: userId,
+          organizationId,
+        }),
+        properties: {
+          area: "workspaces",
+          operation: "create",
+        },
+      });
+      throw error;
+    }
+  });
+
 export const createInvitationAction = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -173,7 +250,13 @@ export const createInvitationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
+      const { ensureWorkspaceUserLimit } = await import("./demo-limits");
       const headers = await getHeaders();
+
+      await ensureWorkspaceUserLimit(data.organizationId, {
+        mode: "create-invite",
+      });
+
       const invitation = await auth.api.createInvitation({
         headers,
         body: {
@@ -216,12 +299,32 @@ export const getInvitationById = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const { auth } = await import("./auth");
     const headers = await getHeaders();
-    return auth.api.getInvitation({
-      headers,
-      query: {
-        id: data.id,
-      },
-    });
+    const [invitation, session] = await Promise.all([
+      auth.api.getInvitation({
+        headers,
+        query: {
+          id: data.id,
+        },
+      }),
+      auth.api.getSession({ headers }).catch(() => null),
+    ]);
+
+    const sessionEmail = session?.user?.email?.toLowerCase() ?? null;
+    const invitationEmail = invitation?.email?.toLowerCase() ?? null;
+    const emailMatchesSession = Boolean(
+      sessionEmail && invitationEmail && sessionEmail === invitationEmail,
+    );
+
+    return {
+      id: invitation?.id ?? data.id,
+      organizationId: invitation?.organizationId ?? null,
+      organizationName: invitation?.organizationName ?? null,
+      role: invitation?.role ?? null,
+      hasSession: Boolean(session),
+      currentUserEmail: session?.user?.email ?? null,
+      emailMatchesSession,
+      invitedEmail: emailMatchesSession ? invitation?.email ?? null : null,
+    };
   });
 
 export const acceptInvitationAction = createServerFn({ method: "POST" })
@@ -229,7 +332,33 @@ export const acceptInvitationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
+      const { ensureWorkspaceUserLimit } = await import("./demo-limits");
       const headers = await getHeaders();
+      const session = await auth.api.getSession({ headers });
+
+      if (!session?.user?.email) {
+        throw new Error("You must be signed in to accept an invitation.");
+      }
+
+      const invitation = await auth.api.getInvitation({
+        headers,
+        query: {
+          id: data.invitationId,
+        },
+      });
+
+      if (!invitation) {
+        throw new Error("Invitation not found.");
+      }
+
+      if (session.user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new Error("This invite can only be accepted by the invited account.");
+      }
+
+      await ensureWorkspaceUserLimit(invitation.organizationId, {
+        mode: "accept-invite",
+      });
+
       const result = await auth.api.acceptInvitation({
         headers,
         body: {

@@ -17,3 +17,22 @@ export function inviteEmailTemplate(input: {
     `,
   };
 }
+
+export function verificationEmailTemplate(input: {
+  verificationUrl: string;
+}) {
+  return {
+    subject: "Confirm your Mini CMS account",
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #111;">
+        <h1 style="font-size: 20px; margin-bottom: 12px;">Confirm your account</h1>
+        <p>Finish setting up your Mini CMS account by confirming your email address.</p>
+        <p>
+          <a href="${input.verificationUrl}" style="display: inline-block; padding: 10px 16px; background: #111; color: #fff; text-decoration: none; border-radius: 8px;">
+            Confirm email
+          </a>
+        </p>
+      </div>
+    `,
+  };
+}

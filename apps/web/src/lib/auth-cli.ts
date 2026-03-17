@@ -4,8 +4,11 @@ import { betterAuth } from "better-auth";
 import { admin, organization, testUtils } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { sendInviteEmail } from "@/lib/email";
-import { inviteEmailTemplate } from "@/lib/email/templates";
+import { sendEmail, sendInviteEmail } from "@/lib/email";
+import {
+  inviteEmailTemplate,
+  verificationEmailTemplate,
+} from "@/lib/email/templates";
 import { env } from "@/lib/env";
 import {
   ac,
@@ -25,6 +28,18 @@ export const auth = betterAuth({
   baseURL: env.APP_URL,
   emailAndPassword: {
     enabled: true,
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    async sendVerificationEmail({ user, url }) {
+      const template = verificationEmailTemplate({ verificationUrl: url });
+
+      void sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html,
+      });
+    },
   },
   plugins: [
     admin({

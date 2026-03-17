@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,8 +48,6 @@ export const Route = createFileRoute("/dashboard/assets" as never)({
 
 function DashboardAssetsPage() {
   const queryClient = useQueryClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const navigate = useNavigate({ from: "/dashboard/assets" as any });
   const search = Route.useSearch() as {
     projectId?: string;
     type?: "images" | "videos" | "documents";
@@ -59,25 +57,12 @@ function DashboardAssetsPage() {
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;
+  const effectiveProjectId = selectedProjectId;
 
-  // Auto-select first project when none is set
-  useEffect(() => {
-    if (!selectedProjectId && projects[0]?.id) {
-      void navigate({
-        search: ((current: Record<string, unknown>) => ({
-          ...current,
-          projectId: projects[0].id,
-        })) as never,
-        replace: true,
-      });
-    }
-  }, [navigate, projects, selectedProjectId]);
-
-  const effectiveProjectId = selectedProjectId || projects[0]?.id || "";
-
-  const assetsQuery = useQuery(
-    assetsQueryOptions(1, 100, effectiveProjectId || undefined),
-  );
+  const assetsQuery = useQuery({
+    ...assetsQueryOptions(1, 100, effectiveProjectId || undefined),
+    enabled: !!effectiveProjectId,
+  });
 
   const allAssets = assetsQuery.data?.items ?? [];
   const isLoading = projectsQuery.isLoading || assetsQuery.isLoading;
@@ -140,30 +125,6 @@ function DashboardAssetsPage() {
 
       {/* Filters row */}
       <div className="flex flex-wrap items-end gap-4">
-        <label className="grid gap-1.5 min-w-[14rem] max-w-sm">
-          <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
-            Project
-          </span>
-          <select
-            value={effectiveProjectId}
-            onChange={(event) =>
-              void navigate({
-                search: ((current: Record<string, unknown>) => ({
-                  ...current,
-                  projectId: event.target.value || undefined,
-                })) as never,
-              })
-            }
-            className="rounded-lg border-2 border-stone-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-stone-900 focus:ring-2 focus:ring-stone-900/20 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-stone-400 dark:focus:ring-stone-400/20"
-          >
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         {/* Type filter chips */}
         <div className="flex items-center gap-1.5">
           {(
@@ -179,14 +140,17 @@ function DashboardAssetsPage() {
               <button
                 key={chip.label}
                 type="button"
-                onClick={() =>
-                  void navigate({
-                    search: ((current: Record<string, unknown>) => ({
-                      ...current,
-                      type: chip.key,
-                    })) as never,
-                  })
-                }
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search);
+                    if (chip.key) {
+                      params.set("type", chip.key);
+                    } else {
+                      params.delete("type");
+                    }
+                    const query = params.toString();
+                    window.history.replaceState({}, "", query ? `${window.location.pathname}?${query}` : window.location.pathname);
+                    window.dispatchEvent(new PopStateEvent("popstate"));
+                  }}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   isActive
                     ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
@@ -205,8 +169,16 @@ function DashboardAssetsPage() {
         </div>
       </div>
 
-      {/* Grid */}
-      {isLoading ? (
+      {!effectiveProjectId ? (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <h3 className="text-base font-medium text-stone-900 dark:text-stone-100">
+            Workspace ready, project required
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            Select a project from the sidebar before you upload or browse assets.
+          </p>
+        </div>
+      ) : isLoading ? (
         <AssetsGridSkeleton />
       ) : (
         <AssetsGrid assets={assets} onDeleted={invalidate} />

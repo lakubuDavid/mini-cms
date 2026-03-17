@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell } from "recharts";
 import {
@@ -58,10 +58,8 @@ const CHART_COLORS = [
 ];
 
 function AnalyticsPage() {
-  const navigate = useNavigate({ from: "/dashboard/analytics" });
   const search = Route.useSearch();
   const projectsQuery = useQuery(projectsQueryOptions());
-  const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const range = search.range ?? "30d";
 
@@ -70,15 +68,6 @@ function AnalyticsPage() {
   const analyticsQuery = useQuery(
     analyticsQueryOptions(selectedProjectId, range),
   );
-
-  useEffect(() => {
-    if (!selectedProjectId && projects[0]?.id) {
-      void navigate({
-        search: (current) => ({ ...current, projectId: projects[0].id }),
-        replace: true,
-      });
-    }
-  }, [navigate, projects, selectedProjectId]);
 
   if (!analyticsEnabled) {
     return (
@@ -130,34 +119,14 @@ function AnalyticsPage() {
         <div className="flex items-center gap-3">
           <select
             className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200"
-            value={selectedProjectId}
-            onChange={(e) =>
-              void navigate({
-                search: (current) => ({
-                  ...current,
-                  projectId: e.target.value || undefined,
-                }),
-              })
-            }
-          >
-            <option value="">Select project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-200"
             value={range}
-            onChange={(e) =>
-              void navigate({
-                search: (current) => ({
-                  ...current,
-                  range: e.target.value as DateRange,
-                }),
-              })
-            }
+            onChange={(e) => {
+              const params = new URLSearchParams(window.location.search);
+              params.set("range", e.target.value as DateRange);
+              const query = params.toString();
+              window.history.replaceState({}, "", `${window.location.pathname}?${query}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -168,7 +137,7 @@ function AnalyticsPage() {
 
       {!selectedProjectId ? (
         <p className="text-sm text-stone-500 dark:text-stone-400">
-          Select a project to view analytics.
+          Select a project from the sidebar to view analytics.
         </p>
       ) : !data ? (
         <p className="text-sm text-stone-500 dark:text-stone-400">

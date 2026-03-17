@@ -40,6 +40,7 @@ export const env = createEnv({
       .int()
       .positive()
       .optional(),
+    DEMO_MAX_USERS_PER_WORKSPACE: z.coerce.number().int().positive().optional(),
     DEMO_MAX_WORKSPACES_PER_USER: z.coerce.number().int().positive().optional(),
     KV_REST_API_TOKEN: z.string().min(1).optional(),
     KV_REST_API_URL: z.string().url().optional(),

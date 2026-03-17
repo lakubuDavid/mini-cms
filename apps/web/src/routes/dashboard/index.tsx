@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -39,26 +39,25 @@ export const Route = createFileRoute("/dashboard/")({
 });
 
 function DashboardHome() {
-  const navigate = useNavigate({ from: "/dashboard/" });
   const search = Route.useSearch();
   const queryClient = useQueryClient();
   const orgQuery = useQuery(organizationQueryOptions());
-  const projectsQuery = useQuery(projectsQueryOptions());
+  const projectsQuery = useQuery({
+    ...projectsQueryOptions(),
+    enabled: !!orgQuery.data,
+  });
   const selectedProjectId = search.projectId ?? "";
-  const collectionsQuery = useQuery(
-    collectionsQueryOptions(1, 24, selectedProjectId || undefined),
-  );
+  const collectionsQuery = useQuery({
+    ...collectionsQueryOptions(1, 24, selectedProjectId || undefined),
+    enabled: !!orgQuery.data && !!selectedProjectId,
+  });
 
   const collectionIds = collectionsQuery.data?.items.map((c) => c.id) ?? [];
   const itemCountsQuery = useQuery(
     collectionItemCountsQueryOptions(collectionIds),
   );
 
-  const isLoading =
-    orgQuery.isLoading ||
-    projectsQuery.isLoading ||
-    collectionsQuery.isLoading ||
-    itemCountsQuery.isLoading;
+  const isLoading = orgQuery.isLoading || projectsQuery.isLoading || (!!selectedProjectId && (collectionsQuery.isLoading || itemCountsQuery.isLoading));
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["collections"] });
@@ -75,69 +74,55 @@ function DashboardHome() {
   };
   const itemCounts = itemCountsQuery.data ?? {};
 
-  useEffect(() => {
-    if (!selectedProjectId && projects[0]?.id) {
-      void navigate({
-        search: (current) => ({ ...current, projectId: projects[0].id }),
-        replace: true,
-      });
-    }
-  }, [navigate, projects, selectedProjectId]);
-
   if (isLoading) {
     return <DashboardHomeSkeleton />;
   }
 
-  return (
-    <section className="space-y-6">
-      {organization ? (
-        <div className="space-y-1 text-sm text-stone-600">
+  if (!organization) {
+    return (
+      <section className="space-y-6">
+        <div className="space-y-1">
           <h2 className="text-2xl font-semibold tracking-tight text-stone-900">
-            {organization.name}
+            Workspace required
           </h2>
-          <p className="flex items-center gap-1.5">
-            <span className="text-stone-500">Slug:</span>
-            <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-700">
-              {organization.slug}
-            </code>
-            <CopyButton value={organization.slug} />
-          </p>
-          <p className="flex items-center gap-1.5">
-            <span className="text-stone-500">ID:</span>
-            <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-700">
-              {organization.id}
-            </code>
-            <CopyButton value={organization.id} />
+          <p className="text-sm text-stone-500">
+            Create a workspace from the sidebar before you create projects or collections.
           </p>
         </div>
-      ) : (
-        <p className="text-sm text-stone-500">
-          No workspace yet. Create one from the sign-up flow.
-        </p>
-      )}
+      </section>
+    );
+  }
 
-      <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-        <label className="grid gap-1.5 max-w-sm">
-          <span className="text-sm font-medium text-stone-700 dark:text-stone-300">Project</span>
-          <select
-            value={selectedProjectId}
-            onChange={(event) =>
-              void navigate({
-                search: (current) => ({
-                  ...current,
-                  projectId: event.target.value || undefined,
-                }),
-              })
-            }
-            className="rounded-lg border-2 border-stone-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition focus:border-stone-900 focus:ring-2 focus:ring-stone-900/20 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-stone-400 dark:focus:ring-stone-400/20"
-          >
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </label>
+  return (
+    <section className="space-y-6">
+      <div className="space-y-1 text-sm text-stone-600">
+        <h2 className="text-2xl font-semibold tracking-tight text-stone-900">
+          {organization.name}
+        </h2>
+        <p className="flex items-center gap-1.5">
+          <span className="text-stone-500">Slug:</span>
+          <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-700">
+            {organization.slug}
+          </code>
+          <CopyButton value={organization.slug} />
+        </p>
+        <p className="flex items-center gap-1.5">
+          <span className="text-stone-500">ID:</span>
+          <code className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs text-stone-700">
+            {organization.id}
+          </code>
+          <CopyButton value={organization.id} />
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-sm text-stone-500">
+            {selectedProjectId
+              ? `Showing collections for ${projects.find((project) => project.id === selectedProjectId)?.name ?? "your selected project"}.`
+              : "Select or create a project from the sidebar to manage collections."}
+          </p>
+        </div>
         <NewProjectDialog onCreated={invalidate} />
       </div>
 
@@ -145,9 +130,9 @@ function DashboardHome() {
         <div>
           <h3 className="text-lg font-semibold tracking-tight">Collections</h3>
           <p className="mt-1 text-sm text-stone-500">
-            {organization
+            {selectedProjectId
               ? `${collections.items.length} collection${collections.items.length === 1 ? "" : "s"}`
-              : "No organization yet."}
+              : "Choose a project to see its collections."}
           </p>
         </div>
         <NewCollectionDialog
@@ -157,6 +142,16 @@ function DashboardHome() {
         />
       </div>
 
+      {!selectedProjectId ? (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <h3 className="text-base font-medium text-stone-900 dark:text-stone-100">
+            No project selected
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            Select a project from the sidebar, or create one to start organizing collections.
+          </p>
+        </div>
+      ) : (
       <div className="overflow-hidden rounded-lg border border-stone-200">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
@@ -229,6 +224,7 @@ function DashboardHome() {
           </tbody>
         </table>
       </div>
+      )}
     </section>
   );
 }

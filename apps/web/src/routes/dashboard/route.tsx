@@ -1,13 +1,25 @@
-import { useState } from "react";
-import { getSession } from "@/lib/auth-helpers";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getActiveOrganization,
+  getSession,
+  setActiveOrganizationAction,
+} from "@/lib/auth-helpers";
 import { authClient } from "@/lib/auth-client";
+import { CreateWorkspaceForm } from "@/components/dashboard/create-workspace-form";
 import { env } from "@/lib/env";
+import {
+  organizationQueryOptions,
+  organizationsQueryOptions,
+  projectsQueryOptions,
+} from "@/lib/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Link,
   Outlet,
   createFileRoute,
   redirect,
+  useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
 import {
@@ -23,6 +35,8 @@ import {
   ChevronUp,
   BarChart3,
   Image,
+  ChevronDown,
+  Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -33,14 +47,92 @@ export const Route = createFileRoute("/dashboard")({
       throw redirect({ to: "/" });
     }
 
-    return { user: session.user };
+    const organization = await getActiveOrganization();
+
+    return { user: session.user, hasWorkspace: Boolean(organization) };
   },
   component: DashboardLayout,
 });
 
 function DashboardLayout() {
-  const { user } = useRouteContext({ from: "/dashboard" });
+  const { user, hasWorkspace } = useRouteContext({ from: "/dashboard" });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
+  const orgQuery = useQuery(organizationQueryOptions());
+  const orgsQuery = useQuery(organizationsQueryOptions());
+  const projectsQuery = useQuery({
+    ...projectsQueryOptions(),
+    enabled: hasWorkspace,
+  });
+  const organization = orgQuery.data ?? null;
+  const organizations = orgsQuery.data ?? [];
+  const projects = projectsQuery.data ?? [];
+
+  const currentPath = typeof window === "undefined"
+    ? ""
+    : window.location.pathname;
+  const currentSearch = typeof window === "undefined"
+    ? new URLSearchParams()
+    : new URLSearchParams(window.location.search);
+  const currentProjectId = currentSearch.get("projectId") ?? "";
+
+  useEffect(() => {
+    if (!hasWorkspace) {
+      if (currentPath !== "/dashboard/workspace") {
+        void navigate({ to: "/dashboard/workspace" });
+      }
+      return;
+    }
+
+    if (
+      projects.length > 0 &&
+      !currentProjectId &&
+      (currentPath === "/dashboard" || currentPath === "/dashboard/assets" || currentPath === "/dashboard/analytics")
+    ) {
+      const params = new URLSearchParams(currentSearch);
+      params.set("projectId", projects[0].id);
+      if (currentPath === "/dashboard/analytics" && !params.get("range")) {
+        params.set("range", "30d");
+      }
+      window.history.replaceState({}, "", `${currentPath}?${params.toString()}`);
+    }
+  }, [currentPath, currentProjectId, currentSearch, hasWorkspace, navigate, projects]);
+
+  async function handleWorkspaceSwitch(organizationId: string) {
+    await setActiveOrganizationAction({ data: { organizationId } });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["organization"] }),
+      queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["collections"] }),
+      queryClient.invalidateQueries({ queryKey: ["assets"] }),
+      queryClient.invalidateQueries({ queryKey: ["analytics"] }),
+      queryClient.invalidateQueries({ queryKey: ["team"] }),
+      queryClient.invalidateQueries({ queryKey: ["invites"] }),
+    ]);
+    setWorkspaceOpen(false);
+    window.location.href = "/dashboard";
+  }
+
+  function handleProjectSelect(projectId: string) {
+    const params = new URLSearchParams(currentSearch);
+    if (projectId) {
+      params.set("projectId", projectId);
+    } else {
+      params.delete("projectId");
+    }
+
+    if (currentPath === "/dashboard/analytics" && !params.get("range")) {
+      params.set("range", "30d");
+    }
+
+    const query = params.toString();
+    window.history.replaceState({}, "", query ? `${currentPath}?${query}` : currentPath);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
 
   return (
     <div className="flex min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
@@ -50,6 +142,43 @@ function DashboardLayout() {
             <Layers className="h-4 w-4" />
           </div>
           <span className="text-sm font-semibold tracking-tight">Mini CMS</span>
+        </div>
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
+            <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+              Project
+            </p>
+            {hasWorkspace ? (
+              <select
+                value={currentProjectId || projects[0]?.id || ""}
+                onChange={(event) => handleProjectSelect(event.target.value)}
+                className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+              >
+                {projects.length ? (
+                  projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No projects yet</option>
+                )}
+              </select>
+            ) : (
+              <p className="mt-2 px-1 text-xs text-stone-500 dark:text-stone-400">
+                Create a workspace first.
+              </p>
+            )}
+            {hasWorkspace ? (
+              <Link
+                to="/dashboard/projects"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Manage projects
+              </Link>
+            ) : null}
+          </div>
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-0.5 text-sm">
           <Link
@@ -118,6 +247,78 @@ function DashboardLayout() {
             <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
           </a>
         </nav>
+
+        <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
+          {workspaceOpen ? (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setWorkspaceOpen(false)} />
+              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                <div className="mb-3 px-1">
+                  <p className="text-xs uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                    Workspace
+                  </p>
+                  <p className="mt-1 truncate text-sm font-medium text-stone-900 dark:text-stone-100">
+                    {organization?.name ?? "No workspace selected"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  {organizations.map((org) => (
+                    <button
+                      key={org.id}
+                      type="button"
+                      onClick={() => void handleWorkspaceSwitch(org.id)}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${org.id === organization?.id ? "bg-stone-100 font-medium text-stone-900 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}`}
+                    >
+                      <span className="truncate">{org.name}</span>
+                      {org.id === organization?.id ? (
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-stone-400">Active</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkspaceCreateOpen((open) => !open);
+                  }}
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create workspace
+                </button>
+                {workspaceCreateOpen ? (
+                  <div className="mt-3 border-t border-stone-200 pt-3 dark:border-stone-800">
+                    <CreateWorkspaceForm
+                      compact
+                      onCreated={() => {
+                        setWorkspaceCreateOpen(false);
+                        setWorkspaceOpen(false);
+                        window.location.href = "/dashboard";
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setWorkspaceOpen((open) => !open)}
+            className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
+          >
+            <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-stone-900 dark:text-stone-100">
+                {organization?.name ?? "Create workspace"}
+              </p>
+              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                {organization?.slug ?? "Workspace required before creating a project"}
+              </p>
+            </div>
+            <ChevronDown className="h-4 w-4 shrink-0 text-stone-400" />
+          </button>
+        </div>
 
         {/* Profile area */}
         <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">

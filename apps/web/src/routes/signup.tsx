@@ -1,28 +1,31 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { createOrganizationAction } from "@/lib/auth-helpers";
+import { getActiveOrganization } from "@/lib/auth-helpers";
 import {
   Layers,
   User,
   Mail,
   Lock,
-  Building,
-  Hash,
   ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/signup")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect:
+      typeof search.redirect === "string" && search.redirect.startsWith("/")
+        ? search.redirect
+        : undefined,
+  }),
   component: SignUpPage,
 });
 
 function SignUpPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [organizationName, setOrganizationName] = useState("");
-  const [organizationSlug, setOrganizationSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -43,21 +46,22 @@ function SignUpPage() {
       return;
     }
 
-    const organization = await createOrganizationAction({
-      data: {
-        name: organizationName,
-        slug: organizationSlug,
-      },
-    });
+    const organization = await getActiveOrganization();
 
     setPending(false);
 
-    if (!organization) {
-      setError("Account created, but organization setup failed.");
+    if (search.redirect) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await navigate({ to: search.redirect as any });
       return;
     }
 
-    await navigate({ to: "/dashboard", search: { projectId: undefined } });
+    if (organization) {
+      await navigate({ to: "/dashboard", search: { projectId: undefined } });
+      return;
+    }
+
+    await navigate({ to: "/dashboard/workspace" });
   }
 
   return (
@@ -71,10 +75,10 @@ function SignUpPage() {
             Get started
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight dark:text-stone-100">
-            Create your CMS workspace
+            Create your account
           </h1>
           <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">
-            Create your admin account and a first organization for your studio.
+            Sign up first, then create a workspace when you're ready to start managing projects.
           </p>
         </div>
 
@@ -125,42 +129,6 @@ function SignUpPage() {
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-              Organization name
-            </label>
-            <div className="relative">
-              <Building className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
-              <input
-                type="text"
-                value={organizationName}
-                onChange={(event) => setOrganizationName(event.target.value)}
-                placeholder="Acme Studios"
-                className="w-full rounded-2xl border border-stone-300 bg-stone-50 pl-11 pr-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-500 dark:focus:bg-stone-800"
-                required
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-stone-700 dark:text-stone-300">
-              Organization slug
-            </label>
-            <div className="relative">
-              <Hash className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
-              <input
-                type="text"
-                value={organizationSlug}
-                onChange={(event) =>
-                  setOrganizationSlug(
-                    event.target.value.toLowerCase().replace(/\s+/g, "-"),
-                  )
-                }
-                placeholder="acme-studios"
-                className="w-full rounded-2xl border border-stone-300 bg-stone-50 pl-11 pr-4 py-3 text-sm outline-none transition focus:border-stone-900 focus:bg-white dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-500 dark:focus:bg-stone-800"
-                required
-              />
-            </div>
-          </div>
           {error ? (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl dark:bg-red-950 dark:text-red-400">
               {error}
@@ -172,10 +140,10 @@ function SignUpPage() {
             className="mt-2 w-full flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
           >
             {pending ? (
-              "Creating workspace..."
+              "Creating account..."
             ) : (
               <>
-                Create workspace
+                Create account
                 <ArrowRight className="h-4 w-4" />
               </>
             )}

@@ -84,8 +84,18 @@ function TeamPage() {
     return <TeamPageSkeleton />;
   }
 
+  type TeamMemberRow = {
+    id: string;
+    role: string | string[] | null;
+    user?: { name?: string | null; email?: string | null } | null;
+  };
+
   const organization = orgQuery.data ?? null;
-  const users = usersQuery.data ?? { users: [] };
+  const members: TeamMemberRow[] = Array.isArray(
+    (usersQuery.data as { members?: TeamMemberRow[] } | undefined)?.members,
+  )
+    ? ((usersQuery.data as { members?: TeamMemberRow[] }).members ?? [])
+    : [];
   const invites = invitesQuery.data ?? [];
 
   return (
@@ -119,18 +129,18 @@ function TeamPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
-              {users.users.map((user: (typeof users.users)[number]) => (
-                <tr key={user.id} className="hover:bg-stone-50">
+              {members.map((member) => (
+                <tr key={member.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3 font-medium text-stone-900">
-                    {user.name}
+                    {member.user?.name ?? "Unknown"}
                   </td>
-                  <td className="px-4 py-3 text-stone-500">{user.email}</td>
+                  <td className="px-4 py-3 text-stone-500">{member.user?.email ?? "-"}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
                       <Shield className="h-3 w-3" />
-                      {Array.isArray(user.role)
-                        ? user.role.join(", ")
-                        : (user.role ?? "admin")}
+                      {Array.isArray(member.role)
+                        ? member.role.join(", ")
+                        : (member.role ?? "member")}
                     </span>
                   </td>
                 </tr>
