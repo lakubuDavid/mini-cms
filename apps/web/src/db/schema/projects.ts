@@ -3,6 +3,8 @@ import { index, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { organizations } from "./auth";
 import { collections } from "./collections";
 
+export type ApiAccessType = "public" | "restricted" | "none";
+
 export const projects = sqliteTable(
   "projects",
   {
@@ -18,6 +20,13 @@ export const projects = sqliteTable(
     updatedAt: text("updated_at")
       .notNull()
       .$defaultFn(() => new Date().toISOString()),
+    apiAccess: text("api_access", { mode: "json" })
+      .$type<{
+        type: ApiAccessType;
+        allowedDomains?: string[];
+      }>()
+      .notNull()
+      .default(sql`'{"type":"public"}'`),
     metadata: text("metadata", { mode: "json" })
       .$type<{ isDefault?: boolean }>()
       .notNull()

@@ -125,6 +125,46 @@ export async function handleCollectionItems(request: Request) {
       return json({ error: "Project not found." }, 404);
     }
 
+    const apiAccess = project.apiAccess ?? { type: "public" };
+    const origin = request.headers.get("origin") || request.headers.get("referer") || "";
+    const originDomain = extractDomain(origin);
+
+    if (apiAccess.type === "none") {
+      await captureServerEvent({
+        event: "public_collection_items_denied",
+        identity: requestIdentity,
+        properties: {
+          collection_slug_hash: anonymizeServerValue(collectionSlug, "collection"),
+          reason: "api_access_disabled",
+        },
+      });
+      return json({ error: "API access is disabled for this project." }, 403);
+    }
+
+    if (apiAccess.type === "restricted" && apiAccess.allowedDomains && apiAccess.allowedDomains.length > 0) {
+      const isAllowed = apiAccess.allowedDomains.some((domain) => {
+        const normalizedDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "");
+        const normalizedOrigin = originDomain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "");
+        return normalizedOrigin === normalizedDomain || normalizedOrigin.endsWith(`.${normalizedDomain}`);
+      });
+
+      if (!isAllowed && originDomain !== "unknown" && originDomain !== "") {
+        await captureServerEvent({
+          event: "public_collection_items_denied",
+          identity: requestIdentity,
+          properties: {
+            collection_slug_hash: anonymizeServerValue(collectionSlug, "collection"),
+            reason: "domain_not_allowed",
+            origin_domain_hash: anonymizeServerValue(originDomain, "origin"),
+          },
+        });
+        return json(
+          { error: `API access is restricted. Origin '${originDomain}' is not allowed.` },
+          403,
+        );
+      }
+    }
+
     const collection = collectionId
       ? await getCollectionById(collectionId, workspaceId, projectId)
       : await getCollectionBySlug(collectionSlug!, workspaceId, projectId);
@@ -134,8 +174,6 @@ export async function handleCollectionItems(request: Request) {
     }
 
     // Fire-and-forget request logging for analytics
-    const origin = request.headers.get("origin") || request.headers.get("referer") || "unknown";
-    const originDomain = extractDomain(origin);
     void db
       .insert(requestLogs)
       .values({

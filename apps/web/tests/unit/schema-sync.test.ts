@@ -97,6 +97,7 @@ describe("schema-sync", () => {
           createdAt: "2026-03-09T00:00:00.000Z",
           updatedAt: "2026-03-09T00:00:00.000Z",
           metadata: { isDefault: true },
+          apiAccess: { type: "public" as const },
         }),
       ),
       getProjectById: mock(() => Promise.resolve(undefined)),

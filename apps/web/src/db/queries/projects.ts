@@ -1,7 +1,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
-import { projects } from "@/db/schema";
+import { projects, type ApiAccessType } from "@/db/schema/projects";
 
 export type CreateProjectInput = {
   organizationId: string;
@@ -33,13 +33,14 @@ export async function getDefaultProject(organizationId: string) {
 export async function updateProject(
   id: string,
   organizationId: string,
-  data: { name?: string; slug?: string },
+  data: { name?: string; slug?: string; apiAccess?: { type: ApiAccessType; allowedDomains?: string[] } },
 ) {
   await db
     .update(projects)
     .set({
       ...(data.name !== undefined ? { name: data.name } : {}),
       ...(data.slug !== undefined ? { slug: data.slug } : {}),
+      ...(data.apiAccess !== undefined ? { apiAccess: data.apiAccess } : {}),
       updatedAt: new Date().toISOString(),
     })
     .where(and(eq(projects.id, id), eq(projects.organizationId, organizationId)));

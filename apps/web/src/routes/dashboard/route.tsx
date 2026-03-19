@@ -1,16 +1,10 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getActiveOrganization,
-  getSession,
-  setActiveOrganizationAction,
-} from "@/lib/auth-helpers";
+import { useQuery } from "@tanstack/react-query";
+import { getActiveOrganization, getSession } from "@/lib/auth-helpers";
 import { authClient } from "@/lib/auth-client";
-import { CreateWorkspaceForm } from "@/components/dashboard/create-workspace-form";
 import { env } from "@/lib/env";
 import {
   organizationQueryOptions,
-  organizationsQueryOptions,
   projectsQueryOptions,
 } from "@/lib/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -29,14 +23,12 @@ import {
   Settings,
   LogOut,
   BookOpen,
-  FolderTree,
   ExternalLink,
   User,
   ChevronUp,
   BarChart3,
   Image,
   ChevronDown,
-  Plus,
 } from "lucide-react";
 
 function getProjectStorageKey(organizationId: string) {
@@ -85,18 +77,13 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardLayout() {
   const { user, hasWorkspace } = useRouteContext({ from: "/dashboard" });
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [workspaceCreateOpen, setWorkspaceCreateOpen] = useState(false);
   const orgQuery = useQuery(organizationQueryOptions());
-  const orgsQuery = useQuery(organizationsQueryOptions());
   const projectsQuery = useQuery({
     ...projectsQueryOptions(),
     enabled: hasWorkspace,
   });
   const organization = orgQuery.data ?? null;
-  const organizations = orgsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
 
   const currentPath = typeof window === "undefined"
@@ -162,22 +149,6 @@ function DashboardLayout() {
     projects,
   ]);
 
-  async function handleWorkspaceSwitch(organizationId: string) {
-    await setActiveOrganizationAction({ data: { organizationId } });
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["organization"] }),
-      queryClient.invalidateQueries({ queryKey: ["organizations"] }),
-      queryClient.invalidateQueries({ queryKey: ["projects"] }),
-      queryClient.invalidateQueries({ queryKey: ["collections"] }),
-      queryClient.invalidateQueries({ queryKey: ["assets"] }),
-      queryClient.invalidateQueries({ queryKey: ["analytics"] }),
-      queryClient.invalidateQueries({ queryKey: ["team"] }),
-      queryClient.invalidateQueries({ queryKey: ["invites"] }),
-    ]);
-    setWorkspaceOpen(false);
-    window.location.href = "/dashboard";
-  }
-
   function handleProjectSelect(projectId: string) {
     if (organization && projectId) {
       writeStoredProjectId(organization.id, projectId);
@@ -239,20 +210,23 @@ function DashboardLayout() {
                 to="/dashboard/projects"
                 className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Settings className="h-3.5 w-3.5" />
                 Manage projects
+              </Link>
+            ) : null}
+            {hasWorkspace && currentProjectId ? (
+              <Link
+                to="/dashboard/projects/$projectId/settings"
+                params={{ projectId: currentProjectId }}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Project settings
               </Link>
             ) : null}
           </div>
         </div>
         <nav className="mt-6 flex flex-1 flex-col gap-0.5 text-sm">
-          <Link
-            to="/dashboard/projects"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <FolderTree className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Projects
-          </Link>
           <Link
             to="/dashboard"
             search={{ projectId: undefined }}
@@ -294,13 +268,6 @@ function DashboardLayout() {
               Analytics
             </Link>
           ) : null}
-          <Link
-            to="/dashboard/workspace"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Workspace
-          </Link>
           <a
             href={env.PUBLIC_DOCS_URL}
             target="_blank"
@@ -314,62 +281,8 @@ function DashboardLayout() {
         </nav>
 
         <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
-          {workspaceOpen ? (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setWorkspaceOpen(false)} />
-              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
-                <div className="mb-3 px-1">
-                  <p className="text-xs uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
-                    Workspace
-                  </p>
-                  <p className="mt-1 truncate text-sm font-medium text-stone-900 dark:text-stone-100">
-                    {organization?.name ?? "No workspace selected"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  {organizations.map((org) => (
-                    <button
-                      key={org.id}
-                      type="button"
-                      onClick={() => void handleWorkspaceSwitch(org.id)}
-                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${org.id === organization?.id ? "bg-stone-100 font-medium text-stone-900 dark:bg-stone-800 dark:text-white" : "text-stone-700 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"}`}
-                    >
-                      <span className="truncate">{org.name}</span>
-                      {org.id === organization?.id ? (
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-stone-400">Active</span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkspaceCreateOpen((open) => !open);
-                  }}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create workspace
-                </button>
-                {workspaceCreateOpen ? (
-                  <div className="mt-3 border-t border-stone-200 pt-3 dark:border-stone-800">
-                    <CreateWorkspaceForm
-                      compact
-                      onCreated={() => {
-                        setWorkspaceCreateOpen(false);
-                        setWorkspaceOpen(false);
-                        window.location.href = "/dashboard";
-                      }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => setWorkspaceOpen((open) => !open)}
+          <Link
+            to="/dashboard/workspace"
             className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
           >
             <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
@@ -382,7 +295,7 @@ function DashboardLayout() {
               </p>
             </div>
             <ChevronDown className="h-4 w-4 shrink-0 text-stone-400" />
-          </button>
+          </Link>
         </div>
 
         {/* Profile area */}

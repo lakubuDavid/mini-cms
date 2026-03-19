@@ -6,7 +6,7 @@ import {
   getCollectionItemCountsServerFn,
 } from "./collections-helpers";
 import { listAssetsServerFn } from "./assets-helpers";
-import { listProjectsServerFn } from "./projects-helpers";
+import { listProjectsServerFn, getProjectServerFn } from "./projects-helpers";
 import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
 import {
   getActiveOrganization,
@@ -31,6 +31,7 @@ export const queryKeys = {
   organization: () => ["organization"] as const,
   organizations: () => ["organizations"] as const,
   projects: () => ["projects"] as const,
+  project: (id: string) => ["project", id] as const,
   collections: (page: number, limit: number) =>
     ["collections", { page, limit }] as const,
   collectionPage: (slug: string, page: number, limit: number) =>
@@ -70,6 +71,15 @@ export function projectsQueryOptions() {
     queryKey: queryKeys.projects(),
     queryFn: () => listProjectsServerFn(),
     staleTime: STALE_LONG,
+  });
+}
+
+export function projectQueryOptions(projectId: string) {
+  return queryOptions({
+    queryKey: queryKeys.project(projectId),
+    queryFn: () => getProjectServerFn({ data: { id: projectId } }),
+    staleTime: STALE_LONG,
+    enabled: !!projectId,
   });
 }
 

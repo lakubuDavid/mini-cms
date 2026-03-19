@@ -5,6 +5,28 @@ import {
   createAnonymousServerIdentity,
 } from "@/lib/posthog";
 
+export const getProjectServerFn = createServerFn({ method: "GET" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getProjectById } = await import("../db/queries/projects");
+      const organizationId = await requireActiveOrganizationId();
+
+      return getProjectById(data.id, organizationId);
+    } catch (error) {
+      await captureServerError({
+        error,
+        identity: createAnonymousServerIdentity({}),
+        properties: {
+          area: "projects",
+          operation: "get",
+        },
+      });
+      throw error;
+    }
+  });
+
 export const listProjectsServerFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
@@ -60,7 +82,7 @@ export const createProjectServerFn = createServerFn({ method: "POST" })
 
 export const updateProjectServerFn = createServerFn({ method: "POST" })
   .inputValidator(
-    (data: { id: string; name?: string; slug?: string }) => data,
+    (data: { id: string; name?: string; slug?: string; apiAccess?: { type: "public" | "restricted" | "none"; allowedDomains?: string[] } }) => data,
   )
   .handler(async ({ data }) => {
     let organizationId: string | undefined;
@@ -73,6 +95,7 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
       const project = await updateProject(data.id, organizationId, {
         name: data.name,
         slug: data.slug,
+        apiAccess: data.apiAccess,
       });
 
       if (project) {
@@ -85,6 +108,7 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
           properties: {
             name_updated: data.name !== undefined,
             slug_updated: data.slug !== undefined,
+            apiAccess_updated: data.apiAccess !== undefined,
           },
         });
       }
