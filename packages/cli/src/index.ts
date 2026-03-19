@@ -7,6 +7,7 @@ import { createInterface } from "node:readline/promises";
 import Table from "cli-table3";
 import { defineCommand, renderUsage, runCommand } from "citty";
 import {
+  DEFAULT_BASE_URL,
   DEFAULT_CLIENT_PATH,
   DEFAULT_COLLECTIONS_PATH,
   DEFAULT_CONFIG_PATH,
@@ -1468,7 +1469,8 @@ async function resolveConfig(
   const fileConfig = await readJsonFile<MiniConfig>(configPath, true);
   const envConfig = readCliEnv();
 
-  const baseUrl = options.baseUrl ?? fileConfig?.baseUrl ?? envConfig.baseUrl ?? "";
+  const baseUrl =
+    options.baseUrl ?? fileConfig?.baseUrl ?? envConfig.baseUrl ?? DEFAULT_BASE_URL;
   const workspaceId =
     options.workspaceId ?? fileConfig?.workspaceId ?? envConfig.workspaceId ?? "";
   const projectId =
@@ -1978,7 +1980,8 @@ async function deleteAssetWithApi(
 }
 
 async function writeMiniConfig(config: ResolvedConfig) {
-  const value: MiniConfig = {
+  const value = {
+    $schema: `${normalizeBaseUrl(DEFAULT_BASE_URL)}schemas/mini.config.schema.json`,
     baseUrl: config.baseUrl,
     workspaceId: config.workspaceId,
     ...(config.projectId ? { projectId: config.projectId } : {}),
@@ -1997,6 +2000,7 @@ async function writeCollectionsFile(filePath: string, payload: PullResponse) {
   const outputPath = await resolveCollectionsOutputPath(filePath);
 
   await importedWriteJson(outputPath, {
+    $schema: `${normalizeBaseUrl(DEFAULT_BASE_URL)}schemas/mini.collections.schema.json`,
     workspaceId: payload.workspaceId,
     pulledAt: payload.pulledAt,
     collections: payload.collections,
@@ -2336,6 +2340,7 @@ function inferContentType(filename: string) {
 }
 
 export {
+  DEFAULT_BASE_URL,
   DEFAULT_COLLECTIONS_PATH,
   DEFAULT_CONFIG_PATH,
   DEFAULT_CLIENT_PATH,

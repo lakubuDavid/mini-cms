@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mini-cms-rosy.vercel.app/schemas/mini.collections.schema.json",
+  "$id": "https://mini-cms.lakubudavid.me/schemas/mini.collections.schema.json",
   "title": "Mini CMS Collections File",
   "type": "object",
   "additionalProperties": false,

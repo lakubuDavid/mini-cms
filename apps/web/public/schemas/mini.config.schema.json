@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://mini-cms-rosy.vercel.app/schemas/mini.config.schema.json",
+  "$id": "https://mini-cms.lakubudavid.me/schemas/mini.config.schema.json",
   "title": "Mini CMS CLI Config",
   "type": "object",
   "additionalProperties": false,
@@ -54,7 +54,7 @@
   "required": ["baseUrl", "workspaceId"],
   "examples": [
     {
-      "baseUrl": "https://mini-cms-rosy.vercel.app",
+      "baseUrl": "https://mini-cms.lakubudavid.me",
       "workspaceId": "org_123",
       "projectId": "project_123",
       "apiKey": "mcms_test_123",

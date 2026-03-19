@@ -15,7 +15,7 @@
     "test": "turbo test",
     "test:e2e": "bun --cwd apps/web run test:e2e",
     "typecheck": "turbo typecheck",
-    "deploy": "vercel deploy --prod",
+    "deploy": "cp packages/cli/schemas/* apps/web/public/schemas && vercel deploy --prod",
     "deploy:preview": "vercel deploy",
     "deploy:tool": "bun --cwd=packages/cli run deploy-tool"
   },

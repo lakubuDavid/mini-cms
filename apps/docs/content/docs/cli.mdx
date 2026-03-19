@@ -25,7 +25,7 @@ MINI_CMS_API_KEY=
 Example:
 
 ```bash
-export MINI_CMS_BASE_URL=https://mini-cms-rosy.vercel.app
+export MINI_CMS_BASE_URL=https://mini-cms.lakubudavid.me
 export MINI_CMS_WORKSPACE_ID=org_abc123
 export MINI_CMS_PROJECT_ID=project_default_xyz789
 export MINI_CMS_API_KEY=mcms_test_123
@@ -71,7 +71,7 @@ Or create the config directly with flags:
 
 ```bash
 mini-cms init \
-  --base-url https://mini-cms-rosy.vercel.app \
+  --base-url https://mini-cms.lakubudavid.me \
   --workspace-id <workspace-id> \
   --api-key <api-key> \
   --project-id <project-id>
@@ -83,7 +83,7 @@ Your first pull can create `mini.config.json`, `mini.collections.json`, and `min
 
 ```bash
 mini-cms pull \
-  --base-url https://mini-cms-rosy.vercel.app \
+  --base-url https://mini-cms.lakubudavid.me \
   --workspace-id <workspace-id> \
   --project-id <project-id> \
   --api-key <api-key>
@@ -114,8 +114,8 @@ Example:
 
 ```json
 {
-  "$schema": "https://mini-cms-rosy.vercel.app/schemas/mini.config.schema.json",
-  "baseUrl": "https://mini-cms-rosy.vercel.app",
+  "$schema": "https://mini-cms.lakubudavid.me/schemas/mini.config.schema.json",
+  "baseUrl": "https://mini-cms.lakubudavid.me",
   "workspaceId": "org_123",
   "projectId": "project_123",
   "apiKey": "mcms_test_123",
@@ -145,7 +145,7 @@ Example:
 
 ```json
 {
-  "$schema": "https://mini-cms-rosy.vercel.app/schemas/mini.collections.schema.json",
+  "$schema": "https://mini-cms.lakubudavid.me/schemas/mini.collections.schema.json",
   "workspaceId": "org_123",
   "pulledAt": "2026-03-09T12:00:00.000Z",
   "collections": [
@@ -456,7 +456,7 @@ mini-cms init
 
 When run without flags, `init` prompts for:
 
-1. **Base URL**: Your deployed Mini CMS instance (e.g., `https://mini-cms-rosy.vercel.app`)
+1. **Base URL**: Your deployed Mini CMS instance (e.g., `https://mini-cms.lakubudavid.me`)
 2. **Workspace ID**: The workspace to connect to (e.g., `org_abc123`)
 3. **Project ID**: Default project for pull/push operations (optional)
 4. **API Key**: Your API key for protected operations (optional)
@@ -469,7 +469,7 @@ Pass flags directly to skip prompts:
 
 ```bash
 mini-cms init \
-  --base-url https://mini-cms-rosy.vercel.app \
+  --base-url https://mini-cms.lakubudavid.me \
   --workspace-id org_abc123 \
   --project-id project_default_xyz789 \
   --api-key mcms_test_123
@@ -498,7 +498,7 @@ Creates `mini.config.json`:
 
 ```json
 {
-  "baseUrl": "https://mini-cms-rosy.vercel.app",
+  "baseUrl": "https://mini-cms.lakubudavid.me",
   "workspaceId": "org_abc123",
   "projectId": "project_default_xyz789",
   "apiKey": "mcms_test_123"
@@ -1324,7 +1324,7 @@ mini-cms pull --project-id project_default_xyz789 --verbose
 ```bash
 # 1. Initialize config
 mini-cms init \
-  --base-url https://mini-cms-rosy.vercel.app \
+  --base-url https://mini-cms.lakubudavid.me \
   --workspace-id org_abc123 \
   --project-id project_default_xyz789 \
   --api-key mcms_test_123
