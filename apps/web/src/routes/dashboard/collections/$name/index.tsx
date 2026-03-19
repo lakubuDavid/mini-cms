@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createItemServerFn,
@@ -20,9 +20,20 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
+  Image as ImageIcon,
+  Upload,
+  Search,
+  LoaderCircle,
+  ChevronDown,
 } from "lucide-react";
 import { Switch } from "@workspace/ui/components/switch";
 import { SYSTEM_COLLECTION_FIELDS as SYSTEM_FIELDS } from "@/lib/collections-system-fields";
+import {
+  requestAssetUploadServerFn,
+  confirmAssetUploadServerFn,
+  listAssetsServerFn,
+} from "@/lib/assets-helpers";
+import { ALLOWED_ASSET_MIME_TYPES, MAX_ASSET_FILE_SIZE } from "@/lib/assets";
 
 type CollectionField = {
   key: string;
@@ -394,6 +405,7 @@ function CollectionPageContent(props: {
         <ItemEditorModal
           collection={collection}
           item={editingItem}
+          projectId={search.projectId}
           onClose={() => setShowModal(false)}
           onSaved={(savedMessage) => {
             setMessage(savedMessage);
@@ -569,6 +581,7 @@ function ItemEditorModal(props: {
     schema: CollectionField[];
   };
   item: ItemRecord | null;
+  projectId?: string;
   onClose: () => void;
   onSaved: (message: { type: "success" | "error"; text: string }) => void;
 }) {
@@ -680,12 +693,13 @@ function ItemEditorModal(props: {
                 onChange={(value) =>
                   setValues((current) => ({ ...current, [field.key]: value }))
                 }
+                projectId={props.projectId}
               />
               <span className="text-xs text-stone-400">
                 {field.type === "boolean"
                   ? "Toggle between true and false."
                   : field.type === "url"
-                    ? "Enter a full URL including https://"
+                    ? "Enter a URL or select/upload an asset."
                     : field.type === "number"
                       ? "Enter a numeric value."
                       : field.type === "date"
@@ -725,6 +739,9 @@ function FieldInput(props: {
   field: { type: "text" | "url" | "number" | "boolean" | "date" };
   value: string | number | boolean | null;
   onChange: (value: string | number | boolean | null) => void;
+  projectId?: string;
+  onOpenAssetSelect?: (callback: (url: string) => void) => void;
+  onOpenAssetUpload?: (callback: (url: string) => void) => void;
 }) {
   if (props.field.type === "boolean") {
     return (
@@ -741,6 +758,16 @@ function FieldInput(props: {
           aria-label="Toggle boolean field"
         />
       </div>
+    );
+  }
+
+  if (props.field.type === "url") {
+    return (
+      <UrlFieldInput
+        value={props.value as string | null}
+        onChange={(value) => props.onChange(value)}
+        projectId={props.projectId}
+      />
     );
   }
 
@@ -764,16 +791,111 @@ function FieldInput(props: {
         )
       }
       placeholder={
-        props.field.type === "url"
-          ? "https://example.com"
-          : props.field.type === "number"
-            ? "0"
-            : props.field.type === "date"
-              ? "YYYY-MM-DD"
-            : "Enter value..."
+        props.field.type === "number"
+          ? "0"
+          : props.field.type === "date"
+            ? "YYYY-MM-DD"
+          : "Enter value..."
       }
       className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none transition focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
     />
+  );
+}
+
+function UrlFieldInput(props: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  projectId?: string;
+}) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showAssetSelect, setShowAssetSelect] = useState(false);
+  const [showAssetUpload, setShowAssetUpload] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleSelectAsset(url: string) {
+    props.onChange(url);
+    setShowDropdown(false);
+  }
+
+  function handleUploadAsset(url: string) {
+    props.onChange(url);
+    setShowDropdown(false);
+  }
+
+  return (
+    <>
+      <div className="relative flex">
+        <input
+          type="text"
+          value={props.value ?? ""}
+          onChange={(event) => props.onChange(event.target.value || null)}
+          placeholder="https://example.com"
+          className="min-w-0 flex-1 rounded-lg border border-stone-300 px-3 py-2 pr-10 text-sm outline-none transition focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+        />
+        <div ref={dropdownRef} className="absolute right-1 top-1/2 -translate-y-1/2">
+          <button
+            type="button"
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+            aria-label="Asset options"
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+          {showDropdown && (
+            <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border border-stone-200 bg-white py-1 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDropdown(false);
+                  setShowAssetSelect(true);
+                }}
+                disabled={!props.projectId}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-stone-200 dark:hover:bg-stone-800"
+              >
+                <ImageIcon className="h-4 w-4" />
+                Select Existing Asset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDropdown(false);
+                  setShowAssetUpload(true);
+                }}
+                disabled={!props.projectId}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-stone-200 dark:hover:bg-stone-800"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Asset
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {showAssetSelect && props.projectId ? (
+        <AssetSelectDialog
+          projectId={props.projectId}
+          onSelect={handleSelectAsset}
+          onClose={() => setShowAssetSelect(false)}
+        />
+      ) : null}
+      {showAssetUpload && props.projectId ? (
+        <AssetUploadInlineDialog
+          projectId={props.projectId}
+          onUpload={handleUploadAsset}
+          onClose={() => setShowAssetUpload(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -789,4 +911,459 @@ function defaultValueForField(
   }
 
   return "";
+}
+
+// Asset Select Dialog
+function AssetSelectDialog(props: {
+  projectId: string;
+  onSelect: (url: string) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedType, setSelectedType] = useState<"all" | "images" | "documents">("all");
+
+  const assetsQuery = useQuery({
+    queryKey: ["asset-select", props.projectId],
+    queryFn: () => listAssetsServerFn({ data: { page: 1, limit: 100, projectId: props.projectId } }),
+    enabled: !!props.projectId,
+    staleTime: 30_000,
+  });
+
+  const filteredAssets = useMemo(() => {
+    const assets = assetsQuery.data?.items ?? [];
+    let filtered = assets;
+
+    if (selectedType === "images") {
+      filtered = filtered.filter((a) => a.contentType.startsWith("image/"));
+    } else if (selectedType === "documents") {
+      filtered = filtered.filter((a) => a.contentType === "application/pdf");
+    }
+
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter((a) => a.filename.toLowerCase().includes(searchLower));
+    }
+
+    return filtered;
+  }, [assetsQuery.data?.items, selectedType, search]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") props.onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [props.onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) props.onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Select asset"
+    >
+      <div className="flex h-[80vh] w-full max-w-4xl flex-col rounded-xl border border-stone-200 bg-white shadow-xl dark:border-stone-700 dark:bg-stone-900">
+        <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4 dark:border-stone-700">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Select Asset</h3>
+            <p className="mt-1 text-sm text-stone-500">Choose from your existing assets</p>
+          </div>
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-b border-stone-200 px-6 py-3 dark:border-stone-700">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              placeholder="Search assets..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-stone-300 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-stone-900 focus:ring-1 focus:ring-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            {(["all", "images", "documents"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setSelectedType(type)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  selectedType === type
+                    ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
+                }`}
+              >
+                {type === "all" ? "All" : type === "images" ? "Images" : "Documents"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {assetsQuery.isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="overflow-hidden rounded-xl border border-stone-200 dark:border-stone-800">
+                  <Skeleton className="aspect-square w-full" />
+                  <div className="p-3">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="mt-1 h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredAssets.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-500 dark:bg-stone-800 dark:text-stone-400">
+                <ImageIcon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-base font-medium text-stone-900 dark:text-stone-100">
+                {search ? "No assets match your search" : "No assets yet"}
+              </h3>
+              <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+                {search ? "Try a different search term" : "Upload an asset to get started"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredAssets.map((asset) => (
+                <button
+                  key={asset.id}
+                  type="button"
+                  onClick={() => {
+                    props.onSelect(asset.publicUrl);
+                    props.onClose();
+                  }}
+                  className="group overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-stone-800 dark:bg-stone-900"
+                >
+                  <div className="flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+                    {asset.contentType.startsWith("image/") ? (
+                      <img
+                        src={asset.publicUrl}
+                        alt={asset.filename}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="h-10 w-10 text-stone-400 dark:text-stone-500" />
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="line-clamp-1 text-sm font-medium text-stone-900 dark:text-stone-100">
+                      {asset.filename}
+                    </p>
+                    <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                      {formatAssetSize(asset.size)}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Inline Asset Upload Dialog for URL fields
+function AssetUploadInlineDialog(props: {
+  projectId: string;
+  onUpload: (url: string) => void;
+  onClose: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const acceptedTypes = useMemo(() => ALLOWED_ASSET_MIME_TYPES.join(","), []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !pending) props.onClose();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [pending, props.onClose]);
+
+  const handleFileSelect = useCallback((selectedFile: File | null) => {
+    if (!selectedFile) return;
+    setError(null);
+
+    if (!ALLOWED_ASSET_MIME_TYPES.includes(selectedFile.type as (typeof ALLOWED_ASSET_MIME_TYPES)[number])) {
+      setError(`Unsupported file type: ${selectedFile.type || "unknown"}`);
+      return;
+    }
+
+    if (selectedFile.size > MAX_ASSET_FILE_SIZE) {
+      setError(`File is too large (${formatAssetSize(selectedFile.size)}). Max 10MB.`);
+      return;
+    }
+
+    setFile(selectedFile);
+  }, []);
+
+  const handleDragEnter = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current++;
+    if (event.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      dragCounter.current = 0;
+      setIsDragging(false);
+      const droppedFile = event.dataTransfer.files[0];
+      if (droppedFile) {
+        handleFileSelect(droppedFile);
+      }
+    },
+    [handleFileSelect],
+  );
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!props.projectId) {
+      setError("Select a project before uploading assets.");
+      return;
+    }
+
+    if (!file) {
+      setError("Choose a file to upload.");
+      return;
+    }
+
+    setPending(true);
+    setError(null);
+    setUploadProgress(0);
+
+    try {
+      const request = await requestAssetUploadServerFn({
+        data: {
+          projectId: props.projectId,
+          filename: file.name,
+          contentType: file.type,
+          size: file.size,
+        },
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", request.uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+
+        xhr.upload.addEventListener("progress", (event) => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed (${xhr.status}).`));
+          }
+        });
+
+        xhr.addEventListener("error", () =>
+          reject(new Error("Upload failed. Check your network connection.")),
+        );
+
+        xhr.send(file);
+      });
+
+      await confirmAssetUploadServerFn({ data: { id: request.assetId } });
+      props.onUpload(request.publicUrl);
+      props.onClose();
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Unable to upload asset.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !pending) props.onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Upload asset"
+    >
+      <div className="w-full max-w-lg rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Upload Asset</h3>
+            <p className="mt-1 text-sm text-stone-500">Upload a file to use as URL value</p>
+          </div>
+          <button
+            type="button"
+            onClick={props.onClose}
+            disabled={pending}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+          <label
+            className={`grid cursor-pointer gap-3 rounded-xl border-2 border-dashed p-6 text-center transition ${
+              isDragging
+                ? "border-stone-900 bg-stone-100 dark:border-stone-400 dark:bg-stone-800"
+                : file
+                  ? "border-stone-400 bg-stone-50 dark:border-stone-600 dark:bg-stone-800/40"
+                  : "border-stone-300 bg-stone-50 hover:border-stone-400 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-800/40 dark:hover:border-stone-600 dark:hover:bg-stone-800"
+            }`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
+            {file ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300">
+                  <ImageIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-stone-900 dark:text-stone-100">
+                    {file.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-stone-500">
+                    {formatAssetSize(file.size)} · {file.type}
+                  </p>
+                </div>
+                {!pending && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setFile(null);
+                    }}
+                    className="mt-2 text-xs text-stone-500 underline underline-offset-2 hover:text-stone-700 dark:hover:text-stone-300"
+                  >
+                    Remove file
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-stone-200 text-stone-500 dark:bg-stone-700 dark:text-stone-400">
+                  <Upload className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-200">
+                    {isDragging ? "Drop your file here" : "Drag & drop or click to browse"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-stone-400">
+                    Images, PDFs, and videos up to 10MB
+                  </p>
+                </div>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={acceptedTypes}
+              onChange={(event) => handleFileSelect(event.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+          </label>
+
+          {pending && uploadProgress > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-stone-500">
+                <span>Uploading...</span>
+                <span className="tabular-nums">{uploadProgress}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
+                <div
+                  className="h-full rounded-full bg-stone-900 transition-all duration-300 ease-out dark:bg-stone-100"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {error ? (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex items-center justify-end gap-3 border-t border-stone-200 pt-4 dark:border-stone-800">
+            <button
+              type="button"
+              onClick={props.onClose}
+              disabled={pending}
+              className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-stone-700 dark:hover:bg-stone-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={pending || !file}
+              className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-200"
+            >
+              {pending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+              {pending ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function formatAssetSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }

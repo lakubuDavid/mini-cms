@@ -19,6 +19,7 @@ import { Route as DashboardWorkspaceRouteImport } from './routes/dashboard/works
 import { Route as DashboardTeamRouteImport } from './routes/dashboard/team'
 import { Route as DashboardProjectsRouteImport } from './routes/dashboard/projects'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
+import { Route as DashboardAssetsRouteImport } from './routes/dashboard/assets'
 import { Route as DashboardApiKeysRouteImport } from './routes/dashboard/api-keys'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
 import { Route as ApiSchemaPushRouteImport } from './routes/api/schema/push'
@@ -27,6 +28,7 @@ import { Route as ApiSchemaProjectsRouteImport } from './routes/api/schema/proje
 import { Route as ApiSchemaItemsRouteImport } from './routes/api/schema/items'
 import { Route as ApiSchemaCollectionsRouteImport } from './routes/api/schema/collections'
 import { Route as ApiSchemaCollectionItemsRouteImport } from './routes/api/schema/collection-items'
+import { Route as ApiSchemaAssetsRouteImport } from './routes/api/schema/assets'
 import { Route as ApiCollectionsItemsRouteImport } from './routes/api/collections/items'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as DashboardCollectionsNameRouteRouteImport } from './routes/dashboard/collections/$name/route'
@@ -83,6 +85,11 @@ const DashboardProfileRoute = DashboardProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
+const DashboardAssetsRoute = DashboardAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
 const DashboardApiKeysRoute = DashboardApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
@@ -124,6 +131,11 @@ const ApiSchemaCollectionItemsRoute =
     path: '/api/schema/collection-items',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiSchemaAssetsRoute = ApiSchemaAssetsRouteImport.update({
+  id: '/api/schema/assets',
+  path: '/api/schema/assets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCollectionsItemsRoute = ApiCollectionsItemsRouteImport.update({
   id: '/api/collections/items',
   path: '/api/collections/items',
@@ -160,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
+  '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
@@ -169,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
+  '/api/schema/assets': typeof ApiSchemaAssetsRoute
   '/api/schema/collection-items': typeof ApiSchemaCollectionItemsRoute
   '/api/schema/collections': typeof ApiSchemaCollectionsRoute
   '/api/schema/items': typeof ApiSchemaItemsRoute
@@ -184,6 +198,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
+  '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
@@ -192,6 +207,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
+  '/api/schema/assets': typeof ApiSchemaAssetsRoute
   '/api/schema/collection-items': typeof ApiSchemaCollectionItemsRoute
   '/api/schema/collections': typeof ApiSchemaCollectionsRoute
   '/api/schema/items': typeof ApiSchemaItemsRoute
@@ -209,6 +225,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
+  '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/projects': typeof DashboardProjectsRoute
   '/dashboard/team': typeof DashboardTeamRoute
@@ -218,6 +235,7 @@ export interface FileRoutesById {
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
+  '/api/schema/assets': typeof ApiSchemaAssetsRoute
   '/api/schema/collection-items': typeof ApiSchemaCollectionItemsRoute
   '/api/schema/collections': typeof ApiSchemaCollectionsRoute
   '/api/schema/items': typeof ApiSchemaItemsRoute
@@ -236,6 +254,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
+    | '/dashboard/assets'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
@@ -245,6 +264,7 @@ export interface FileRouteTypes {
     | '/dashboard/collections/$name'
     | '/api/auth/$'
     | '/api/collections/items'
+    | '/api/schema/assets'
     | '/api/schema/collection-items'
     | '/api/schema/collections'
     | '/api/schema/items'
@@ -260,6 +280,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
+    | '/dashboard/assets'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
@@ -268,6 +289,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/auth/$'
     | '/api/collections/items'
+    | '/api/schema/assets'
     | '/api/schema/collection-items'
     | '/api/schema/collections'
     | '/api/schema/items'
@@ -284,6 +306,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/dashboard/analytics'
     | '/dashboard/api-keys'
+    | '/dashboard/assets'
     | '/dashboard/profile'
     | '/dashboard/projects'
     | '/dashboard/team'
@@ -293,6 +316,7 @@ export interface FileRouteTypes {
     | '/dashboard/collections/$name'
     | '/api/auth/$'
     | '/api/collections/items'
+    | '/api/schema/assets'
     | '/api/schema/collection-items'
     | '/api/schema/collections'
     | '/api/schema/items'
@@ -311,6 +335,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollectionsItemsRoute: typeof ApiCollectionsItemsRoute
+  ApiSchemaAssetsRoute: typeof ApiSchemaAssetsRoute
   ApiSchemaCollectionItemsRoute: typeof ApiSchemaCollectionItemsRoute
   ApiSchemaCollectionsRoute: typeof ApiSchemaCollectionsRoute
   ApiSchemaItemsRoute: typeof ApiSchemaItemsRoute
@@ -391,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProfileRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/assets': {
+      id: '/dashboard/assets'
+      path: '/assets'
+      fullPath: '/dashboard/assets'
+      preLoaderRoute: typeof DashboardAssetsRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
     '/dashboard/api-keys': {
       id: '/dashboard/api-keys'
       path: '/api-keys'
@@ -445,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/api/schema/collection-items'
       fullPath: '/api/schema/collection-items'
       preLoaderRoute: typeof ApiSchemaCollectionItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/assets': {
+      id: '/api/schema/assets'
+      path: '/api/schema/assets'
+      fullPath: '/api/schema/assets'
+      preLoaderRoute: typeof ApiSchemaAssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/collections/items': {
@@ -504,6 +543,7 @@ const DashboardCollectionsNameRouteRouteWithChildren =
 interface DashboardRouteRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardApiKeysRoute: typeof DashboardApiKeysRoute
+  DashboardAssetsRoute: typeof DashboardAssetsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardProjectsRoute: typeof DashboardProjectsRoute
   DashboardTeamRoute: typeof DashboardTeamRoute
@@ -515,6 +555,7 @@ interface DashboardRouteRouteChildren {
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardApiKeysRoute: DashboardApiKeysRoute,
+  DashboardAssetsRoute: DashboardAssetsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardProjectsRoute: DashboardProjectsRoute,
   DashboardTeamRoute: DashboardTeamRoute,
@@ -536,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollectionsItemsRoute: ApiCollectionsItemsRoute,
+  ApiSchemaAssetsRoute: ApiSchemaAssetsRoute,
   ApiSchemaCollectionItemsRoute: ApiSchemaCollectionItemsRoute,
   ApiSchemaCollectionsRoute: ApiSchemaCollectionsRoute,
   ApiSchemaItemsRoute: ApiSchemaItemsRoute,
@@ -546,12 +588,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
