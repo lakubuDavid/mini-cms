@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createInvitationAction } from "@/lib/auth-helpers";
+import { createInvitationAction } from "@/lib/auth-helpers.server";
 import {
   organizationQueryOptions,
   teamQueryOptions,

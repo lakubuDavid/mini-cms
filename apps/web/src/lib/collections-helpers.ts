@@ -12,7 +12,7 @@ export const createCollectionServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { createCollectionAction } =
       await import("../server/functions/collections");
     return createCollectionAction({
@@ -52,7 +52,7 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
       data,
   )
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { listCollections } = await import("../db/queries/collections");
     return listCollections({
       ...data,
@@ -63,7 +63,7 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
 export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { slug: string }) => data)
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { getCollectionBySlug } = await import("../db/queries/collections");
     const collection = await getCollectionBySlug(
       data.slug,
@@ -82,7 +82,7 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
     (data: { slug: string; page?: number; limit?: number }) => data,
   )
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const [{ getCollectionBySlug }, { listItems }] = await Promise.all([
       import("../db/queries/collections"),
       import("../db/queries/items"),

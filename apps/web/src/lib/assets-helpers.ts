@@ -12,7 +12,7 @@ export const listAssetsServerFn = createServerFn({ method: "GET" })
       | undefined) => data,
   )
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { listAssetsAction } = await import("../server/functions/assets");
 
     return listAssetsAction({
@@ -32,7 +32,7 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { requireActiveOrganizationId, requireSessionUserId } = await import(
-      "./auth-helpers"
+      "./auth-helpers.server"
     );
     const { requestAssetUploadAction } = await import(
       "../server/functions/assets"
@@ -48,7 +48,7 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
 export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { confirmAssetUploadAction } = await import(
       "../server/functions/assets"
     );
@@ -62,7 +62,7 @@ export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
 export const deleteAssetServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { deleteAssetAction } = await import("../server/functions/assets");
 
     return deleteAssetAction({
@@ -74,7 +74,7 @@ export const deleteAssetServerFn = createServerFn({ method: "POST" })
 export const getAssetInfoServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
     const { getAssetInfoAction } = await import("../server/functions/assets");
 
     return getAssetInfoAction({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { createWorkspaceAction } from "@/lib/auth-helpers";
+import { createWorkspaceAction } from "@/lib/auth-helpers.server";
 
 export function CreateWorkspaceForm(props: {
   onCreated: () => void;

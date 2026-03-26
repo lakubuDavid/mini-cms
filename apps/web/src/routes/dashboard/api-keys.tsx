@@ -6,7 +6,7 @@ import {
   deleteApiKeyServerFn,
   updateApiKeyServerFn,
   rotateApiKeyServerFn,
-} from "@/lib/auth-helpers";
+} from "@/lib/auth-helpers.server";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   organizationQueryOptions,

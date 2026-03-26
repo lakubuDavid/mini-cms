@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { getActiveOrganization } from "@/lib/auth-helpers";
+import { getActiveOrganization } from "@/lib/auth-helpers.server";
 import { Layers, LogIn, Mail, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/login")({

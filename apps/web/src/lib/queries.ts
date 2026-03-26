@@ -14,7 +14,7 @@ import {
   listPendingInvitations,
   listApiKeysServerFn,
   listOrganizations,
-} from "./auth-helpers";
+} from "./auth-helpers.server";
 import type { DateRange } from "@/db/queries/analytics";
 
 // ── Stale time presets ──────────────────────────────────────

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getActiveOrganization, getSession } from "@/lib/auth-helpers";
+import { getActiveOrganization, getSession } from "@/lib/auth-helpers.server";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
 import {
