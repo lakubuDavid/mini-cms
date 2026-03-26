@@ -5,7 +5,7 @@ import {
   updateOrganizationAction,
   setActiveOrganizationAction,
   deleteOrganizationAction,
-} from "@/lib/auth-helpers.server";
+} from "@/lib/auth-helpers";
 import {
   organizationQueryOptions,
   organizationsQueryOptions,

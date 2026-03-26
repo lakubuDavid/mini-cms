@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
-import { acceptInvitationAction, getInvitationById } from "@/lib/auth-helpers.server";
+import { acceptInvitationAction, getInvitationById } from "@/lib/auth-helpers";
 import { AlertCircle, LogIn, LogOut, UserPlus } from "lucide-react";
 
 export const Route = createFileRoute("/invite/$token")({

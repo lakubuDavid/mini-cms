@@ -6,7 +6,7 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
     (data: { projectId: string; range: DateRange }) => data,
   )
   .handler(async ({ data }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const {
       getTotalRequests,
       getRequestsByDay,

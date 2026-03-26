@@ -1,10 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeaders } from "@tanstack/react-start/server";
 import {
   captureServerError,
   captureServerEvent,
   createAnonymousServerIdentity,
 } from "@/lib/posthog";
+
+async function getHeaders() {
+  const { getRequestHeaders } = await import("@tanstack/react-start/server");
+  return getRequestHeaders();
+}
 
 function toPlainJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -12,7 +16,7 @@ function toPlainJson<T>(value: T): T {
 
 async function ensureActiveOrganization() {
   const { auth } = await import("./auth");
-  const headers = await getRequestHeaders();
+  const headers = await getHeaders();
   const session = await auth.api.getSession({ headers });
 
   if (!session) {
@@ -55,7 +59,7 @@ async function ensureActiveOrganization() {
 export const listOrganizations = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
     return auth.api.listOrganizations({ headers });
   },
 );
@@ -97,7 +101,7 @@ export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
 export const listAdminUsers = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
     const { organizationId } = await ensureActiveOrganization();
 
     if (!organizationId) {
@@ -122,7 +126,7 @@ export const createOrganizationAction = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.id) {
@@ -174,7 +178,7 @@ export const createWorkspaceAction = createServerFn({ method: "POST" })
     try {
       const { auth } = await import("./auth");
       const { createProject } = await import("../db/queries/projects");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.id) {
@@ -247,7 +251,7 @@ export const createInvitationAction = createServerFn({ method: "POST" })
     try {
       const { auth } = await import("./auth");
       const { ensureWorkspaceUserLimit } = await import("./demo-limits");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       await ensureWorkspaceUserLimit(data.organizationId, {
         mode: "create-invite",
@@ -294,7 +298,7 @@ export const getInvitationById = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
     const [invitation, session] = await Promise.all([
       auth.api.getInvitation({
         headers,
@@ -329,7 +333,7 @@ export const acceptInvitationAction = createServerFn({ method: "POST" })
     try {
       const { auth } = await import("./auth");
       const { ensureWorkspaceUserLimit } = await import("./demo-limits");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.email) {
@@ -385,7 +389,7 @@ export const acceptInvitationAction = createServerFn({ method: "POST" })
 export const getSession = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
 
     try {
       return await auth.api.getSession({ headers });
@@ -398,7 +402,7 @@ export const getSession = createServerFn({ method: "GET" }).handler(
 export const ensureSession = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
     const session = await auth.api.getSession({ headers });
 
     if (!session) {
@@ -421,7 +425,7 @@ export async function requireActiveOrganizationId() {
 
 export async function requireSessionUserId() {
   const { auth } = await import("./auth");
-  const headers = await getRequestHeaders();
+  const headers = await getHeaders();
   const session = await auth.api.getSession({ headers });
 
   if (!session?.user?.id) {
@@ -434,7 +438,7 @@ export async function requireSessionUserId() {
 export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
   async () => {
     const { auth } = await import("./auth");
-    const headers = await getRequestHeaders();
+    const headers = await getHeaders();
     const organizationId = await requireActiveOrganizationId();
 
     const result = await auth.api.listApiKeys({
@@ -476,7 +480,7 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
       organizationId = await requireActiveOrganizationId();
 
       const result = await auth.api.createApiKey({
@@ -544,7 +548,7 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       const result = await auth.api.deleteApiKey({
         headers,
@@ -582,7 +586,7 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       const result = await auth.api.updateApiKey({
         headers,
@@ -632,7 +636,7 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
       organizationId = await requireActiveOrganizationId();
 
       // Delete old key
@@ -708,7 +712,7 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       const result = await auth.api.updateOrganization({
         headers,
@@ -753,7 +757,7 @@ export const setActiveOrganizationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       const result = await auth.api.setActiveOrganization({
         headers,
@@ -791,7 +795,7 @@ export const deleteOrganizationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getRequestHeaders();
+      const headers = await getHeaders();
 
       const result = await auth.api.deleteOrganization({
         headers,

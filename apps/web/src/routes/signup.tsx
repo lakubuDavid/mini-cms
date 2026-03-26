@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import { getActiveOrganization } from "@/lib/auth-helpers.server";
+import { getActiveOrganization } from "@/lib/auth-helpers";
 import {
   Layers,
   User,

@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Layers, Globe, UserPlus, BookOpen } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getSession } from "@/lib/auth-helpers.server";
+import { getSession } from "@/lib/auth-helpers";
 import { env } from "@/lib/env";
 
 export const Route = createFileRoute("/")({

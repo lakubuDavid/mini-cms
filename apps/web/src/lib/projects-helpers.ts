@@ -9,7 +9,7 @@ export const getProjectServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+      const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { getProjectById } = await import("../db/queries/projects");
       const organizationId = await requireActiveOrganizationId();
 
@@ -29,7 +29,7 @@ export const getProjectServerFn = createServerFn({ method: "GET" })
 
 export const listProjectsServerFn = createServerFn({ method: "GET" }).handler(
   async () => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { listProjects } = await import("../db/queries/projects");
 
     return listProjects(await requireActiveOrganizationId());
@@ -42,7 +42,7 @@ export const createProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+      const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { createProject } = await import("../db/queries/projects");
       const { ensureProjectLimit } = await import("./demo-limits");
       organizationId = await requireActiveOrganizationId();
@@ -88,7 +88,7 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+      const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { updateProject } = await import("../db/queries/projects");
       organizationId = await requireActiveOrganizationId();
 
@@ -136,7 +136,7 @@ export const deleteProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers.server");
+      const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { deleteProject } = await import("../db/queries/projects");
       organizationId = await requireActiveOrganizationId();
 
