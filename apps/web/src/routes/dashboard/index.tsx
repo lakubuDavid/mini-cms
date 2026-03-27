@@ -508,21 +508,29 @@ function NewProjectDialog(props: { onCreated: () => void }) {
     setPending(true);
     setError(null);
 
-    const project = await createProjectServerFn({
-      data: { name, slug },
-    });
+    try {
+      const project = await createProjectServerFn({
+        data: { name, slug },
+      });
 
-    setPending(false);
+      if (!project) {
+        setError("Unable to create project. Please try again.");
+        return;
+      }
 
-    if (!project) {
-      setError("Unable to create project. Please try again.");
-      return;
+      setName("");
+      setSlug("");
+      setOpen(false);
+      props.onCreated();
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to create project. Please try again.",
+      );
+    } finally {
+      setPending(false);
     }
-
-    setName("");
-    setSlug("");
-    setOpen(false);
-    props.onCreated();
   }
 
   return (
