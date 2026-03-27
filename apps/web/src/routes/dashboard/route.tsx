@@ -78,6 +78,7 @@ function DashboardLayout() {
   const { user, hasWorkspace } = useRouteContext({ from: "/dashboard" });
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const orgQuery = useQuery(organizationQueryOptions());
   const projectsQuery = useQuery({
     ...projectsQueryOptions(),
@@ -88,11 +89,11 @@ function DashboardLayout() {
 
   const currentPath = typeof window === "undefined"
     ? ""
-    : window.location.pathname;
-  const currentSearch = typeof window === "undefined"
-    ? new URLSearchParams()
-    : new URLSearchParams(window.location.search);
-  const currentProjectId = currentSearch.get("projectId") ?? "";
+    : window.location.pathname.replace(/\/$/, "");
+  const rawSearch = typeof window === "undefined"
+    ? ""
+    : window.location.search;
+  const currentProjectId = new URLSearchParams(rawSearch).get("projectId") ?? "";
 
   useEffect(() => {
     if (!hasWorkspace) {
@@ -131,18 +132,18 @@ function DashboardLayout() {
         return;
       }
 
-      const params = new URLSearchParams(currentSearch);
+      const params = new URLSearchParams(rawSearch);
       params.set("projectId", preferredProjectId);
       if (currentPath === "/dashboard/analytics" && !params.get("range")) {
         params.set("range", "30d");
       }
-      window.history.replaceState({}, "", `${currentPath}?${params.toString()}`);
-      window.dispatchEvent(new PopStateEvent("popstate"));
+      window.history.replaceState(window.history.state, "", `${currentPath}?${params.toString()}`);
+      window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
     }
   }, [
     currentPath,
     currentProjectId,
-    currentSearch,
+    rawSearch,
     hasWorkspace,
     navigate,
     organization,
@@ -154,7 +155,7 @@ function DashboardLayout() {
       writeStoredProjectId(organization.id, projectId);
     }
 
-    const params = new URLSearchParams(currentSearch);
+    const params = new URLSearchParams(rawSearch);
     if (projectId) {
       params.set("projectId", projectId);
     } else {
@@ -166,8 +167,8 @@ function DashboardLayout() {
     }
 
     const query = params.toString();
-    window.history.replaceState({}, "", query ? `${currentPath}?${query}` : currentPath);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.history.replaceState(window.history.state, "", query ? `${currentPath}?${query}` : currentPath);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
   }
 
   return (
@@ -281,21 +282,58 @@ function DashboardLayout() {
         </nav>
 
         <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
-          <Link
-            to="/dashboard/workspace"
-            className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
-          >
-            <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-stone-900 dark:text-stone-100">
-                {organization?.name ?? "Create workspace"}
-              </p>
-              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
-                {organization?.slug ?? "Workspace required before creating a project"}
-              </p>
-            </div>
-            <ChevronDown className="h-4 w-4 shrink-0 text-stone-400" />
-          </Link>
+          {workspaceOpen ? (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setWorkspaceOpen(false)}
+              />
+              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                <div className="mb-2 px-1">
+                  <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
+                    {organization?.name ?? "No workspace"}
+                  </p>
+                  <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                    {organization?.slug ?? ""}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <Link
+                    to="/dashboard/workspace"
+                    onClick={() => setWorkspaceOpen(false)}
+                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+                  >
+                    <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Workspace settings
+                  </Link>
+                </div>
+              </div>
+            </>
+          ) : null}
+          <div className="mb-3 flex w-full items-center overflow-hidden rounded-lg border border-stone-200 dark:border-stone-800">
+            <Link
+              to="/dashboard/workspace"
+              className="flex flex-1 items-center gap-2.5 px-2.5 py-2 text-sm transition hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+              <Settings className="h-4 w-4 shrink-0 text-stone-500 dark:text-stone-400" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-stone-900 dark:text-stone-100">
+                  {organization?.name ?? "Create workspace"}
+                </p>
+                <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                  {organization?.slug ?? "Workspace required"}
+                </p>
+              </div>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setWorkspaceOpen(!workspaceOpen)}
+              aria-label="Workspace menu"
+              className="flex items-center justify-center px-2.5 py-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600 dark:hover:bg-stone-800 dark:hover:text-stone-300 border-l border-stone-200 dark:border-stone-800"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Profile area */}
