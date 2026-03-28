@@ -1,13 +1,30 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getActiveOrganization, getSession } from "@/lib/auth-helpers";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getActiveOrganization,
+  getSession,
+  setActiveOrganizationAction,
+} from "@/lib/auth-helpers";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
 import {
   organizationQueryOptions,
+  organizationsQueryOptions,
   projectsQueryOptions,
 } from "@/lib/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@workspace/ui/components/sidebar";
 import {
   Link,
   Outlet,
@@ -29,6 +46,9 @@ import {
   BarChart3,
   Image,
   ChevronDown,
+  Building2,
+  Check,
+  PlusCircle,
 } from "lucide-react";
 
 function getProjectStorageKey(organizationId: string) {
@@ -77,13 +97,17 @@ export const Route = createFileRoute("/dashboard")({
 function DashboardLayout() {
   const { user, hasWorkspace } = useRouteContext({ from: "/dashboard" });
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const orgQuery = useQuery(organizationQueryOptions());
+  const orgsQuery = useQuery(organizationsQueryOptions());
   const projectsQuery = useQuery({
     ...projectsQueryOptions(),
     enabled: hasWorkspace,
   });
   const organization = orgQuery.data ?? null;
+  const organizations = orgsQuery.data ?? [];
   const projects = projectsQuery.data ?? [];
 
   const currentPath = typeof window === "undefined"
@@ -170,216 +194,331 @@ function DashboardLayout() {
     window.dispatchEvent(new PopStateEvent("popstate"));
   }
 
+  async function handleWorkspaceSwitch(organizationId: string) {
+    if (organizationId === organization?.id) {
+      setWorkspaceMenuOpen(false);
+      return;
+    }
+
+    await setActiveOrganizationAction({ data: { organizationId } });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["organization"] }),
+      queryClient.invalidateQueries({ queryKey: ["organizations"] }),
+      queryClient.invalidateQueries({ queryKey: ["projects"] }),
+    ]);
+
+    setWorkspaceMenuOpen(false);
+    void navigate({ to: "/dashboard/workspace" });
+  }
+
   return (
-    <div className="flex min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
-      <aside className="sticky top-0 flex h-svh w-56 shrink-0 flex-col border-r border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-        <div className="flex items-center gap-2.5 px-2 py-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-900">
-            <Layers className="h-4 w-4" />
-          </div>
-          <span className="text-sm font-semibold tracking-tight">Mini CMS</span>
-        </div>
-        <div className="mt-4 space-y-3">
-          <div className="rounded-xl border border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
-            <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
-              Project
-            </p>
-            {hasWorkspace ? (
-              <select
-                value={currentProjectId || projects[0]?.id || ""}
-                onChange={(event) => handleProjectSelect(event.target.value)}
-                className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
-              >
-                {projects.length ? (
-                  projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No projects yet</option>
-                )}
-              </select>
-            ) : (
-              <p className="mt-2 px-1 text-xs text-stone-500 dark:text-stone-400">
-                Create a workspace first.
-              </p>
-            )}
-            {hasWorkspace ? (
-              <Link
-                to="/dashboard/projects"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                Manage projects
-              </Link>
-            ) : null}
-            {hasWorkspace && currentProjectId ? (
-              <Link
-                to="/dashboard/projects/$projectId/settings"
-                params={{ projectId: currentProjectId }}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                Project settings
-              </Link>
-            ) : null}
-          </div>
-        </div>
-        <nav className="mt-6 flex flex-1 flex-col gap-0.5 text-sm">
-          <Link
-            to="/dashboard"
-            search={{ projectId: undefined }}
-            activeOptions={{ exact: true }}
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Collections
-          </Link>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Link
-            to={"/dashboard/assets" as any}
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Assets
-          </Link>
-          <Link
-            to="/dashboard/team"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Team
-          </Link>
-          <Link
-            to="/dashboard/api-keys"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-          >
-            <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            API Keys
-          </Link>
-          {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
-            <Link
-              to="/dashboard/analytics"
-              search={{ projectId: undefined, range: "30d" }}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-            >
-              <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-              Analytics
-            </Link>
-          ) : null}
-          <a
-            href={env.PUBLIC_DOCS_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
-          >
-            <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            Docs
-            <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
-          </a>
-        </nav>
-
-        <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
-          <Link
-            to="/dashboard/workspace"
-            className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
-          >
-            <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-stone-900 dark:text-stone-100">
-                {organization?.name ?? "Create workspace"}
-              </p>
-              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
-                {organization?.slug ?? "Workspace required before creating a project"}
-              </p>
+    <SidebarProvider className="min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+      <Sidebar
+        collapsible="none"
+        className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
+      >
+        <SidebarHeader className="p-4">
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-900">
+              <Layers className="h-4 w-4" />
             </div>
-            <ChevronDown className="h-4 w-4 shrink-0 text-stone-400" />
-          </Link>
-        </div>
+            <span className="text-sm font-semibold tracking-tight">Mini CMS</span>
+          </div>
 
-        {/* Profile area */}
-        <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
-          {profileOpen ? (
-            <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setProfileOpen(false)}
-              />
-              <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
-                <div className="mb-3 px-1">
-                  <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
-                    {user.name || "User"}
-                  </p>
-                  <p className="truncate text-xs text-stone-500 dark:text-stone-400">
-                    {user.email}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                  <Link
-                    to="/dashboard/profile"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
-                  >
-                    <User className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    Profile settings
-                  </Link>
-                  <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-700 dark:text-stone-300">
-                    <ThemeToggle className="flex h-5 w-5 items-center justify-center rounded text-stone-500 transition hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100" />
-                    <span className="text-stone-500 dark:text-stone-400">Theme</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void authClient.signOut({
-                        fetchOptions: {
-                          onSuccess: () => {
-                            window.location.href = "/";
-                          },
-                        },
-                      });
-                    }}
-                    className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={() => setProfileOpen(!profileOpen)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition hover:bg-stone-100 dark:hover:bg-stone-800"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300">
-              {user.image ? (
-                <img
-                  src={user.image}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
+              <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                Project
+              </p>
+              {hasWorkspace ? (
+                <select
+                  value={currentProjectId || projects[0]?.id || ""}
+                  onChange={(event) => handleProjectSelect(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+                >
+                  {projects.length ? (
+                    projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No projects yet</option>
+                  )}
+                </select>
               ) : (
-                <User className="h-4 w-4" />
+                <p className="mt-2 px-1 text-xs text-stone-500 dark:text-stone-400">
+                  Create a workspace first.
+                </p>
               )}
+              {hasWorkspace ? (
+                <Link
+                  to="/dashboard/projects"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Manage projects
+                </Link>
+              ) : null}
+              {hasWorkspace && currentProjectId ? (
+                <Link
+                  to="/dashboard/projects/$projectId/settings"
+                  params={{ projectId: currentProjectId }}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Project settings
+                </Link>
+              ) : null}
             </div>
-            <div className="min-w-0 flex-1 text-left">
-              <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
-                {user.name || "User"}
-              </p>
-              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
-                {user.email}
-              </p>
-            </div>
-            <ChevronUp className="h-4 w-4 shrink-0 text-stone-400" />
-          </button>
-        </div>
-      </aside>
-      <main className="dash-dark min-w-0 flex-1 p-6">
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup className="pt-0">
+            <SidebarMenu className="gap-0.5 text-sm">
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link
+                    to="/dashboard"
+                    search={{ projectId: undefined }}
+                    activeOptions={{ exact: true }}
+                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                  >
+                    <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Collections
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  <Link
+                    to={"/dashboard/assets" as any}
+                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                  >
+                    <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Assets
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link
+                    to="/dashboard/team"
+                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                  >
+                    <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Team
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link
+                    to="/dashboard/api-keys"
+                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                  >
+                    <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    API Keys
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link
+                      to="/dashboard/analytics"
+                      search={{ projectId: undefined, range: "30d" }}
+                      className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    >
+                      <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      Analytics
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a
+                    href={env.PUBLIC_DOCS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+                  >
+                    <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Docs
+                    <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-stone-200 p-2 pt-3 dark:border-stone-800">
+          <div className="relative">
+            {workspaceMenuOpen ? (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setWorkspaceMenuOpen(false)}
+                />
+                <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
+                      Workspaces
+                    </p>
+                    <Link
+                      to="/dashboard/workspace"
+                      onClick={() => setWorkspaceMenuOpen(false)}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      Create workspace
+                    </Link>
+                  </div>
+
+                  <div className="space-y-0.5">
+                    {organizations.length ? (
+                      organizations.map((org) => {
+                        const isActive = org.id === organization?.id;
+
+                        return (
+                          <button
+                            key={org.id}
+                            type="button"
+                            onClick={() => void handleWorkspaceSwitch(org.id)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+                          >
+                            <Building2 className="h-4 w-4 shrink-0 text-stone-500 dark:text-stone-400" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-stone-900 dark:text-stone-100">
+                                {org.name}
+                              </p>
+                              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                                {org.slug}
+                              </p>
+                            </div>
+                            {isActive ? (
+                              <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            ) : null}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="px-2.5 py-2 text-xs text-stone-500 dark:text-stone-400">
+                        No workspaces available.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setWorkspaceMenuOpen((open) => !open)}
+              className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
+            >
+              <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-stone-900 dark:text-stone-100">
+                  {organization?.name ?? "Create workspace"}
+                </p>
+                <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                  {organization?.slug ?? "Workspace required before creating a project"}
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-stone-400 transition ${workspaceMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+
+          <div className="relative border-t border-stone-200 pt-3 dark:border-stone-800">
+            {profileOpen ? (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setProfileOpen(false)}
+                />
+                <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                  <div className="mb-3 px-1">
+                    <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
+                      {user.name || "User"}
+                    </p>
+                    <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                      {user.email}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <Link
+                      to="/dashboard/profile"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
+                    >
+                      <User className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      Profile settings
+                    </Link>
+                    <div className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-700 dark:text-stone-300">
+                      <ThemeToggle className="flex h-5 w-5 items-center justify-center rounded text-stone-500 transition hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100" />
+                      <span className="text-stone-500 dark:text-stone-400">Theme</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void authClient.signOut({
+                          fetchOptions: {
+                            onSuccess: () => {
+                              window.location.href = "/";
+                            },
+                          },
+                        });
+                      }}
+                      className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => setProfileOpen(!profileOpen)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition hover:bg-stone-100 dark:hover:bg-stone-800"
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300">
+                {user.image ? (
+                  <img
+                    src={user.image}
+                    alt=""
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
+                  {user.name || "User"}
+                </p>
+                <p className="truncate text-xs text-stone-500 dark:text-stone-400">
+                  {user.email}
+                </p>
+              </div>
+              <ChevronUp className="h-4 w-4 shrink-0 text-stone-400" />
+            </button>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent p-6">
         <Outlet />
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

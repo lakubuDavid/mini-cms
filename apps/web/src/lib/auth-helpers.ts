@@ -1,22 +1,36 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, getGlobalStartContext } from "@tanstack/react-start";
 import {
   captureServerError,
   captureServerEvent,
   createAnonymousServerIdentity,
 } from "@/lib/posthog";
 
-async function getHeaders() {
-  const { getRequestHeaders } = await import("@tanstack/react-start/server");
-  return getRequestHeaders();
+function getHeaders(ctx?: unknown) {
+  const request = (ctx as {
+    request?: Request;
+    context?: { request?: Request };
+  } | undefined)?.request
+    ?? (ctx as { context?: { request?: Request } } | undefined)?.context
+      ?.request;
+
+  if (request) {
+    return request.headers;
+  }
+
+  const globalContext = getGlobalStartContext() as
+    | { request?: Request }
+    | undefined;
+
+  return globalContext?.request?.headers ?? new Headers();
 }
 
 function toPlainJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-async function ensureActiveOrganization() {
+async function ensureActiveOrganization(ctx?: unknown) {
   const { auth } = await import("./auth");
-  const headers = await getHeaders();
+  const headers = getHeaders(ctx);
   const session = await auth.api.getSession({ headers });
 
   if (!session) {

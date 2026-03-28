@@ -1,8 +1,8 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
-import { config } from "dotenv";
-config();
+// import { config } from "dotenv";
+// config();
 const runtimeEnv = {
   ...process.env,
   ...import.meta.env,

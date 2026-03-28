@@ -8,6 +8,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PostHogProvider } from "posthog-js/react";
 import { ThemeProvider } from "next-themes";
 
+
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
+
 import { env } from "@/lib/env";
 import appCss from "@/styles/app.css?url";
 import type { PostHogConfig } from "posthog-js";
@@ -73,6 +76,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="flex min-h-screen flex-col">
+        <TooltipProvider>
         {isWebAnalyticsEnabled && posthogKey ? (
           <PostHogProvider apiKey={posthogKey} options={posthogOptions}>
             {content}
@@ -80,6 +84,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         ) : (
           content
         )}
+        </TooltipProvider>
         <Scripts />
       </body>
     </html>
