@@ -11,12 +11,12 @@ export const createCollectionServerFn = createServerFn({ method: "POST" })
       schema: CollectionField[];
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { createCollectionAction } =
       await import("../server/functions/collections");
     return createCollectionAction({
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
       projectId: data.projectId,
       name: data.name,
       slug: data.slug,
@@ -51,23 +51,23 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
     (data: { page?: number; limit?: number; projectId?: string } | undefined) =>
       data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { listCollections } = await import("../db/queries/collections");
     return listCollections({
       ...data,
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
     });
   });
 
 export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { slug: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { getCollectionBySlug } = await import("../db/queries/collections");
     const collection = await getCollectionBySlug(
       data.slug,
-      await requireActiveOrganizationId(),
+      await requireActiveOrganizationId(ctx),
     );
 
     if (!collection) {
@@ -81,7 +81,7 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
   .inputValidator(
     (data: { slug: string; page?: number; limit?: number }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const [{ getCollectionBySlug }, { listItems }] = await Promise.all([
       import("../db/queries/collections"),
@@ -90,7 +90,7 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
 
     const collection = await getCollectionBySlug(
       data.slug,
-      await requireActiveOrganizationId(),
+      await requireActiveOrganizationId(ctx),
     );
 
     if (!collection) {

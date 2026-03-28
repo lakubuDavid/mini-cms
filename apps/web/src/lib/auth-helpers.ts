@@ -71,16 +71,16 @@ async function ensureActiveOrganization(ctx?: unknown) {
 }
 
 export const listOrganizations = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    const headers = getHeaders(ctx);
     return auth.api.listOrganizations({ headers });
   },
 );
 
 export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const { auth, headers, organizationId } = await ensureActiveOrganization();
+  async (ctx) => {
+    const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
       return null;
@@ -96,8 +96,8 @@ export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
 );
 
 export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const { auth, headers, organizationId } = await ensureActiveOrganization();
+  async (ctx) => {
+    const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
       return [];
@@ -113,10 +113,10 @@ export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
 );
 
 export const listAdminUsers = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
-    const { organizationId } = await ensureActiveOrganization();
+    const headers = getHeaders(ctx);
+    const { organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
       return { users: [] };
@@ -135,12 +135,12 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 
 export const createOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; slug: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let userId: string | undefined;
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.id) {
@@ -185,14 +185,14 @@ export const createOrganizationAction = createServerFn({ method: "POST" })
 
 export const createWorkspaceAction = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; slug: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
     let userId: string | undefined;
 
     try {
       const { auth } = await import("./auth");
       const { createProject } = await import("../db/queries/projects");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.id) {
@@ -261,11 +261,11 @@ export const createInvitationAction = createServerFn({ method: "POST" })
       organizationId: string;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
       const { ensureWorkspaceUserLimit } = await import("./demo-limits");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       await ensureWorkspaceUserLimit(data.organizationId, {
         mode: "create-invite",
@@ -310,9 +310,9 @@ export const createInvitationAction = createServerFn({ method: "POST" })
 
 export const getInvitationById = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    const headers = getHeaders(ctx);
     const [invitation, session] = await Promise.all([
       auth.api.getInvitation({
         headers,
@@ -343,11 +343,11 @@ export const getInvitationById = createServerFn({ method: "GET" })
 
 export const acceptInvitationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { invitationId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
       const { ensureWorkspaceUserLimit } = await import("./demo-limits");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user?.email) {
@@ -401,9 +401,9 @@ export const acceptInvitationAction = createServerFn({ method: "POST" })
   });
 
 export const getSession = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    const headers = getHeaders(ctx);
 
     try {
       return await auth.api.getSession({ headers });
@@ -414,9 +414,9 @@ export const getSession = createServerFn({ method: "GET" }).handler(
 );
 
 export const ensureSession = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
+    const headers = getHeaders(ctx);
     const session = await auth.api.getSession({ headers });
 
     if (!session) {
@@ -427,8 +427,8 @@ export const ensureSession = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export async function requireActiveOrganizationId() {
-  const { organizationId } = await ensureActiveOrganization();
+export async function requireActiveOrganizationId(ctx?: unknown) {
+  const { organizationId } = await ensureActiveOrganization(ctx);
 
   if (!organizationId) {
     throw new Error("No active organization");
@@ -437,9 +437,9 @@ export async function requireActiveOrganizationId() {
   return organizationId;
 }
 
-export async function requireSessionUserId() {
+export async function requireSessionUserId(ctx?: unknown) {
   const { auth } = await import("./auth");
-  const headers = await getHeaders();
+  const headers = getHeaders(ctx);
   const session = await auth.api.getSession({ headers });
 
   if (!session?.user?.id) {
@@ -450,10 +450,10 @@ export async function requireSessionUserId() {
 }
 
 export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { auth } = await import("./auth");
-    const headers = await getHeaders();
-    const organizationId = await requireActiveOrganizationId();
+    const headers = getHeaders(ctx);
+    const organizationId = await requireActiveOrganizationId(ctx);
 
     const result = await auth.api.listApiKeys({
       headers,
@@ -489,13 +489,13 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
   .inputValidator(
     (data: { name: string; projectId?: string | null }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
-      organizationId = await requireActiveOrganizationId();
+      const headers = getHeaders(ctx);
+      organizationId = await requireActiveOrganizationId(ctx);
 
       const result = await auth.api.createApiKey({
         headers,
@@ -559,10 +559,10 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
 
 export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { keyId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       const result = await auth.api.deleteApiKey({
         headers,
@@ -597,10 +597,10 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   .inputValidator(
     (data: { keyId: string; enabled?: boolean; name?: string }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       const result = await auth.api.updateApiKey({
         headers,
@@ -645,13 +645,13 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
     (data: { keyId: string; name: string; projectId?: string | null }) =>
       data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
-      organizationId = await requireActiveOrganizationId();
+      const headers = getHeaders(ctx);
+      organizationId = await requireActiveOrganizationId(ctx);
 
       // Delete old key
       await auth.api.deleteApiKey({
@@ -723,10 +723,10 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator(
     (data: { organizationId: string; name?: string; slug?: string }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       const result = await auth.api.updateOrganization({
         headers,
@@ -768,10 +768,10 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
 
 export const setActiveOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { organizationId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       const result = await auth.api.setActiveOrganization({
         headers,
@@ -806,10 +806,10 @@ export const setActiveOrganizationAction = createServerFn({ method: "POST" })
 
 export const deleteOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { organizationId: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
-      const headers = await getHeaders();
+      const headers = getHeaders(ctx);
 
       const result = await auth.api.deleteOrganization({
         headers,

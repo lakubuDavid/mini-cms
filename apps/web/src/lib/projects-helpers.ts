@@ -7,11 +7,11 @@ import {
 
 export const getProjectServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { getProjectById } = await import("../db/queries/projects");
-      const organizationId = await requireActiveOrganizationId();
+      const organizationId = await requireActiveOrganizationId(ctx);
 
       return getProjectById(data.id, organizationId);
     } catch (error) {
@@ -28,24 +28,24 @@ export const getProjectServerFn = createServerFn({ method: "GET" })
   });
 
 export const listProjectsServerFn = createServerFn({ method: "GET" }).handler(
-  async () => {
+  async (ctx) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { listProjects } = await import("../db/queries/projects");
 
-    return listProjects(await requireActiveOrganizationId());
+    return listProjects(await requireActiveOrganizationId(ctx));
   },
 );
 
 export const createProjectServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; slug: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { createProject } = await import("../db/queries/projects");
       const { ensureProjectLimit } = await import("./demo-limits");
-      organizationId = await requireActiveOrganizationId();
+      organizationId = await requireActiveOrganizationId(ctx);
 
       await ensureProjectLimit(organizationId);
 
@@ -84,13 +84,13 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
   .inputValidator(
     (data: { id: string; name?: string; slug?: string; apiAccess?: { type: "public" | "restricted" | "none"; allowedDomains?: string[] } }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { updateProject } = await import("../db/queries/projects");
-      organizationId = await requireActiveOrganizationId();
+      organizationId = await requireActiveOrganizationId(ctx);
 
       const project = await updateProject(data.id, organizationId, {
         name: data.name,
@@ -132,13 +132,13 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
 
 export const deleteProjectServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { deleteProject } = await import("../db/queries/projects");
-      organizationId = await requireActiveOrganizationId();
+      organizationId = await requireActiveOrganizationId(ctx);
 
       const result = await deleteProject(data.id, organizationId);
 

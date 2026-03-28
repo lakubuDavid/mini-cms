@@ -5,7 +5,7 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
   .inputValidator(
     (data: { projectId: string; range: DateRange }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const {
       getTotalRequests,
@@ -15,7 +15,7 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
       getWorkspaceStats,
     } = await import("../db/queries/analytics");
 
-    const organizationId = await requireActiveOrganizationId();
+    const organizationId = await requireActiveOrganizationId(ctx);
 
     const [totalRequests, requestsByDay, topOrigins, requestsByCollection, stats] =
       await Promise.all([

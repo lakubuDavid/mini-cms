@@ -11,12 +11,12 @@ export const listAssetsServerFn = createServerFn({ method: "GET" })
         }
       | undefined) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { listAssetsAction } = await import("../server/functions/assets");
 
     return listAssetsAction({
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
       ...data,
     });
   });
@@ -30,7 +30,7 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
       size: number;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId, requireSessionUserId } = await import(
       "./auth-helpers"
     );
@@ -39,15 +39,15 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
     );
 
     return requestAssetUploadAction({
-      organizationId: await requireActiveOrganizationId(),
-      uploadedById: await requireSessionUserId(),
+      organizationId: await requireActiveOrganizationId(ctx),
+      uploadedById: await requireSessionUserId(ctx),
       ...data,
     });
   });
 
 export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { confirmAssetUploadAction } = await import(
       "../server/functions/assets"
@@ -55,30 +55,30 @@ export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
 
     return confirmAssetUploadAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
     });
   });
 
 export const deleteAssetServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { deleteAssetAction } = await import("../server/functions/assets");
 
     return deleteAssetAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
     });
   });
 
 export const getAssetInfoServerFn = createServerFn({ method: "GET" })
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { getAssetInfoAction } = await import("../server/functions/assets");
 
     return getAssetInfoAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(),
+      organizationId: await requireActiveOrganizationId(ctx),
     });
   });
