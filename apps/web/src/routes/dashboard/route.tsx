@@ -212,10 +212,13 @@ function DashboardLayout() {
   }
 
   return (
-    <SidebarProvider className="min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100">
+    <SidebarProvider
+      className="min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100"
+      style={{ "--sidebar-width": "300px" } as React.CSSProperties}
+    >
       <Sidebar
         collapsible="none"
-        className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100"
+        className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100 h-svh"
       >
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-2.5 px-2 py-1">
@@ -516,7 +519,7 @@ function DashboardLayout() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent p-6">
+      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent p-6 h-svh">
         <Outlet />
       </SidebarInset>
     </SidebarProvider>
