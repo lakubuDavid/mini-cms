@@ -229,7 +229,7 @@ function DashboardLayout() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="rounded-xl border border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
+            <div className="rounded-xl border flex flex-col border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
               <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
                 Project
               </p>
@@ -368,7 +368,7 @@ function DashboardLayout() {
                   onClick={() => setWorkspaceMenuOpen(false)}
                 />
                 <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-stone-700 dark:bg-stone-900">
-                  <div className="mb-2 flex items-center justify-between px-1">
+                  <div className="mb-2 flex flex-col items-center justify-between px-1">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
                       Workspaces
                     </p>
