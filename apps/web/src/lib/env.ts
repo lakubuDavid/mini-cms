@@ -1,6 +1,8 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
 
+import { config } from "dotenv";
+config();
 const runtimeEnv = {
   ...process.env,
   ...import.meta.env,
@@ -64,4 +66,6 @@ export const env = createEnv({
   },
   runtimeEnv,
   emptyStringAsUndefined: true,
+  skipValidation:true
+  // isServer: typeof window === "undefined",
 });

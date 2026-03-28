@@ -43,6 +43,13 @@
       "when": 1773556200000,
       "tag": "0005_request_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1774700035998,
+      "tag": "0006_striped_wendigo",
+      "breakpoints": true
     }
   ]
 }

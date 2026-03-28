@@ -3,7 +3,14 @@ import { env } from "@/lib/env";
 
 export const DEFAULT_FROM_EMAIL = "mini-cms@lakubudavid.me";
 
-export const resend = new Resend(env.RESEND_API_KEY);
+let resendInstance : Resend 
+
+function getResend(){
+  if (!resendInstance){
+    resendInstance  = new Resend(env.RESEND_API_KEY);
+  }
+  return resendInstance
+}
 
 export type SendEmailInput = {
   to: string | string[];
@@ -15,6 +22,7 @@ export type SendEmailInput = {
 };
 
 export async function sendEmail(input: SendEmailInput) {
+  const resend = getResend()
   return resend.emails.send({
     from: input.from ?? DEFAULT_FROM_EMAIL,
     to: input.to,
