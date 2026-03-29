@@ -79,7 +79,7 @@ export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
 
 export const getCollectionPageServerFn = createServerFn({ method: "GET" })
   .inputValidator(
-    (data: { slug: string; page?: number; limit?: number }) => data,
+    (data: { slug: string; page?: number; limit?: number; projectId?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
@@ -88,9 +88,11 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
       import("../db/queries/items"),
     ]);
 
+    const organizationId = await requireActiveOrganizationId(ctx);
     const collection = await getCollectionBySlug(
       data.slug,
-      await requireActiveOrganizationId(ctx),
+      organizationId,
+      data.projectId,
     );
 
     if (!collection) {

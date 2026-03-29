@@ -34,8 +34,8 @@ export const queryKeys = {
   project: (id: string) => ["project", id] as const,
   collections: (page: number, limit: number) =>
     ["collections", { page, limit }] as const,
-  collectionPage: (slug: string, page: number, limit: number) =>
-    ["collection-page", slug, { page, limit }] as const,
+  collectionPage: (slug: string, page: number, limit: number, projectId?: string) =>
+    ["collection-page", slug, { page, limit, projectId }] as const,
   collectionSchema: (slug: string) => ["collection-schema", slug] as const,
   collectionItemCounts: (collectionIds: string[]) =>
     ["collection-item-counts", collectionIds] as const,
@@ -95,10 +95,11 @@ export function collectionPageQueryOptions(
   slug: string,
   page = 1,
   limit = 10,
+  projectId?: string,
 ) {
   return queryOptions({
-    queryKey: queryKeys.collectionPage(slug, page, limit),
-    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit } }),
+    queryKey: queryKeys.collectionPage(slug, page, limit, projectId),
+    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit, projectId } }),
     staleTime: STALE_SHORT,
   });
 }

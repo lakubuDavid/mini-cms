@@ -63,7 +63,7 @@ function CollectionPage() {
   const queryClient = useQueryClient();
 
   const pageQuery = useQuery(
-    collectionPageQueryOptions(name, search.page, 10),
+    collectionPageQueryOptions(name, search.page, 10, search.projectId),
   );
 
   const [showModal, setShowModal] = useState(false);
