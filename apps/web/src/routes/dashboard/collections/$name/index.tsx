@@ -27,6 +27,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Switch } from "@workspace/ui/components/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
+import { Checkbox } from "@workspace/ui/components/checkbox";
+import { Button } from "@workspace/ui/components/button";
+import { Separator } from "@workspace/ui/components/separator";
 import { SYSTEM_COLLECTION_FIELDS as SYSTEM_FIELDS } from "@/lib/collections-system-fields";
 import {
   requestAssetUploadServerFn,
@@ -104,6 +108,63 @@ function CollectionPage() {
   }
 
   const { collection, items } = pageQuery.data;
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  const allSelected = items.items.length > 0 && selectedItems.size === items.items.length;
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(items.items.map((item: ItemRecord) => item.id)));
+    }
+  }
+
+  function toggleSelectItem(id: string) {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  }
+
+  async function handleBulkDelete() {
+    if (!confirm(`Delete ${selectedItems.size} item(s)? This cannot be undone.`)) {
+      return;
+    }
+    setBulkActionLoading(true);
+    try {
+      for (const id of selectedItems) {
+        await deleteItemServerFn({ data: { id, slug: collection.slug } });
+      }
+      setSelectedItems(new Set());
+      invalidate();
+    } catch (error) {
+      console.error("Failed to delete items:", error);
+      alert("Failed to delete some items. Please try again.");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
+
+  async function handleBulkPublish(publish: boolean) {
+    setBulkActionLoading(true);
+    try {
+      for (const id of selectedItems) {
+        await updateItemServerFn({ data: { id, slug: collection.slug, values: { _published: publish } } });
+      }
+      setSelectedItems(new Set());
+      invalidate();
+    } catch (error) {
+      console.error("Failed to update items:", error);
+      alert("Failed to update some items. Please try again.");
+    } finally {
+      setBulkActionLoading(false);
+    }
+  }
 
   return (
     <CollectionPageContent
@@ -121,6 +182,14 @@ function CollectionPage() {
       confirmDeleteId={confirmDeleteId}
       setConfirmDeleteId={setConfirmDeleteId}
       onInvalidate={invalidate}
+      selectedItems={selectedItems}
+      setSelectedItems={setSelectedItems}
+      toggleSelectAll={toggleSelectAll}
+      toggleSelectItem={toggleSelectItem}
+      handleBulkDelete={handleBulkDelete}
+      handleBulkPublish={handleBulkPublish}
+      bulkActionLoading={bulkActionLoading}
+      allSelected={allSelected}
     />
   );
 }
@@ -156,6 +225,14 @@ function CollectionPageContent(props: {
   confirmDeleteId: string | null;
   setConfirmDeleteId: (id: string | null) => void;
   onInvalidate: () => void;
+  selectedItems: Set<string>;
+  setSelectedItems: (items: Set<string>) => void;
+  toggleSelectAll: () => void;
+  toggleSelectItem: (id: string) => void;
+  handleBulkDelete: () => Promise<void>;
+  handleBulkPublish: (publish: boolean) => Promise<void>;
+  bulkActionLoading: boolean;
+  allSelected: boolean;
 }) {
   const {
     collection,
@@ -172,6 +249,14 @@ function CollectionPageContent(props: {
     confirmDeleteId,
     setConfirmDeleteId,
     onInvalidate,
+    selectedItems,
+    setSelectedItems,
+    toggleSelectAll,
+    toggleSelectItem,
+    handleBulkDelete,
+    handleBulkPublish,
+    bulkActionLoading,
+    allSelected,
   } = props;
   const tableFields: Array<
     | (typeof SYSTEM_FIELDS)[number]
@@ -275,11 +360,61 @@ function CollectionPageContent(props: {
         </div>
       ) : null}
 
+      {selectedItems.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-2.5 dark:border-stone-700 dark:bg-stone-900">
+          <span className="text-sm font-medium text-stone-700 dark:text-stone-300">
+            {selectedItems.size} selected
+          </span>
+          <Separator orientation="vertical" className="h-5" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleBulkPublish(true)}
+            disabled={bulkActionLoading}
+          >
+            <Check className="mr-1.5 h-3.5 w-3.5" />
+            Publish
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleBulkPublish(false)}
+            disabled={bulkActionLoading}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Unpublish
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDelete}
+            disabled={bulkActionLoading}
+            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectedItems(new Set())}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-lg border border-stone-200">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
               <tr>
+                <th className="w-10 px-3 py-3">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </th>
                 {tableFields.map((field) => (
                     <th
                       key={field.key}
@@ -296,6 +431,12 @@ function CollectionPageContent(props: {
             <tbody className="divide-y divide-stone-100 bg-white">
               {items.items.map((item: ItemRecord) => (
                 <tr key={item.id} className="hover:bg-stone-50">
+                  <td className="px-3 py-3 align-top">
+                    <Checkbox
+                      checked={selectedItems.has(item.id)}
+                      onCheckedChange={() => toggleSelectItem(item.id)}
+                    />
+                  </td>
                   {tableFields.map((field) => (
                       <td
                         key={field.key}
@@ -305,6 +446,7 @@ function CollectionPageContent(props: {
                           type={field.type}
                           value={item.data[field.key]}
                           onImagePreview={setPreviewImage}
+                          truncate
                         />
                       </td>
                     ))}
@@ -504,74 +646,97 @@ function FieldValue(props: {
   type: "text" | "url" | "number" | "boolean" | "date";
   value: unknown;
   onImagePreview?: (url: string) => void;
+  truncate?: boolean;
 }) {
-  if (props.type === "boolean") {
-    return props.value ? (
-      <span className="inline-flex items-center gap-1 text-green-600">
-        <Check className="h-4 w-4" />
-        Yes
-      </span>
-    ) : (
-      <span className="inline-flex items-center gap-1 text-stone-400">
-        <X className="h-4 w-4" />
-        No
-      </span>
-    );
-  }
-
-  if (props.type === "url" && typeof props.value === "string") {
-    const imageUrl = props.value;
-    const looksLikeImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(imageUrl);
-
-    if (looksLikeImage) {
-      return (
-        <button
-          type="button"
-          onClick={() => props.onImagePreview?.(imageUrl)}
-          className="block"
-        >
-          <img
-            src={imageUrl}
-            alt="Preview"
-            className="h-10 w-10 rounded-md object-cover"
-          />
-        </button>
+  const content = (() => {
+    if (props.type === "boolean") {
+      return props.value ? (
+        <span className="inline-flex items-center gap-1 text-green-600">
+          <Check className="h-4 w-4" />
+          Yes
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-stone-400">
+          <X className="h-4 w-4" />
+          No
+        </span>
       );
     }
 
-    return (
-      <a
-        href={imageUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 text-stone-700 underline underline-offset-4 hover:text-stone-900"
-      >
-        <ExternalLink className="h-3 w-3" />
-        {imageUrl}
-      </a>
-    );
-  }
+    if (props.type === "url" && typeof props.value === "string") {
+      const imageUrl = props.value;
+      const looksLikeImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(imageUrl);
 
-  if (props.type === "date" && typeof props.value === "string") {
-    const date = new Date(props.value);
+      if (looksLikeImage) {
+        return (
+          <button
+            type="button"
+            onClick={() => props.onImagePreview?.(imageUrl)}
+            className="block"
+          >
+            <img
+              src={imageUrl}
+              alt="Preview"
+              className="h-10 w-10 rounded-md object-cover"
+            />
+          </button>
+        );
+      }
 
-    if (Number.isNaN(date.getTime())) {
-      return <span>{props.value}</span>;
+      return (
+        <a
+          href={imageUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-stone-700 underline underline-offset-4 hover:text-stone-900"
+        >
+          <ExternalLink className="h-3 w-3" />
+          {imageUrl}
+        </a>
+      );
     }
 
-    return (
-      <span className="inline-flex items-center gap-1.5 text-stone-700">
-        <Calendar className="h-4 w-4 text-stone-400" />
-        {new Intl.DateTimeFormat(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        }).format(date)}
-      </span>
-    );
+    if (props.type === "date" && typeof props.value === "string") {
+      const date = new Date(props.value);
+
+      if (Number.isNaN(date.getTime())) {
+        return <span>{props.value}</span>;
+      }
+
+      return (
+        <span className="inline-flex items-center gap-1.5 text-stone-700">
+          <Calendar className="h-4 w-4 text-stone-400" />
+          {new Intl.DateTimeFormat(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }).format(date)}
+        </span>
+      );
+    }
+
+    return <span>{String(props.value ?? "-")}</span>;
+  })();
+
+  const stringValue = String(props.value ?? "");
+  const needsTruncation = props.truncate && stringValue.length > 50;
+
+  if (!needsTruncation) {
+    return content;
   }
 
-  return <span>{String(props.value ?? "-")}</span>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help truncate block max-w-[200px]">
+          {content}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="start" className="max-w-md break-all">
+        {stringValue}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 function ItemEditorModal(props: {
