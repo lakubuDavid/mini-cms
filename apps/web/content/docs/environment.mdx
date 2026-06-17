@@ -18,23 +18,14 @@ PUBLIC_APP_URL=
 ## Cache And Rate Limit
 
 ```bash
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
+UPSTASH_REDIS_KV_REST_API_URL=
+UPSTASH_REDIS_KV_REST_API_TOKEN=
 ```
 
 ## Email
 
 ```bash
 RESEND_API_KEY=
-```
-
-## Compatibility Aliases
-
-The app also accepts these optional Redis aliases:
-
-```bash
-KV_REST_API_URL=
-KV_REST_API_TOKEN=
 ```
 
 ## Optional Self-Hosting And Demo Flags
@@ -62,7 +53,7 @@ S3_PUBLIC_URL=
 - `PUBLIC_HIDE_HOME`: when `true`, the `/` homepage returns `404` so the app behaves like a dashboard-only self-hosted install.
 - `AUTH_SECRET`: Better Auth signing secret.
 - `TURSO_DB_URL` and `TURSO_AUTH_TOKEN`: Turso/libSQL connection settings.
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`: cache and rate-limit backend.
+- `UPSTASH_REDIS_KV_REST_API_URL` and `UPSTASH_REDIS_KV_REST_API_TOKEN`: cache and rate-limit backend.
 - `RESEND_API_KEY`: invite email delivery.
 - `DEMO_MAX_WORKSPACES_PER_USER`: optional cap for demo environments.
 - `DEMO_MAX_USERS_PER_WORKSPACE`: optional cap for total active members plus pending invites in a workspace.
@@ -94,8 +85,8 @@ AUTH_SECRET=change-me
 APP_URL=http://localhost:3000
 PUBLIC_APP_URL=http://localhost:3000
 PUBLIC_HIDE_HOME=false
-UPSTASH_REDIS_REST_URL=https://...
-UPSTASH_REDIS_REST_TOKEN=...
+UPSTASH_REDIS_KV_REST_API_URL=https://...
+UPSTASH_REDIS_KV_REST_API_TOKEN=...
 RESEND_API_KEY=...
 DEMO_MAX_WORKSPACES_PER_USER=
 DEMO_MAX_USERS_PER_WORKSPACE=

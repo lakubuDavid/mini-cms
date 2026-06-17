@@ -7,14 +7,8 @@ function logCacheError(operation: string, error: unknown) {
 }
 
 export const redis = new Redis({
-  url:
-    env.UPSTASH_REDIS_REST_URL ??
-    env.KV_REST_API_URL ??
-    "https://example.upstash.io",
-  token:
-    env.UPSTASH_REDIS_REST_TOKEN ??
-    env.KV_REST_API_TOKEN ??
-    "development-token",
+  url: env.UPSTASH_REDIS_KV_REST_API_URL ?? "https://example.upstash.io",
+  token: env.UPSTASH_REDIS_KV_REST_API_TOKEN ?? "development-token",
 });
 
 export const apiRateLimit = new Ratelimit({
