@@ -5,7 +5,7 @@ import { organizations, projects, requestLogs } from "@/db/schema";
 import { getCollectionById, getCollectionBySlug } from "@/db/queries/collections";
 import { listItems } from "@/db/queries/items";
 import { normalizePagination } from "@/db/queries/shared";
-import { apiRateLimit, getCached, setCached } from "@/lib/cache";
+import { checkRateLimit, getCached, setCached } from "@/lib/cache";
 import {
   anonymizeServerValue,
   captureServerError,
@@ -79,14 +79,14 @@ export async function handleCollectionItems(request: Request) {
       ?? request.headers.get("x-real-ip")
       ?? "local";
 
-    const rateLimit = await apiRateLimit.limit(
+    const rateLimit = await checkRateLimit(
       `public:${ip}:${workspaceId}:${projectId}:${collectionId ?? collectionSlug}`,
     );
 
     if (!rateLimit.success) {
       const retryAfter = Math.max(
         0,
-        Math.ceil((rateLimit.reset - Date.now()) / 1000),
+        Math.ceil(((rateLimit.reset ?? 0) - Date.now()) / 1000),
       );
 
       await captureServerEvent({

@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   getActiveOrganization,
   getSession,
   setActiveOrganizationAction,
+  listOrganizations,
 } from "@/lib/auth-helpers";
+import { listProjectsServerFn } from "@/lib/projects-helpers";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
-import {
-  organizationQueryOptions,
-  organizationsQueryOptions,
-  projectsQueryOptions,
-} from "@/lib/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Sidebar,
@@ -88,27 +85,26 @@ export const Route = createFileRoute("/dashboard")({
     }
 
     const organization = await getActiveOrganization();
+    const organizations = organization ? await listOrganizations() : [];
+    const projects = organization ? await listProjectsServerFn() : [];
 
-    return { user: session.user, hasWorkspace: Boolean(organization) };
+    return {
+      user: session.user,
+      hasWorkspace: Boolean(organization),
+      organization,
+      organizations,
+      projects,
+    };
   },
   component: DashboardLayout,
 });
 
 function DashboardLayout() {
-  const { user, hasWorkspace } = useRouteContext({ from: "/dashboard" });
+  const { user, hasWorkspace, organization, organizations, projects } = useRouteContext({ from: "/dashboard" });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-  const orgQuery = useQuery(organizationQueryOptions());
-  const orgsQuery = useQuery(organizationsQueryOptions());
-  const projectsQuery = useQuery({
-    ...projectsQueryOptions(),
-    enabled: hasWorkspace,
-  });
-  const organization = orgQuery.data ?? null;
-  const organizations = orgsQuery.data ?? [];
-  const projects = projectsQuery.data ?? [];
 
   const currentPath = typeof window === "undefined"
     ? ""

@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@import "fumadocs-ui/css/neutral.css";
-@import "fumadocs-ui/css/preset.css";
+/* @import "fumadocs-ui/css/neutral.css"; */
+/* @import "fumadocs-ui/css/preset.css"; */
 
 @source "../**/*.{ts,tsx,mdx}";
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
@@ -13,6 +13,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -35,13 +36,14 @@
  */
 
 .dark .dash-dark {
+
   /* ── Tables ──────────────────────────────────────────────────────── */
   & .border-stone-200 {
     border-color: #292524;
   }
 
-  & .divide-stone-200 > :not(:last-child),
-  & .divide-stone-100 > :not(:last-child) {
+  & .divide-stone-200> :not(:last-child),
+  & .divide-stone-100> :not(:last-child) {
     border-color: #292524;
   }
 

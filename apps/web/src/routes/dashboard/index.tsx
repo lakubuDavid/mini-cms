@@ -7,10 +7,8 @@ import {
 } from "@/lib/collections-helpers";
 import { createProjectServerFn } from "@/lib/projects-helpers";
 import {
-  organizationQueryOptions,
   collectionsQueryOptions,
   collectionItemCountsQueryOptions,
-  projectsQueryOptions,
 } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
@@ -41,15 +39,11 @@ export const Route = createFileRoute("/dashboard/")({
 function DashboardHome() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
-  const orgQuery = useQuery(organizationQueryOptions());
-  const projectsQuery = useQuery({
-    ...projectsQueryOptions(),
-    enabled: !!orgQuery.data,
-  });
+  const { organization, projects } = Route.useRouteContext();
   const selectedProjectId = search.projectId ?? "";
   const collectionsQuery = useQuery({
     ...collectionsQueryOptions(1, 24, selectedProjectId || undefined),
-    enabled: !!orgQuery.data && !!selectedProjectId,
+    enabled: !!organization && !!selectedProjectId,
   });
 
   const collectionIds = collectionsQuery.data?.items.map((c) => c.id) ?? [];
@@ -57,7 +51,7 @@ function DashboardHome() {
     collectionItemCountsQueryOptions(collectionIds),
   );
 
-  const isLoading = orgQuery.isLoading || projectsQuery.isLoading || (!!selectedProjectId && (collectionsQuery.isLoading || itemCountsQuery.isLoading));
+  const isLoading = collectionsQuery.isLoading || itemCountsQuery.isLoading;
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["collections"] });
@@ -66,8 +60,6 @@ function DashboardHome() {
     void queryClient.invalidateQueries({ queryKey: ["projects"] });
   }
 
-  const organization = orgQuery.data ?? null;
-  const projects = projectsQuery.data ?? [];
   const collections = collectionsQuery.data ?? {
     items: [],
     pagination: { page: 1, limit: 24, total: 0, totalPages: 1, hasMore: false },
