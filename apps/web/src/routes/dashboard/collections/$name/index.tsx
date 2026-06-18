@@ -80,6 +80,8 @@ function CollectionPage() {
   } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   function invalidate() {
     void queryClient.invalidateQueries({
@@ -110,8 +112,6 @@ function CollectionPage() {
   }
 
   const { collection, items } = pageQuery.data;
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const allSelected = items.items.length > 0 && selectedItems.size === items.items.length;
 

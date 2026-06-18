@@ -20,6 +20,11 @@ const config = defineConfig({
       "@fumadocs/base-ui",
     ],
   },
+  server: {
+    watch: {
+      ignored: ["**/routeTree.gen.ts"],
+    },
+  },
   plugins: [
     TanStackRouterVite(),
     nitro(),
