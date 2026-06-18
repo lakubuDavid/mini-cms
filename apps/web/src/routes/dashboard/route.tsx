@@ -10,6 +10,7 @@ import { listProjectsServerFn } from "@/lib/projects-helpers";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
 } from "@workspace/ui/components/sidebar";
 import {
   Link,
@@ -107,6 +109,7 @@ function DashboardLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   const currentPath = location.pathname;
   const currentSearch = new URLSearchParams(location.search);
@@ -211,7 +214,7 @@ function DashboardLayout() {
       style={{ "--sidebar-width": "300px" } as React.CSSProperties}
     >
       <Sidebar
-        collapsible="none"
+        collapsible={isMobile ? "offcanvas" : "none"}
         className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100 h-svh"
       >
         <SidebarHeader className="p-4">
@@ -513,8 +516,17 @@ function DashboardLayout() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent p-6 h-svh">
-        <Outlet />
+      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent h-svh">
+        {/* Mobile header with hamburger */}
+        <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900 md:hidden">
+          <SidebarTrigger className="h-8 w-8 text-stone-600 dark:text-stone-400" />
+          <span className="text-sm font-semibold tracking-tight text-stone-900 dark:text-stone-100">
+            Mini CMS
+          </span>
+        </div>
+        <div className="p-3 md:p-6">
+          <Outlet />
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -144,7 +144,9 @@ function DashboardHome() {
           </p>
         </div>
       ) : (
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <>
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>
@@ -216,6 +218,56 @@ function DashboardHome() {
           </tbody>
         </table>
       </div>
+
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {collections.items.length ? (
+          collections.items.map((collection: (typeof collections.items)[number]) => (
+            <div
+              key={collection.id}
+              className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <Link
+                  to="/dashboard/collections/$name"
+                  params={{ name: collection.slug }}
+                  search={{ page: 1, projectId: selectedProjectId || undefined }}
+                  className="flex items-center gap-2.5 min-w-0"
+                >
+                  <Folder className="h-4 w-4 shrink-0 text-stone-400" />
+                  <span className="truncate font-medium text-stone-900 dark:text-stone-100">
+                    {collection.name}
+                  </span>
+                </Link>
+                <CollectionActionsMenu
+                  collection={collection}
+                  projectId={selectedProjectId}
+                  onDeleted={invalidate}
+                />
+              </div>
+              <div className="mt-2 space-y-1 text-xs text-stone-500 dark:text-stone-400">
+                <p className="font-mono">/{collection.slug}</p>
+                <p className="flex items-center gap-1">
+                  <span className="font-medium text-stone-600 dark:text-stone-400">
+                    {itemCounts[collection.id] ?? 0}
+                  </span>
+                  items
+                </p>
+                {collection.description ? (
+                  <p className="line-clamp-2 text-stone-500 dark:text-stone-400">
+                    {collection.description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="py-10 text-center text-sm text-stone-500">
+            No collections yet. Create your first one to get started.
+          </p>
+        )}
+      </div>
+      </>
       )}
     </section>
   );
@@ -238,7 +290,7 @@ function DashboardHomeSkeleton() {
         <Skeleton className="h-9 w-36 rounded-lg" />
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>
@@ -282,7 +334,25 @@ function DashboardHomeSkeleton() {
           </tbody>
         </table>
       </div>
-    </section>
+
+      {/* Mobile skeleton */}
+      <div className="space-y-3 md:hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+          >
+            <div className="flex items-start gap-2.5">
+              <Skeleton className="h-8 w-8 rounded" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-3/5" />
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>    </section>
   );
 }
 

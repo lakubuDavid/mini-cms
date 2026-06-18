@@ -406,7 +406,7 @@ function CollectionPageContent(props: {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
@@ -513,7 +513,89 @@ function CollectionPageContent(props: {
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-sm">
+
+      {/* Mobile cards */}
+      <div className="space-y-3 md:hidden">
+        {items.items.length ? (
+          items.items.map((item: ItemRecord) => (
+            <div
+              key={item.id}
+              className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+            >
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={selectedItems.has(item.id)}
+                  onCheckedChange={() => toggleSelectItem(item.id)}
+                  className="mt-0.5"
+                />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  {tableFields.map((field) => (
+                    <div key={field.key}>
+                      <span className="text-xs font-medium text-stone-500 dark:text-stone-400">
+                        {field.label}{" "}
+                      </span>
+                      <span className="text-sm text-stone-700 dark:text-stone-300">
+                        <FieldValue
+                          type={field.type}
+                          value={item.data[field.key]}
+                          onImagePreview={setPreviewImage}
+                          truncate={false}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-stone-100 pt-3 dark:border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingItemId(item.id);
+                    setShowModal(true);
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </button>
+                {confirmDeleteId === item.id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteItem(item.id)}
+                      className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="inline-flex items-center rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(item.id)}
+                    className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-stone-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="py-10 text-center text-sm text-stone-500">
+            No items yet. Click{" "}
+            <span className="font-medium text-stone-700">Add item</span>{" "}
+            to create the first one.
+          </p>
+        )}
+      </div>      <div className="flex items-center justify-between text-sm">
         <span className="text-stone-500">
           Page {items.pagination.page} of {items.pagination.totalPages}
         </span>
@@ -595,7 +677,7 @@ function CollectionPageSkeleton() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
@@ -633,7 +715,32 @@ function CollectionPageSkeleton() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+
+      {/* Mobile skeleton */}
+      <div className="space-y-3 md:hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
+          >
+            <div className="flex items-start gap-3">
+              <Skeleton className="mt-0.5 h-4 w-4 rounded" />
+              <div className="min-w-0 flex-1 space-y-2">
+                {Array.from({ length: 3 }).map((_, j) => (
+                  <div key={j} className="flex gap-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-3 flex-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-end gap-1.5 border-t border-stone-100 pt-3 dark:border-stone-800">
+              <Skeleton className="h-7 w-14 rounded-md" />
+              <Skeleton className="h-7 w-16 rounded-md" />
+            </div>
+          </div>
+        ))}
+      </div>      <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-24" />
         <div className="flex gap-2">
           <Skeleton className="h-8 w-24 rounded-lg" />
