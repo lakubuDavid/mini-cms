@@ -27,6 +27,7 @@ import {
   Outlet,
   createFileRoute,
   redirect,
+  useLocation,
   useNavigate,
   useRouteContext,
 } from "@tanstack/react-router";
@@ -105,13 +106,10 @@ function DashboardLayout() {
   const queryClient = useQueryClient();
   const [profileOpen, setProfileOpen] = useState(false);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const location = useLocation();
 
-  const currentPath = typeof window === "undefined"
-    ? ""
-    : window.location.pathname;
-  const currentSearch = typeof window === "undefined"
-    ? new URLSearchParams()
-    : new URLSearchParams(window.location.search);
+  const currentPath = location.pathname;
+  const currentSearch = new URLSearchParams(location.search);
   const currentProjectId = currentSearch.get("projectId") ?? "";
 
   useEffect(() => {
