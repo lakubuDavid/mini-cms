@@ -27,7 +27,7 @@ import {
 // Route
 // ---------------------------------------------------------------------------
 
-export const Route = createFileRoute("/dashboard/assets" as never)({
+export const Route = createFileRoute("/dashboard/assets")({
   validateSearch: (search: Record<string, unknown>) => ({
     projectId:
       typeof search.projectId === "string" && search.projectId.length > 0
@@ -53,7 +53,8 @@ function DashboardAssetsPage() {
     type?: "images" | "videos" | "documents";
   };
 
-  const projectsQuery = useQuery(projectsQueryOptions());
+  const { projects: ssrProjects } = Route.useRouteContext();
+  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;

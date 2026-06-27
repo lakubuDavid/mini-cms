@@ -28,7 +28,8 @@ export const Route = createFileRoute("/dashboard/projects")({
 
 function ProjectsPage() {
   const queryClient = useQueryClient();
-  const projectsQuery = useQuery(projectsQueryOptions());
+  const { projects: ssrProjects } = Route.useRouteContext();
+  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
   const collectionsQuery = useQuery(collectionsQueryOptions(1, 200));
 
   const [showCreate, setShowCreate] = useState(false);

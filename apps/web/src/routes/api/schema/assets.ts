@@ -142,7 +142,7 @@ export async function handleSchemaAssets(
   }
 }
 
-export const Route = createFileRoute("/api/schema/assets" as never)({
+export const Route = createFileRoute("/api/schema/assets")({
   server: {
     handlers: {
       GET: async ({ request }: { request: Request }) => handleSchemaAssets(request),

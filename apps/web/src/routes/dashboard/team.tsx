@@ -23,7 +23,8 @@ export const Route = createFileRoute("/dashboard/team")({
 
 function TeamPage() {
   const queryClient = useQueryClient();
-  const orgQuery = useQuery(organizationQueryOptions());
+  const { organization: ssrOrganization } = Route.useRouteContext();
+  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
   const usersQuery = useQuery(teamQueryOptions());
   const invitesQuery = useQuery(invitesQueryOptions());
 

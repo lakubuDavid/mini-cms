@@ -47,7 +47,6 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    tanstackStartCookies(),
     admin({
       ac,
       defaultRole: "admin",
@@ -93,5 +92,6 @@ export const auth = betterAuth({
       },
     }),
     ...(process.env.ENABLE_TEST_UTILS === "true" ? [testUtils()] : []),
+    tanstackStartCookies(),
   ],
 });

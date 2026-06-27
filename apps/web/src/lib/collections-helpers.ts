@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { CollectionField } from "@/db/queries/collections";
 
 export const createCollectionServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       projectId?: string;
       name: string;
@@ -26,7 +26,7 @@ export const createCollectionServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateCollectionServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       id: string;
       name?: string;
@@ -47,7 +47,7 @@ export const updateCollectionServerFn = createServerFn({ method: "POST" })
   });
 
 export const listCollectionsServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { page?: number; limit?: number; projectId?: string } | undefined) =>
       data,
   )
@@ -61,7 +61,7 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
   });
 
 export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { slug: string }) => data)
+  .validator((data: { slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { getCollectionBySlug } = await import("../db/queries/collections");
@@ -78,7 +78,7 @@ export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
   });
 
 export const getCollectionPageServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { slug: string; page?: number; limit?: number; projectId?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -108,7 +108,7 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
   });
 
 export const createItemServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       collectionId: string;
       slug: string;
@@ -127,7 +127,7 @@ export const createItemServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateItemServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       id: string;
       slug: string;
@@ -140,7 +140,7 @@ export const updateItemServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteItemServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string; slug: string }) => data)
+  .validator((data: { id: string; slug: string }) => data)
   .handler(async ({ data }) => {
     const { deleteItemAction } = await import("../server/functions/items");
     await deleteItemAction(data.id, data.slug);
@@ -148,7 +148,7 @@ export const deleteItemServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteCollectionServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string; slug?: string }) => data)
+  .validator((data: { id: string; slug?: string }) => data)
   .handler(async ({ data }) => {
     const { deleteCollectionAction } =
       await import("../server/functions/collections");
@@ -156,7 +156,7 @@ export const deleteCollectionServerFn = createServerFn({ method: "POST" })
   });
 
 export const getCollectionItemCountsServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { collectionIds: string[] } | undefined) => data,
   )
   .handler(async ({ data }) => {

@@ -134,7 +134,7 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 );
 
 export const createOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string; slug: string }) => data)
+  .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let userId: string | undefined;
 
@@ -184,7 +184,7 @@ export const createOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const createWorkspaceAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string; slug: string }) => data)
+  .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
     let userId: string | undefined;
@@ -254,7 +254,7 @@ export const createWorkspaceAction = createServerFn({ method: "POST" })
   });
 
 export const createInvitationAction = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       email: string;
       role: "admin" | "owner" | "member" | "reviewer";
@@ -309,7 +309,7 @@ export const createInvitationAction = createServerFn({ method: "POST" })
   });
 
 export const getInvitationById = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
     const headers = getHeaders(ctx);
@@ -342,7 +342,7 @@ export const getInvitationById = createServerFn({ method: "GET" })
   });
 
 export const acceptInvitationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { invitationId: string }) => data)
+  .validator((data: { invitationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -486,7 +486,7 @@ export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { name: string; projectId?: string | null }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -558,7 +558,7 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { keyId: string }) => data)
+  .validator((data: { keyId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -594,7 +594,7 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { keyId: string; enabled?: boolean; name?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -641,7 +641,7 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { keyId: string; name: string; projectId?: string | null }) =>
       data,
   )
@@ -720,7 +720,7 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { organizationId: string; name?: string; slug?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -767,7 +767,7 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const setActiveOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -805,7 +805,7 @@ export const setActiveOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const deleteOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");

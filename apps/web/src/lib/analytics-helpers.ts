@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import type { DateRange } from "@/db/queries/analytics";
 
 export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { projectId: string; range: DateRange }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
