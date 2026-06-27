@@ -30,6 +30,8 @@ dist
 .tanstack
 .vinxi
 
+.playwright-cli
+
 # Debug
 npm-debug.log*
 

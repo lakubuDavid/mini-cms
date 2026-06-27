@@ -8,12 +8,14 @@
     "mini-cms": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsdown src/index.ts --format esm --dts && bun build --compile dist --outfile dist/mini-cms",
+    "build": "tsdown src/index.ts --format esm --dts",
+    "build:compile": "bun build --compile dist --outfile dist/mini-cms",
+    "build:all": "bun run build && bun run build:compile",
     "lint": "oxlint src",
     "test": "bun test tests/unit",
     "typecheck": "tsc --noEmit",
     "start": "bun ./src/index.ts",
-    "deploy-tool": "cp ./dist/mini-cms ~/tools",
+    "deploy-tool": "bun run build:compile && cp ./dist/mini-cms ~/tools",
     "publish:jsr": "bun run build && npx jsr publish"
   },
   "dependencies": {
