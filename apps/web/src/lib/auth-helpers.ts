@@ -308,6 +308,91 @@ export const createInvitationAction = createServerFn({ method: "POST" })
     }
   });
 
+export const cancelInvitationAction = createServerFn({ method: "POST" })
+  .validator((data: { invitationId: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      const result = await auth.api.cancelInvitation({
+        headers,
+        body: {
+          invitationId: data.invitationId,
+        },
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "invitations",
+          operation: "cancel",
+          invitationId: data.invitationId,
+        },
+      });
+      throw error;
+    }
+  });
+
+export const resendInvitationAction = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      invitationId: string;
+      email: string;
+      role: "admin" | "owner" | "member" | "reviewer";
+      organizationId: string;
+    }) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      // Cancel the old invitation
+      await auth.api.cancelInvitation({
+        headers,
+        body: {
+          invitationId: data.invitationId,
+        },
+      });
+
+      // Create a fresh one
+      const invitation = await auth.api.createInvitation({
+        headers,
+        body: {
+          email: data.email,
+          role: data.role,
+          organizationId: data.organizationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "invitation_resent",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+          subject: data.email.toLowerCase(),
+        }),
+        properties: {
+          role: data.role,
+        },
+      });
+
+      return invitation;
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "invitations",
+          operation: "resend",
+          invitationId: data.invitationId,
+        },
+      });
+      throw error;
+    }
+  });
+
 export const getInvitationById = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
