@@ -93,7 +93,7 @@ function DashboardPending() {
 export const Route = createFileRoute("/dashboard")({
   pendingMs: 0,
   pendingMinMs: 300,
-  PendingComponent: DashboardPending,
+  pendingComponent: DashboardPending,
   beforeLoad: async () => {
     const session = await getSession();
 
