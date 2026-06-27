@@ -1094,7 +1094,7 @@ const commandSpecs = [
   { words: ["add-skill"], usage: "add-skill", requiredArgs: 0 },
 ] as const;
 
-export async function run(argv = process.argv) {
+export async function run(argv = process.argv): Promise<void> {
   try {
     const rawArgs = argv.slice(2);
     isVerboseLoggingEnabled = rawArgs.includes("--verbose");
@@ -1130,7 +1130,7 @@ if (import.meta.main) {
   });
 }
 
-function formatCliError(error: unknown, argv: string[]) {
+function formatCliError(error: unknown, argv: string[]): Error {
   if (error instanceof Error) {
     return new Error(toFriendlyCommandError(error.message, argv));
   }
@@ -1321,7 +1321,7 @@ function toCommandOptions(args: Record<string, unknown>): CommandOptions {
   };
 }
 
-function formatCollectionItemsTableRows(payload: ListCollectionItemsResponse) {
+function formatCollectionItemsTableRows(payload: ListCollectionItemsResponse): Array<Record<string, unknown>> {
   const fieldKeys = collectItemFieldKeys(payload.items);
 
   return payload.items.map((item) => ({
@@ -1335,7 +1335,7 @@ function formatCollectionItemsTableRows(payload: ListCollectionItemsResponse) {
   }));
 }
 
-function collectItemFieldKeys(items: ListCollectionItemsResponse["items"]) {
+function collectItemFieldKeys(items: ListCollectionItemsResponse["items"]): string[] {
   const keys: string[] = [];
 
   for (const item of items) {
@@ -1542,7 +1542,7 @@ function readEnvValue(key: string) {
   return normalizedValue.length > 0 ? normalizedValue : undefined;
 }
 
-async function pullSchemas(config: ResolvedConfig) {
+async function pullSchemas(config: ResolvedConfig): Promise<PullResponse> {
   const url = new URL("/api/schema/pull", normalizeBaseUrl(config.baseUrl));
   url.searchParams.set("workspaceId", config.workspaceId);
   url.searchParams.set("projectId", config.projectId ?? "");
@@ -1567,7 +1567,7 @@ async function pullSchemas(config: ResolvedConfig) {
 async function pushSchemas(
   config: ResolvedConfig,
   collections: SyncedCollection[],
-) {
+): Promise<PushResponse> {
   const response = await fetch(
     new URL("/api/schema/push", normalizeBaseUrl(config.baseUrl)),
     {
@@ -1996,7 +1996,7 @@ async function writeMiniConfig(config: ResolvedConfig) {
   await writeJson(config.configPath, value);
 }
 
-async function writeCollectionsFile(filePath: string, payload: PullResponse) {
+async function writeCollectionsFile(filePath: string, payload: PullResponse): Promise<string> {
   const outputPath = await resolveCollectionsOutputPath(filePath);
 
   await importedWriteJson(outputPath, {
@@ -2019,11 +2019,11 @@ async function resolveCollectionsOutputPath(filePath: string) {
   return filePath;
 }
 
-async function loadCollectionsInput(filePath: string, collectionId?: string) {
+async function loadCollectionsInput(filePath: string, collectionId?: string): Promise<SyncedCollection[]> {
   return importedLoadCollectionsInput(filePath, collectionId);
 }
 
-function normalizeCollections(collections: SyncedCollection[]) {
+function normalizeCollections(collections: SyncedCollection[]): SyncedCollection[] {
   return importedNormalizeCollections(collections);
 }
 
@@ -2031,7 +2031,7 @@ async function writeTypesFile(
   filePath: string,
   collections: SyncedCollection[],
   workspaceId: string,
-) {
+): Promise<void> {
   return importedWriteTypesFile(filePath, collections, workspaceId);
 }
 
@@ -2197,7 +2197,7 @@ async function promptValue(
   }
 }
 
-function parseKeyValueInput(value: string) {
+function parseKeyValueInput(value: string): Record<string, string | number | boolean | null> {
   const result: Record<string, string | number | boolean | null> = {};
 
   for (const segment of value.split(";")) {
@@ -2279,31 +2279,31 @@ async function resolveProjectIdentifier(config: ResolvedConfig, value: string) {
   return project;
 }
 
-function toJsPropertyName(value: string) {
+function toJsPropertyName(value: string): string {
   return importedToJsPropertyName(value);
 }
 
-function toPascalCase(value: string) {
+function toPascalCase(value: string): string {
   return importedToPascalCase(value);
 }
 
-function toTsType(type: FieldType) {
+function toTsType(type: FieldType): string {
   return importedToTsType(type);
 }
 
-async function readJsonFile<T>(filePath: string, optional = false) {
+async function readJsonFile<T>(filePath: string, optional = false): Promise<T | null> {
   return importedReadJsonFile<T>(filePath, optional);
 }
 
-async function writeJson(filePath: string, value: unknown) {
+async function writeJson(filePath: string, value: unknown): Promise<void> {
   return importedWriteJson(filePath, value);
 }
 
-async function readError(response: Response) {
+async function readError(response: Response): Promise<string> {
   return importedReadError(response);
 }
 
-function normalizeBaseUrl(baseUrl: string) {
+function normalizeBaseUrl(baseUrl: string): string {
   return importedNormalizeBaseUrl(baseUrl);
 }
 
