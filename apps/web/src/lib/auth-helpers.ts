@@ -103,11 +103,22 @@ export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
       return [];
     }
 
-    return auth.api.listInvitations({
+    const invitations = await auth.api.listInvitations({
       headers,
       query: {
         organizationId,
       },
+    });
+
+    const now = new Date();
+
+    // Only return invitations that are:
+    // 1. Still pending (not accepted, rejected, or canceled)
+    // 2. Not expired (expiresAt is in the future or not set)
+    return (Array.isArray(invitations) ? invitations : []).filter((inv) => {
+      if (inv.status !== "pending") return false;
+      if (inv.expiresAt && new Date(inv.expiresAt) <= now) return false;
+      return true;
     });
   },
 );
