@@ -404,6 +404,60 @@ export const resendInvitationAction = createServerFn({ method: "POST" })
     }
   });
 
+export const updateMemberRoleAction = createServerFn({ method: "POST" })
+  .validator((data: { memberId: string; role: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      return await auth.api.updateMemberRole({
+        headers,
+        body: {
+          memberId: data.memberId,
+          role: data.role,
+        },
+      });
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "members",
+          operation: "update-role",
+          memberId: data.memberId,
+        },
+      });
+      throw error;
+    }
+  });
+
+export const removeMemberAction = createServerFn({ method: "POST" })
+  .validator((data: { memberId: string; organizationId: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      return await auth.api.removeMember({
+        headers,
+        body: {
+          memberId: data.memberId,
+          organizationId: data.organizationId,
+        },
+      });
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "members",
+          operation: "remove",
+          memberId: data.memberId,
+        },
+      });
+      throw error;
+    }
+  });
+
 export const getInvitationById = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {

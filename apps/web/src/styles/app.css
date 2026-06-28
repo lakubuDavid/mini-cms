@@ -3,7 +3,52 @@
 /* @import "fumadocs-ui/css/preset.css"; */
 
 @source "../**/*.{ts,tsx,mdx}";
-@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+
+/* ── shadcn/ui semantic colours ──────────────────────────────── */
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #1c1917;
+  --color-card: #ffffff;
+  --color-card-foreground: #1c1917;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1c1917;
+  --color-primary: #1c1917;
+  --color-primary-foreground: #f5f5f4;
+  --color-secondary: #f5f5f4;
+  --color-secondary-foreground: #1c1917;
+  --color-muted: #f5f5f4;
+  --color-muted-foreground: #78716c;
+  --color-accent: #f5f5f4;
+  --color-accent-foreground: #1c1917;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #fef2f2;
+  --color-border: #e7e5e4;
+  --color-input: #e7e5e4;
+  --color-ring: #1c1917;
+}
+
+.dark {
+  --color-background: #0c0a09;
+  --color-foreground: #f5f5f4;
+  --color-card: #0c0a09;
+  --color-card-foreground: #f5f5f4;
+  --color-popover: #0c0a09;
+  --color-popover-foreground: #f5f5f4;
+  --color-primary: #f5f5f4;
+  --color-primary-foreground: #1c1917;
+  --color-secondary: #292524;
+  --color-secondary-foreground: #f5f5f4;
+  --color-muted: #292524;
+  --color-muted-foreground: #a8a29e;
+  --color-accent: #292524;
+  --color-accent-foreground: #f5f5f4;
+  --color-destructive: #7f1d1d;
+  --color-destructive-foreground: #fef2f2;
+  --color-border: #292524;
+  --color-input: #292524;
+  --color-ring: #d6d3d1;
+}
 
 /*
  * Shimmer skeleton animation
