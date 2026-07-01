@@ -32,7 +32,7 @@ export async function createItemAction(
 
   try {
     await ensureItemLimit(collectionId);
-    const item = await createItem(collectionId, data, order);
+    const item = await createItem(collectionId, data, { order });
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({

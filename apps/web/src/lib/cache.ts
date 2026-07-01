@@ -43,8 +43,39 @@ export async function invalidateCache(key: string) {
   }
 }
 
-export async function invalidateCollectionCache(slug: string) {
-  await invalidateCache(`collection:${slug}`);
+export async function invalidateCollectionCache(
+  slug: string,
+  environmentId?: string,
+) {
+  if (environmentId) {
+    await invalidateCache(`collection:${slug}:env:${environmentId}`);
+  } else {
+    await invalidateCache(`collection:${slug}`);
+  }
+}
+
+/**
+ * Invalidate all cache keys matching a collection pattern.
+ * This is used when the environment isn't known at invalidation time.
+ */
+export async function invalidateCollectionCacheByPattern(slug: string) {
+  // We use a scan-based approach for Redis pattern matching
+  try {
+    const pattern = `*:${slug}:*`;
+    let cursor = 0;
+    do {
+      const [nextCursor, keys] = await redis.scan(cursor, {
+        match: `*collection*${slug}*`,
+        count: 50,
+      });
+      cursor = Number(nextCursor);
+      if (keys.length > 0) {
+        await redis.del(...keys);
+      }
+    } while (cursor !== 0);
+  } catch (error) {
+    logCacheError("invalidateCollectionCacheByPattern", error);
+  }
 }
 
 export async function checkRateLimit(

@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { organizations, projects, requestLogs } from "@/db/schema";
 import { getCollectionById, getCollectionBySlug } from "@/db/queries/collections";
+import { getEnvironmentBySlug, getProductionEnvironment } from "@/db/queries/environments";
 import { listItems } from "@/db/queries/items";
 import { normalizePagination } from "@/db/queries/shared";
 import { checkRateLimit, getCached, setCached } from "@/lib/cache";
@@ -25,6 +26,12 @@ type CollectionItemsPayload = {
     name: string;
   };
   collection: Awaited<ReturnType<typeof getCollectionById>>;
+  environment: {
+    id: string;
+    slug: string;
+    name: string;
+    isProduction: boolean;
+  } | null;
   items: Awaited<ReturnType<typeof listItems>>["items"];
   pagination: Awaited<ReturnType<typeof listItems>>["pagination"];
 };
@@ -63,6 +70,7 @@ export async function handleCollectionItems(request: Request) {
       limit,
       query,
       rawFilters,
+      environmentSlug,
     } = parseCollectionItemsSearch(url);
 
     if (!workspaceId || !projectId || (!collectionId && !collectionSlug)) {
@@ -201,10 +209,22 @@ export async function handleCollectionItems(request: Request) {
       },
     });
 
+    // Resolve environment
+    const env = environmentSlug
+      ? await getEnvironmentBySlug(environmentSlug, projectId)
+      : await getProductionEnvironment(projectId);
+
+    if (environmentSlug && !env) {
+      return json({ error: `Environment '${environmentSlug}' not found.` }, 404);
+    }
+
+    const environmentId = env?.id ?? null;
+
     const filters = validateFilters(rawFilters, collection.schema);
     const cacheKey = buildCacheKey({
       workspaceId,
       projectId,
+      environmentId,
       collectionId: collection.id,
       page,
       limit,
@@ -239,6 +259,7 @@ export async function handleCollectionItems(request: Request) {
       query,
       filters,
       schema: collection.schema,
+      environmentId: environmentId ?? undefined,
     });
 
     const payload = {
@@ -253,6 +274,14 @@ export async function handleCollectionItems(request: Request) {
         name: project.name,
       },
       collection,
+      environment: env
+        ? {
+            id: env.id,
+            slug: env.slug,
+            name: env.name,
+            isProduction: env.isProduction,
+          }
+        : null,
       items: items.items,
       pagination: items.pagination,
     } satisfies CollectionItemsPayload;
@@ -342,6 +371,7 @@ function parseCollectionItemsSearch(url: URL) {
   const projectId = url.searchParams.get("p");
   const collectionId = url.searchParams.get("collection_id");
   const collectionSlug = url.searchParams.get("collection_slug");
+  const environmentSlug = url.searchParams.get("env") ?? "";
   const { page, limit } = normalizePagination({
     page: Number(url.searchParams.get("page") ?? "1"),
     limit: Number(url.searchParams.get("limit") ?? "10"),
@@ -370,6 +400,7 @@ function parseCollectionItemsSearch(url: URL) {
     limit,
     query,
     rawFilters,
+    environmentSlug,
   };
 }
 
@@ -391,6 +422,7 @@ function validateFilters(
 function buildCacheKey(input: {
   workspaceId: string;
   projectId: string;
+  environmentId: string | null;
   collectionId: string;
   page: number;
   limit: number;
@@ -406,6 +438,7 @@ function buildCacheKey(input: {
     "public",
     input.workspaceId,
     input.projectId,
+    input.environmentId ?? "__no_env__",
     input.collectionId,
     String(input.page),
     String(input.limit),

@@ -30,10 +30,16 @@ export async function listItems(
     filters?: Record<string, string>;
     query?: string;
     schema?: CollectionItemFilterField[];
+    environmentId?: string;
   },
 ): Promise<PaginatedResult<typeof collectionItems.$inferSelect>> {
   const { limit, offset, page } = normalizePagination(input);
   const conditions = [eq(collectionItems.collectionId, collectionId)];
+
+  // Filter by environment if specified; otherwise return items from all environments
+  if (input?.environmentId) {
+    conditions.push(eq(collectionItems.environmentId, input.environmentId));
+  }
 
   if (input?.publishedOnly) {
     conditions.push(
@@ -154,7 +160,10 @@ export async function getItemById(id: string) {
 export async function createItem(
   collectionId: string,
   data: CollectionItemData,
-  order = 0,
+  options?: {
+    order?: number;
+    environmentId?: string;
+  },
 ) {
   const id = nanoid();
   const now = new Date().toISOString();
@@ -162,8 +171,9 @@ export async function createItem(
   await db.insert(collectionItems).values({
     id,
     collectionId,
+    environmentId: options?.environmentId ?? null,
     data: toStoredItemValues(data),
-    order,
+    order: options?.order ?? 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -195,8 +205,17 @@ export async function deleteItem(id: string) {
   await db.delete(collectionItems).where(eq(collectionItems.id, id));
 }
 
-export async function countItemsByCollectionIds(collectionIds: string[]) {
+export async function countItemsByCollectionIds(
+  collectionIds: string[],
+  environmentId?: string,
+) {
   if (collectionIds.length === 0) return new Map<string, number>();
+
+  const conditions = [inArray(collectionItems.collectionId, collectionIds)];
+
+  if (environmentId) {
+    conditions.push(eq(collectionItems.environmentId, environmentId));
+  }
 
   const results = await db
     .select({
@@ -204,7 +223,7 @@ export async function countItemsByCollectionIds(collectionIds: string[]) {
       count: count(),
     })
     .from(collectionItems)
-    .where(inArray(collectionItems.collectionId, collectionIds))
+    .where(and(...conditions))
     .groupBy(collectionItems.collectionId);
 
   return new Map(results.map((r) => [r.collectionId, r.count]));
