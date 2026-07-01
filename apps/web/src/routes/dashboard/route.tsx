@@ -254,7 +254,9 @@ function DashboardLayout() {
 
     if (
       currentPath === "/dashboard" ||
+      currentPath === "/dashboard/team" ||
       currentPath === "/dashboard/assets" ||
+      currentPath === "/dashboard/api-keys" ||
       currentPath === "/dashboard/analytics"
     ) {
       const storedProjectId = readStoredProjectId(organization.id);
@@ -438,6 +440,7 @@ function DashboardLayout() {
                       invitesQ: undefined,
                       invitesSort: undefined,
                       invitesOrder: undefined,
+                      projectId: currentProjectId || undefined,
                     }}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
@@ -450,7 +453,7 @@ function DashboardLayout() {
                 <SidebarMenuButton asChild>
                   <Link
                     to="/dashboard/api-keys"
-                    search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined }}
+                    search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />

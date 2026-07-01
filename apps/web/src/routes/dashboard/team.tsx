@@ -54,6 +54,10 @@ export const Route = createFileRoute("/dashboard/team")({
     invitesQ: strOrUndefined(search.invitesQ),
     invitesSort: strOrUndefined(search.invitesSort),
     invitesOrder: orderOrUndefined(search.invitesOrder),
+    projectId:
+      typeof search.projectId === "string" && search.projectId.length > 0
+        ? search.projectId
+        : undefined,
   }),
   component: TeamPage,
 });

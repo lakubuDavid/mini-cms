@@ -46,6 +46,10 @@ export const Route = createFileRoute("/dashboard/api-keys")({
         search.order === "asc" || search.order === "desc"
           ? (search.order as "asc" | "desc")
           : undefined,
+      projectId:
+        typeof search.projectId === "string" && search.projectId.length > 0
+          ? search.projectId
+          : undefined,
     };
   },
   component: ApiKeysPage,
