@@ -7,8 +7,10 @@ import {
   createItemServerFn,
   deleteItemServerFn,
   updateItemServerFn,
+  promoteItemsServerFn,
+  duplicateItemsServerFn,
 } from "@/lib/collections-helpers";
-import { collectionPageQueryOptions } from "@/lib/queries";
+import { collectionPageQueryOptions, environmentsQueryOptions } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   ArrowLeft,
@@ -27,6 +29,8 @@ import {
   Search,
   LoaderCircle,
   ChevronDown,
+  Send,
+  Copy,
 } from "lucide-react";
 import { Switch } from "@workspace/ui/components/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
@@ -60,6 +64,10 @@ export const Route = createFileRoute("/dashboard/collections/$name/")({
       typeof search.projectId === "string" && search.projectId.length > 0
         ? search.projectId
         : undefined,
+    env:
+      typeof search.env === "string" && search.env.length > 0
+        ? search.env
+        : undefined,
   }),
   component: CollectionPage,
 });
@@ -70,7 +78,7 @@ function CollectionPage() {
   const queryClient = useQueryClient();
 
   const pageQuery = useQuery(
-    collectionPageQueryOptions(name, search.page, 10, search.projectId),
+    collectionPageQueryOptions(name, search.page, 10, search.projectId, search.env),
   );
 
   const [showModal, setShowModal] = useState(false);
@@ -193,6 +201,8 @@ function CollectionPage() {
       handleBulkPublish={handleBulkPublish}
       bulkActionLoading={bulkActionLoading}
       allSelected={allSelected}
+      projectId={search.projectId}
+      env={search.env}
     />
   );
 }
@@ -214,7 +224,7 @@ function CollectionPageContent(props: {
       hasMore: boolean;
     };
   };
-  search: { page: number; projectId?: string };
+  search: { page: number; projectId?: string; env?: string };
   editingItemId: string | null;
   setEditingItemId: (id: string | null) => void;
   showModal: boolean;
@@ -236,6 +246,8 @@ function CollectionPageContent(props: {
   handleBulkPublish: (publish: boolean) => Promise<void>;
   bulkActionLoading: boolean;
   allSelected: boolean;
+  projectId?: string;
+  env?: string;
 }) {
   const {
     collection,
@@ -260,6 +272,8 @@ function CollectionPageContent(props: {
     handleBulkPublish,
     bulkActionLoading,
     allSelected,
+    projectId,
+    env,
   } = props;
   const tableFields: Array<
     | (typeof SYSTEM_FIELDS)[number]
@@ -289,6 +303,72 @@ function CollectionPageContent(props: {
       onInvalidate();
     } else {
       setMessage({ type: "error", text: "Unable to delete item." });
+    }
+  }
+
+  // ── Environments ────────────────────────────────────────────
+  const environmentsQuery = useQuery({
+    ...environmentsQueryOptions(projectId ?? ""),
+    enabled: !!projectId,
+  });
+  const allEnvironments = environmentsQuery.data ?? [];
+  const productionEnv = allEnvironments.find((e) => e.isProduction) ?? allEnvironments[0] ?? null;
+  const currentEnv = env
+    ? allEnvironments.find((e) => e.slug === env) ?? productionEnv
+    : productionEnv;
+
+  // ── Promote / Duplicate handlers ───────────────────────────
+  const [duplicateTargetId, setDuplicateTargetId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  async function handlePromoteItems(itemIds: string[]) {
+    if (!productionEnv || !currentEnv) return;
+    if (currentEnv.id === productionEnv.id) {
+      setMessage({ type: "error", text: "Items are already in the production environment." });
+      return;
+    }
+    setActionLoading("promote");
+    try {
+      await promoteItemsServerFn({
+        data: {
+          itemIds,
+          productionEnvironmentId: productionEnv.id,
+          collectionSlug: collection.slug,
+        },
+      });
+      setSelectedItems(new Set());
+      setMessage({ type: "success", text: `${itemIds.length} item(s) promoted to ${productionEnv.name}.` });
+      onInvalidate();
+    } catch (error) {
+      console.error("Promote failed:", error);
+      setMessage({ type: "error", text: "Failed to promote items." });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleDuplicateItems(itemIds: string[], targetEnvId: string) {
+    if (!currentEnv) return;
+    setActionLoading("duplicate");
+    try {
+      await duplicateItemsServerFn({
+        data: {
+          itemIds,
+          sourceEnvironmentId: currentEnv.id,
+          targetEnvironmentId: targetEnvId,
+          collectionSlug: collection.slug,
+        },
+      });
+      setSelectedItems(new Set());
+      setDuplicateTargetId(null);
+      const targetEnv = allEnvironments.find((e) => e.id === targetEnvId);
+      setMessage({ type: "success", text: `${itemIds.length} item(s) duplicated to ${targetEnv?.name ?? "other"}.` });
+      onInvalidate();
+    } catch (error) {
+      console.error("Duplicate failed:", error);
+      setMessage({ type: "error", text: "Failed to duplicate items." });
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -395,6 +475,54 @@ function CollectionPageContent(props: {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => void handlePromoteItems(Array.from(selectedItems))}
+            disabled={actionLoading === "promote" || !currentEnv || currentEnv.id === productionEnv?.id || selectedItems.size === 0}
+          >
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            Promote {selectedItems.size > 1 ? `(${selectedItems.size})` : ""}
+          </Button>
+          {duplicateTargetId === "bulk" ? (
+            <div className="flex items-center gap-1.5">
+              <select
+                className="rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    void handleDuplicateItems(Array.from(selectedItems), e.target.value);
+                  }
+                }}
+                defaultValue=""
+              >
+                <option value="" disabled>Target env…</option>
+                {allEnvironments
+                  .filter((e) => e.id !== currentEnv?.id)
+                  .map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setDuplicateTargetId(null)}
+                className="rounded-md px-2 py-1.5 text-xs text-stone-500 hover:text-stone-900"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDuplicateTargetId("bulk")}
+              disabled={actionLoading === "duplicate" || selectedItems.size === 0}
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Duplicate
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleBulkDelete}
             disabled={bulkActionLoading}
             className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
@@ -460,6 +588,58 @@ function CollectionPageContent(props: {
                     ))}
                   <td className="px-4 py-3 text-right align-top">
                     <div className="flex justify-end gap-1.5">
+                      {/* Promote button — only show if not already in production */}
+                      {productionEnv && currentEnv && currentEnv.id !== productionEnv.id ? (
+                        <button
+                          type="button"
+                          onClick={() => void handlePromoteItems([item.id])}
+                          className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50 hover:border-emerald-200"
+                        >
+                          <Send className="h-3 w-3" />
+                          Promote
+                        </button>
+                      ) : null}
+                      {/* Duplicate button */}
+                      {allEnvironments.length > 1 ? (
+                        duplicateTargetId === item.id ? (
+                          <div className="flex items-center gap-1">
+                            <select
+                              className="rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  void handleDuplicateItems([item.id], e.target.value);
+                                }
+                              }}
+                              defaultValue=""
+                            >
+                              <option value="" disabled>Target…</option>
+                              {allEnvironments
+                                .filter((e) => e.id !== currentEnv?.id)
+                                .map((e) => (
+                                  <option key={e.id} value={e.id}>
+                                    {e.name}
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setDuplicateTargetId(null)}
+                              className="rounded-md px-2 py-1.5 text-xs text-stone-500 hover:text-stone-900"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDuplicateTargetId(item.id)}
+                            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-violet-600 transition hover:bg-violet-50 hover:border-violet-200"
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </button>
+                        )
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => {

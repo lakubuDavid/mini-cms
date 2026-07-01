@@ -10,6 +10,7 @@ import { listProjectsServerFn } from "@/lib/projects-helpers";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { EnvironmentSwitcher } from "@/components/environment-switcher";
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile";
 import {
   Sidebar,
@@ -381,6 +382,9 @@ function DashboardLayout() {
                   <Settings className="h-3.5 w-3.5" />
                   Manage projects
                 </Link>
+              ) : null}
+              {hasWorkspace && currentProjectId ? (
+                <EnvironmentSwitcher projectId={currentProjectId} />
               ) : null}
               {hasWorkspace && currentProjectId ? (
                 <Link

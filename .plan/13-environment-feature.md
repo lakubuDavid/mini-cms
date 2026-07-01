@@ -472,8 +472,8 @@ This is a one-time migration. New projects automatically get environments seeded
 - [x] Write migration SQL/script for existing data
 - [x] Create `apps/web/src/db/queries/environments.ts`
 - [x] Update `apps/web/src/db/queries/items.ts` — environment-aware filtering
-- [ ] Add `promoteItemsToProduction()` to `items.ts`
-- [ ] Add `duplicateItemsToEnvironment()` to `items.ts`
+- [x] Add `promoteItemsToProduction()` to `items.ts`
+- [x] Add `duplicateItemsToEnvironment()` to `items.ts`
 - [x] Update `apps/web/src/db/queries/projects.ts` — seed production env on create
 
 ### API
@@ -485,20 +485,23 @@ This is a one-time migration. New projects automatically get environments seeded
 
 ### Server Functions
 - [x] Update `apps/web/src/server/functions/items.ts` — env context (createItem signature)
-- [ ] Add promoteItems/duplicateItems server functions
+- [x] Add promoteItems/duplicateItems server functions and createServerFn wrappers
 - [ ] Update `apps/web/src/server/functions/collections.ts` — env context
 
 ### Dashboard UI
 - [ ] Create environment management routes (list, manage, create)
-- [ ] Build `EnvironmentSwitcher` component
-- [ ] Build `EnvironmentBadge` component
-- [ ] Build `PromoteToProductionButton` (per-item + bulk)
-- [ ] Build `DuplicateToButton` with target env picker (per-item + bulk)
-- [ ] Build `BulkActionToolbar` (appears on item selection)
+- [x] Build `EnvironmentSwitcher` component
+- [x] Build `PromoteToProductionButton` (per-item + bulk) — integrated into collection page
+- [x] Build `DuplicateToButton` with target env picker (per-item + bulk) — integrated into collection page
+- [x] Build `BulkActionToolbar` — promote/duplicate in bulk toolbar
 - [ ] Build `EnvironmentForm` (create/edit)
-- [ ] Create `apps/web/src/lib/environment-context.ts`
-- [ ] Update collection list page — env filter, per-item env actions, checkboxes
+- [x] Create `apps/web/src/lib/environment-context.tsx`
+- [x] Update collection list page — env filter, per-item promote/copy buttons
 - [ ] Update item editor — env context
+
+### Server Helpers & Queries
+- [x] Create `apps/web/src/lib/environment-helpers.ts` — list, get, create, update, delete server functions
+- [x] Add environment query options to `apps/web/src/lib/queries.ts`
 
 ### CLI
 - [ ] Update `packages/cli/src/constants.ts` — env defaults
