@@ -1,11 +1,14 @@
 import { relations, sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { collections } from "./collections";
+import { environments } from "./environments";
 
 export const collectionItems = sqliteTable(
   "collection_items",
   {
     id: text("id").primaryKey(),
+    environmentId: text("environment_id")
+      .references(() => environments.id, { onDelete: "cascade" }),
     collectionId: text("collection_id")
       .notNull()
       .references(() => collections.id, { onDelete: "cascade" }),
@@ -23,6 +26,7 @@ export const collectionItems = sqliteTable(
   },
   (table) => [
     index("collection_items_collection_id_idx").on(table.collectionId),
+    index("collection_items_environment_id_idx").on(table.environmentId),
     index("collection_items_order_idx").on(table.order),
   ],
 );
