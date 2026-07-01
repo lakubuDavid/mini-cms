@@ -31,13 +31,15 @@ export const Route = createFileRoute("/dashboard/api-keys")({
 
 function ApiKeysPage() {
   const queryClient = useQueryClient();
-  const orgQuery = useQuery(organizationQueryOptions());
+  const { organization: ssrOrganization, projects: ssrProjects } = Route.useRouteContext();
+  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
   const apiKeysQuery = useQuery({
     ...apiKeysQueryOptions(),
     enabled: !!orgQuery.data,
   });
   const projectsQuery = useQuery({
     ...projectsQueryOptions(),
+    initialData: ssrProjects,
     enabled: !!orgQuery.data,
   });
 

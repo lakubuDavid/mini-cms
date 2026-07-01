@@ -103,11 +103,22 @@ export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
       return [];
     }
 
-    return auth.api.listInvitations({
+    const invitations = await auth.api.listInvitations({
       headers,
       query: {
         organizationId,
       },
+    });
+
+    const now = new Date();
+
+    // Only return invitations that are:
+    // 1. Still pending (not accepted, rejected, or canceled)
+    // 2. Not expired (expiresAt is in the future or not set)
+    return (Array.isArray(invitations) ? invitations : []).filter((inv) => {
+      if (inv.status !== "pending") return false;
+      if (inv.expiresAt && new Date(inv.expiresAt) <= now) return false;
+      return true;
     });
   },
 );
@@ -134,7 +145,7 @@ export const listAdminUsers = createServerFn({ method: "GET" }).handler(
 );
 
 export const createOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string; slug: string }) => data)
+  .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let userId: string | undefined;
 
@@ -184,7 +195,7 @@ export const createOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const createWorkspaceAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string; slug: string }) => data)
+  .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
     let userId: string | undefined;
@@ -254,7 +265,7 @@ export const createWorkspaceAction = createServerFn({ method: "POST" })
   });
 
 export const createInvitationAction = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       email: string;
       role: "admin" | "owner" | "member" | "reviewer";
@@ -308,41 +319,248 @@ export const createInvitationAction = createServerFn({ method: "POST" })
     }
   });
 
+export const cancelInvitationAction = createServerFn({ method: "POST" })
+  .validator((data: { invitationId: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      const result = await auth.api.cancelInvitation({
+        headers,
+        body: {
+          invitationId: data.invitationId,
+        },
+      });
+
+      return result;
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "invitations",
+          operation: "cancel",
+          invitationId: data.invitationId,
+        },
+      });
+      throw error;
+    }
+  });
+
+export const resendInvitationAction = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      invitationId: string;
+      email: string;
+      role: "admin" | "owner" | "member" | "reviewer";
+      organizationId: string;
+    }) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      // Cancel the old invitation
+      await auth.api.cancelInvitation({
+        headers,
+        body: {
+          invitationId: data.invitationId,
+        },
+      });
+
+      // Create a fresh one
+      const invitation = await auth.api.createInvitation({
+        headers,
+        body: {
+          email: data.email,
+          role: data.role,
+          organizationId: data.organizationId,
+        },
+      });
+
+      await captureServerEvent({
+        event: "invitation_resent",
+        identity: createAnonymousServerIdentity({
+          organizationId: data.organizationId,
+          subject: data.email.toLowerCase(),
+        }),
+        properties: {
+          role: data.role,
+        },
+      });
+
+      return invitation;
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "invitations",
+          operation: "resend",
+          invitationId: data.invitationId,
+        },
+      });
+      throw error;
+    }
+  });
+
+export const updateMemberRoleAction = createServerFn({ method: "POST" })
+  .validator((data: { memberId: string; role: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      return await auth.api.updateMemberRole({
+        headers,
+        body: {
+          memberId: data.memberId,
+          role: data.role,
+        },
+      });
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "members",
+          operation: "update-role",
+          memberId: data.memberId,
+        },
+      });
+      throw error;
+    }
+  });
+
+export const removeMemberAction = createServerFn({ method: "POST" })
+  .validator((data: { memberId: string; organizationId: string }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    try {
+      const { auth } = await import("./auth");
+      const headers = getHeaders(ctx);
+
+      return await auth.api.removeMember({
+        headers,
+        body: {
+          memberId: data.memberId,
+          organizationId: data.organizationId,
+        },
+      });
+    } catch (error) {
+      await captureServerError({
+        error,
+        properties: {
+          area: "members",
+          operation: "remove",
+          memberId: data.memberId,
+        },
+      });
+      throw error;
+    }
+  });
+
 export const getInvitationById = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
     const headers = getHeaders(ctx);
-    const [invitation, session] = await Promise.all([
-      auth.api.getInvitation({
-        headers,
-        query: {
-          id: data.id,
-        },
-      }),
-      auth.api.getSession({ headers }).catch(() => null),
-    ]);
+
+    // Query the invitation directly from DB — the invite token is a secret UUID
+    // that only the invited person has (via email), so public lookup is safe.
+    const { db } = await import("@/db");
+    const { invitations, organizations, users } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+
+    const invitationRow = await db
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        role: invitations.role,
+        status: invitations.status,
+        expiresAt: invitations.expiresAt,
+        organizationId: invitations.organizationId,
+        organizationName: organizations.name,
+        organizationSlug: organizations.slug,
+        inviterEmail: users.email,
+      })
+      .from(invitations)
+      .where(eq(invitations.id, data.id))
+      .leftJoin(organizations, eq(invitations.organizationId, organizations.id))
+      .leftJoin(users, eq(invitations.inviterId, users.id))
+      .get();
+
+    const session = await auth.api.getSession({ headers }).catch(() => null);
+
+    if (!invitationRow) {
+      return {
+        id: data.id,
+        organizationId: null,
+        organizationName: null,
+        role: null,
+        status: null,
+        expiresAt: null,
+        hasSession: Boolean(session),
+        currentUserEmail: session?.user?.email ?? null,
+        emailMatchesSession: false,
+        invitedEmail: null,
+        error: "Invitation not found.",
+      };
+    }
+
+    const now = Date.now();
+    if (invitationRow.expiresAt && invitationRow.expiresAt < now) {
+      return {
+        id: data.id,
+        organizationId: invitationRow.organizationId,
+        organizationName: invitationRow.organizationName,
+        role: invitationRow.role,
+        status: "expired",
+        expiresAt: invitationRow.expiresAt,
+        hasSession: Boolean(session),
+        currentUserEmail: session?.user?.email ?? null,
+        emailMatchesSession: false,
+        invitedEmail: null,
+        error: "This invitation has expired.",
+      };
+    }
+
+    if (invitationRow.status !== "pending") {
+      return {
+        id: data.id,
+        organizationId: invitationRow.organizationId,
+        organizationName: invitationRow.organizationName,
+        role: invitationRow.role,
+        status: invitationRow.status,
+        expiresAt: invitationRow.expiresAt,
+        hasSession: Boolean(session),
+        currentUserEmail: session?.user?.email ?? null,
+        emailMatchesSession: false,
+        invitedEmail: null,
+        error: `This invitation has already been ${invitationRow.status}.`,
+      };
+    }
 
     const sessionEmail = session?.user?.email?.toLowerCase() ?? null;
-    const invitationEmail = invitation?.email?.toLowerCase() ?? null;
+    const invitationEmail = invitationRow.email?.toLowerCase() ?? null;
     const emailMatchesSession = Boolean(
       sessionEmail && invitationEmail && sessionEmail === invitationEmail,
     );
 
     return {
-      id: invitation?.id ?? data.id,
-      organizationId: invitation?.organizationId ?? null,
-      organizationName: invitation?.organizationName ?? null,
-      role: invitation?.role ?? null,
+      id: invitationRow.id,
+      organizationId: invitationRow.organizationId,
+      organizationName: invitationRow.organizationName,
+      role: invitationRow.role,
+      status: invitationRow.status,
+      expiresAt: invitationRow.expiresAt,
       hasSession: Boolean(session),
       currentUserEmail: session?.user?.email ?? null,
       emailMatchesSession,
-      invitedEmail: emailMatchesSession ? invitation?.email ?? null : null,
+      invitedEmail: emailMatchesSession ? invitationRow.email : null,
     };
   });
 
 export const acceptInvitationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { invitationId: string }) => data)
+  .validator((data: { invitationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -486,7 +704,7 @@ export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { name: string; projectId?: string | null }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -558,7 +776,7 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { keyId: string }) => data)
+  .validator((data: { keyId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -594,7 +812,7 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { keyId: string; enabled?: boolean; name?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -641,7 +859,7 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { keyId: string; name: string; projectId?: string | null }) =>
       data,
   )
@@ -720,7 +938,7 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { organizationId: string; name?: string; slug?: string }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -767,7 +985,7 @@ export const updateOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const setActiveOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
@@ -805,7 +1023,7 @@ export const setActiveOrganizationAction = createServerFn({ method: "POST" })
   });
 
 export const deleteOrganizationAction = createServerFn({ method: "POST" })
-  .inputValidator((data: { organizationId: string }) => data)
+  .validator((data: { organizationId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");

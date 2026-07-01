@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 export const listAssetsServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data:
       | {
           page?: number;
@@ -22,7 +22,7 @@ export const listAssetsServerFn = createServerFn({ method: "GET" })
   });
 
 export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: {
       projectId: string;
       filename: string;
@@ -46,7 +46,7 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
   });
 
 export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { confirmAssetUploadAction } = await import(
@@ -60,7 +60,7 @@ export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteAssetServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { deleteAssetAction } = await import("../server/functions/assets");
@@ -72,7 +72,7 @@ export const deleteAssetServerFn = createServerFn({ method: "POST" })
   });
 
 export const getAssetInfoServerFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { getAssetInfoAction } = await import("../server/functions/assets");

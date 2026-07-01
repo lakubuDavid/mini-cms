@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getActiveOrganization,
@@ -79,7 +79,120 @@ function writeStoredProjectId(organizationId: string, projectId: string) {
   }
 }
 
+function DashboardPending() {
+  return (
+    <SidebarProvider
+      className="min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100"
+      style={{ "--sidebar-width": "300px" } as React.CSSProperties}
+    >
+      <Sidebar className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100 h-svh">
+        <SidebarHeader className="p-4">
+          <div className="flex items-center gap-2.5 px-2 py-1">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-900">
+              <Layers className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-semibold tracking-tight">Mini CMS</span>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border flex flex-col border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
+              <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+                Project
+              </p>
+              <div className="mt-2 h-10 w-full animate-pulse rounded-lg bg-stone-200 dark:bg-stone-800" />
+              <div className="mt-2 h-5 w-24 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+            </div>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup className="pt-0">
+            <SidebarMenu className="gap-0.5 text-sm">
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <span className="text-stone-700 dark:text-stone-300">
+                    <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Collections
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <span className="text-stone-700 dark:text-stone-300">
+                    <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Assets
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <span className="text-stone-700 dark:text-stone-300">
+                    <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Team
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <span className="text-stone-700 dark:text-stone-300">
+                    <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    API Keys
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <span className="text-stone-700 dark:text-stone-300">
+                      <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      Analytics
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <span className="text-stone-700 dark:text-stone-300">
+                    <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    Docs
+                    <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-stone-200 p-2 pt-3 dark:border-stone-800">
+          {/* Workspace button skeleton */}
+          <div className="mb-3 h-[52px] w-full animate-pulse rounded-lg bg-stone-100 dark:bg-stone-800" />
+          {/* Profile skeleton */}
+          <div className="flex items-center gap-2.5 border-t border-stone-200 px-2 py-2 dark:border-stone-800">
+            <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-stone-200 dark:bg-stone-800" />
+            <div className="min-w-0 flex-1">
+              <div className="h-4 w-20 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+              <div className="mt-1 h-3 w-32 animate-pulse rounded bg-stone-200 dark:bg-stone-800" />
+            </div>
+          </div>
+        </SidebarFooter>
+      </Sidebar>
+
+      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent h-svh">
+        <div className="flex h-full min-h-[60vh] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900 dark:border-stone-700 dark:border-t-stone-100" />
+            <p className="text-sm text-stone-500 dark:text-stone-400">Loading…</p>
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
 export const Route = createFileRoute("/dashboard")({
+  pendingMs: 0,
+  pendingMinMs: 300,
+  pendingComponent: DashboardPending,
   beforeLoad: async () => {
     const session = await getSession();
 

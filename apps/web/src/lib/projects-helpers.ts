@@ -6,7 +6,7 @@ import {
 } from "@/lib/posthog";
 
 export const getProjectServerFn = createServerFn({ method: "GET" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
@@ -37,7 +37,7 @@ export const listProjectsServerFn = createServerFn({ method: "GET" }).handler(
 );
 
 export const createProjectServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { name: string; slug: string }) => data)
+  .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 
@@ -81,7 +81,7 @@ export const createProjectServerFn = createServerFn({ method: "POST" })
   });
 
 export const updateProjectServerFn = createServerFn({ method: "POST" })
-  .inputValidator(
+  .validator(
     (data: { id: string; name?: string; slug?: string; apiAccess?: { type: "public" | "restricted" | "none"; allowedDomains?: string[] } }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -131,7 +131,7 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
   });
 
 export const deleteProjectServerFn = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     let organizationId: string | undefined;
 

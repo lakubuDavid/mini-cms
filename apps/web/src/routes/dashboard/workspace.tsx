@@ -25,8 +25,9 @@ export const Route = createFileRoute("/dashboard/workspace")({
 
 function WorkspacePage() {
   const queryClient = useQueryClient();
-  const orgQuery = useQuery(organizationQueryOptions());
-  const orgsQuery = useQuery(organizationsQueryOptions());
+  const { organization: ssrOrganization, organizations: ssrOrganizations } = Route.useRouteContext();
+  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
+  const orgsQuery = useQuery({ ...organizationsQueryOptions(), initialData: ssrOrganizations });
 
   const isLoading = orgQuery.isLoading || orgsQuery.isLoading;
 
