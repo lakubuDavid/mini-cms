@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { projects, type ApiAccessType } from "@/db/schema/projects";
+import { createEnvironment } from "./environments";
 
 export type CreateProjectInput = {
   organizationId: string;
@@ -73,6 +74,14 @@ export async function createProject(input: CreateProjectInput) {
     createdAt: now,
     updatedAt: now,
     metadata: input.isDefault ? { isDefault: true } : {},
+  });
+
+  // Seed a default production environment for the new project
+  await createEnvironment({
+    projectId: id,
+    name: "Production",
+    slug: "production",
+    isProduction: true,
   });
 
   return getProjectById(id, input.organizationId);
