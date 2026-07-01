@@ -8,6 +8,8 @@ import {
   rotateApiKeyServerFn,
 } from "@/lib/auth-helpers";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
+import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
 import {
   organizationQueryOptions,
   projectsQueryOptions,
@@ -26,15 +28,58 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/api-keys")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const page =
+      typeof search.page === "string" && /^\d+$/.test(search.page)
+        ? Math.max(1, parseInt(search.page, 10))
+        : 1;
+    const pageSize =
+      typeof search.pageSize === "string" && /^\d+$/.test(search.pageSize)
+        ? parseInt(search.pageSize, 10)
+        : 25;
+    return {
+      page,
+      pageSize,
+      q: typeof search.q === "string" ? search.q : undefined,
+      sort: typeof search.sort === "string" ? search.sort : undefined,
+      order:
+        search.order === "asc" || search.order === "desc"
+          ? (search.order as "asc" | "desc")
+          : undefined,
+    };
+  },
   component: ApiKeysPage,
 });
+
+type ApiKeyRow = {
+  id: string;
+  name: string | null;
+  start: string | null;
+  prefix: string | null;
+  enabled: boolean;
+  expiresAt: string | null;
+  createdAt: string | null;
+  metadata: { projectId: string } | null;
+};
 
 function ApiKeysPage() {
   const queryClient = useQueryClient();
   const { organization: ssrOrganization, projects: ssrProjects } = Route.useRouteContext();
+  const {
+    page,
+    pageSize,
+    q: urlQ,
+    sort: urlSort,
+    setPage,
+    setPageSize,
+    setSort,
+    setQ: setQueryInUrl,
+  } = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+  });
   const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
   const apiKeysQuery = useQuery({
-    ...apiKeysQueryOptions(),
+    ...apiKeysQueryOptions(page, pageSize),
     enabled: !!orgQuery.data,
   });
   const projectsQuery = useQuery({
@@ -52,8 +97,16 @@ function ApiKeysPage() {
     total: 0,
     limit: 0,
     offset: 0,
+    page: 1,
+    pageSize: 25,
   };
   const projects = projectsQuery.data ?? [];
+
+  const totalPages = Math.max(1, Math.ceil(apiKeys.total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const sortState = urlSort
+    ? { by: urlSort.by, order: urlSort.order }
+    : null;
 
   const [name, setName] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -104,6 +157,10 @@ function ApiKeysPage() {
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+  }
+
+  function refresh() {
+    void apiKeysQuery.refetch();
   }
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -331,130 +388,175 @@ function ApiKeysPage() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-lg border border-stone-200">
-            <table className="min-w-full divide-y divide-stone-200 text-sm">
-              <thead className="bg-stone-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-stone-600">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-stone-600">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-stone-600">
-                    Scope
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-stone-600 sm:table-cell">
-                    Preview
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-stone-600 md:table-cell">
-                    Created
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-stone-600 lg:table-cell">
-                    Expires
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-stone-600">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 bg-white">
-                {apiKeys.apiKeys.map(
-                  (apiKey: (typeof apiKeys.apiKeys)[number]) => {
+          <DataTable<ApiKeyRow>
+            data={apiKeys.apiKeys as ApiKeyRow[]}
+            rowKey={(k) => k.id}
+            searchFields={[
+              (k) => k.name ?? "",
+              (k) => (k.prefix ?? "") + (k.start ?? ""),
+            ]}
+            defaultQuery={urlQ ?? ""}
+            onQueryChange={(q) => setQueryInUrl(q)}
+            defaultSort={sortState}
+            sort={sortState}
+            onSortChange={setSort}
+            columns={
+              [
+                {
+                  id: "name",
+                  header: "Name",
+                  accessor: (k) => k.name ?? "",
+                  cell: (k) => (
+                    <span className="font-medium text-stone-900">
+                      {k.name ?? "Untitled key"}
+                    </span>
+                  ),
+                },
+                {
+                  id: "enabled",
+                  header: "Status",
+                  accessor: (k) => (k.enabled ? "active" : "revoked"),
+                  cell: (k) =>
+                    k.enabled ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-stone-400" />
+                        Revoked
+                      </span>
+                    ),
+                },
+                {
+                  id: "scope",
+                  header: "Scope",
+                  accessor: (k) => {
                     const scopedProjectId =
-                      apiKey.metadata &&
-                      typeof apiKey.metadata === "object" &&
-                      "projectId" in apiKey.metadata
-                        ? String(apiKey.metadata.projectId)
+                      k.metadata &&
+                      typeof k.metadata === "object" &&
+                      "projectId" in k.metadata
+                        ? String(k.metadata.projectId)
                         : null;
-                    const scopedProject = projects.find(
+                    const sp = projects.find(
                       (project: (typeof projects)[number]) =>
                         project.id === scopedProjectId,
                     );
-                    const isEnabled = (apiKey as Record<string, unknown>).enabled !== false;
-
+                    return sp ? sp.name : "Workspace";
+                  },
+                  cell: (k) => {
+                    const scopedProjectId =
+                      k.metadata &&
+                      typeof k.metadata === "object" &&
+                      "projectId" in k.metadata
+                        ? String(k.metadata.projectId)
+                        : null;
+                    const sp = projects.find(
+                      (project: (typeof projects)[number]) =>
+                        project.id === scopedProjectId,
+                    );
                     return (
-                      <tr
-                        key={apiKey.id}
-                        className={`hover:bg-stone-50 ${!isEnabled ? "opacity-60" : ""}`}
-                      >
-                        <td className="px-4 py-3 font-medium text-stone-900">
-                          {apiKey.name ?? "Untitled key"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isEnabled ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
-                              <span className="h-1.5 w-1.5 rounded-full bg-stone-400" />
-                              Revoked
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-stone-600">
-                          {scopedProject ? scopedProject.name : "Workspace"}
-                        </td>
-                        <td className="hidden px-4 py-3 font-mono text-xs text-stone-500 sm:table-cell">
-                          {(apiKey.prefix ?? "") + (apiKey.start ?? "") + "..."}
-                        </td>
-                        <td className="hidden px-4 py-3 text-stone-500 md:table-cell">
-                          {(apiKey as Record<string, unknown>).createdAt
-                            ? new Date(
-                                String(
-                                  (apiKey as Record<string, unknown>).createdAt,
-                                ),
-                              ).toLocaleDateString()
-                            : "-"}
-                        </td>
-                        <td className="hidden px-4 py-3 text-stone-500 lg:table-cell">
-                          {apiKey.expiresAt
-                            ? new Date(apiKey.expiresAt).toLocaleDateString()
-                            : "Never"}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <KeyActionsMenu
-                            keyId={apiKey.id}
-                            keyName={apiKey.name ?? "Untitled key"}
-                            enabled={isEnabled}
-                            projectId={scopedProjectId}
-                            isOpen={openMenuId === apiKey.id}
-                            onToggle={() =>
-                              setOpenMenuId(
-                                openMenuId === apiKey.id ? null : apiKey.id,
-                              )
-                            }
-                            onAction={(type) => {
-                              setOpenMenuId(null);
-                              setConfirmAction({
-                                type,
-                                keyId: apiKey.id,
-                                keyName: apiKey.name ?? "Untitled key",
-                                enabled: isEnabled,
-                                projectId: scopedProjectId,
-                              });
-                            }}
-                          />
-                        </td>
-                      </tr>
+                      <span className="text-stone-600">
+                        {sp ? sp.name : "Workspace"}
+                      </span>
                     );
                   },
-                )}
-                {!apiKeys.apiKeys.length ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-10 text-center text-stone-500"
-                    >
-                      No API keys yet. Create one above.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+                },
+                {
+                  id: "preview",
+                  header: "Preview",
+                  accessor: (k) => (k.prefix ?? "") + (k.start ?? ""),
+                  cell: (k) => (
+                    <span className="font-mono text-xs text-stone-500">
+                      {(k.prefix ?? "") + (k.start ?? "") + "..."}
+                    </span>
+                  ),
+                  className: "hidden sm:table-cell",
+                  hiddenOn: ["sm"],
+                },
+                {
+                  id: "createdAt",
+                  header: "Created",
+                  accessor: (k) => k.createdAt ?? "",
+                  cell: (k) => (
+                    <span className="text-stone-500">
+                      {k.createdAt
+                        ? new Date(k.createdAt).toLocaleDateString()
+                        : "-"}
+                    </span>
+                  ),
+                  className: "hidden md:table-cell",
+                  hiddenOn: ["md"],
+                },
+                {
+                  id: "expiresAt",
+                  header: "Expires",
+                  accessor: (k) => k.expiresAt ?? "",
+                  cell: (k) => (
+                    <span className="text-stone-500">
+                      {k.expiresAt
+                        ? new Date(k.expiresAt).toLocaleDateString()
+                        : "Never"}
+                    </span>
+                  ),
+                  className: "hidden lg:table-cell",
+                  hiddenOn: ["lg"],
+                },
+                {
+                  id: "actions",
+                  header: () => <span className="sr-only">Actions</span>,
+                  accessor: (k) => k.id,
+                  sortable: false,
+                  cell: (k) => {
+                    const scopedProjectId =
+                      k.metadata &&
+                      typeof k.metadata === "object" &&
+                      "projectId" in k.metadata
+                        ? String(k.metadata.projectId)
+                        : null;
+                    return (
+                      <div className="flex justify-end">
+                        <KeyActionsMenu
+                          keyId={k.id}
+                          keyName={k.name ?? "Untitled key"}
+                          enabled={k.enabled}
+                          projectId={scopedProjectId}
+                          isOpen={openMenuId === k.id}
+                          onToggle={() =>
+                            setOpenMenuId(
+                              openMenuId === k.id ? null : k.id,
+                            )
+                          }
+                          onAction={(type) => {
+                            setOpenMenuId(null);
+                            setConfirmAction({
+                              type,
+                              keyId: k.id,
+                              keyName: k.name ?? "Untitled key",
+                              enabled: k.enabled,
+                              projectId: scopedProjectId,
+                            });
+                          }}
+                        />
+                      </div>
+                    );
+                  },
+                },
+              ] satisfies DataTableColumn<ApiKeyRow>[]
+            }
+            pagination={{
+              page: currentPage,
+              totalPages,
+              total: apiKeys.total,
+              pageSize,
+              onPageChange: setPage,
+              onPageSizeChange: setPageSize,
+            }}
+            refresh={{ onRefresh: refresh, isRefreshing: apiKeysQuery.isFetching }}
+            emptyState="No API keys yet. Create one above."
+            caption="API keys"
+          />
 
           <div className="space-y-2 border-t border-stone-200 pt-6">
             <div className="flex items-center justify-between">

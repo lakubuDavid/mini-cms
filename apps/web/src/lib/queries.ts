@@ -121,26 +121,26 @@ export function collectionItemCountsQueryOptions(collectionIds: string[]) {
   });
 }
 
-export function teamQueryOptions() {
+export function teamQueryOptions(page = 1, limit = 25) {
   return queryOptions({
-    queryKey: queryKeys.team(),
-    queryFn: () => listAdminUsers(),
+    queryKey: [...queryKeys.team(), { page, limit }] as const,
+    queryFn: () => listAdminUsers({ data: { page, limit } }),
     staleTime: STALE_LONG,
   });
 }
 
-export function invitesQueryOptions() {
+export function invitesQueryOptions(page = 1, limit = 25) {
   return queryOptions({
-    queryKey: queryKeys.invites(),
-    queryFn: () => listPendingInvitations(),
+    queryKey: [...queryKeys.invites(), { page, limit }] as const,
+    queryFn: () => listPendingInvitations({ data: { page, limit } }),
     staleTime: STALE_MEDIUM,
   });
 }
 
-export function apiKeysQueryOptions() {
+export function apiKeysQueryOptions(page = 1, limit = 25) {
   return queryOptions({
-    queryKey: queryKeys.apiKeys(),
-    queryFn: () => listApiKeysServerFn(),
+    queryKey: [...queryKeys.apiKeys(), { page, limit }] as const,
+    queryFn: () => listApiKeysServerFn({ data: { page, limit } }),
     staleTime: STALE_MEDIUM,
   });
 }

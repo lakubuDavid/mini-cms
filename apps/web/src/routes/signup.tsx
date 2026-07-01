@@ -61,7 +61,10 @@ function SignUpPage() {
       return;
     }
 
-    await navigate({ to: "/dashboard/workspace" });
+    await navigate({
+      to: "/dashboard/workspace",
+      search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined },
+    });
   }
 
   return (

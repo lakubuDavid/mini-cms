@@ -231,7 +231,10 @@ function DashboardLayout() {
   useEffect(() => {
     if (!hasWorkspace) {
       if (currentPath !== "/dashboard/workspace") {
-        void navigate({ to: "/dashboard/workspace" });
+        void navigate({
+          to: "/dashboard/workspace",
+          search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined },
+        });
       }
       return;
     }
@@ -318,7 +321,10 @@ function DashboardLayout() {
     ]);
 
     setWorkspaceMenuOpen(false);
-    void navigate({ to: "/dashboard/workspace" });
+    void navigate({
+      to: "/dashboard/workspace",
+      search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined },
+    });
   }
 
   return (
@@ -367,6 +373,7 @@ function DashboardLayout() {
               {hasWorkspace ? (
                 <Link
                   to="/dashboard/projects"
+                  search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined }}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
                 >
                   <Settings className="h-3.5 w-3.5" />
@@ -377,6 +384,7 @@ function DashboardLayout() {
                 <Link
                   to="/dashboard/projects/$projectId/settings"
                   params={{ projectId: currentProjectId }}
+                  search={(prev) => prev}
                   className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
                 >
                   <Settings className="h-3.5 w-3.5" />
@@ -419,6 +427,18 @@ function DashboardLayout() {
                 <SidebarMenuButton asChild>
                   <Link
                     to="/dashboard/team"
+                    search={{
+                      membersPage: 1,
+                      membersPageSize: 25,
+                      membersQ: undefined,
+                      membersSort: undefined,
+                      membersOrder: undefined,
+                      invitesPage: 1,
+                      invitesPageSize: 25,
+                      invitesQ: undefined,
+                      invitesSort: undefined,
+                      invitesOrder: undefined,
+                    }}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
@@ -430,6 +450,7 @@ function DashboardLayout() {
                 <SidebarMenuButton asChild>
                   <Link
                     to="/dashboard/api-keys"
+                    search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined }}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
@@ -484,6 +505,7 @@ function DashboardLayout() {
                     </p>
                     <Link
                       to="/dashboard/workspace"
+                      search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined }}
                       onClick={() => setWorkspaceMenuOpen(false)}
                       className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
                     >
