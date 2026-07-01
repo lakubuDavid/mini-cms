@@ -79,13 +79,20 @@ export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
 
 export const getCollectionPageServerFn = createServerFn({ method: "GET" })
   .validator(
-    (data: { slug: string; page?: number; limit?: number; projectId?: string }) => data,
+    (data: {
+      slug: string;
+      page?: number;
+      limit?: number;
+      projectId?: string;
+      env?: string;
+    }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const [{ getCollectionBySlug }, { listItems }] = await Promise.all([
       import("../db/queries/collections"),
       import("../db/queries/items"),
+      import("../db/queries/environments"),
     ]);
 
     const organizationId = await requireActiveOrganizationId(ctx);
@@ -99,12 +106,26 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
       throw new Error("Collection not found");
     }
 
+    // Resolve environment slug → ID
+    let environmentId: string | undefined;
+    if (data.projectId && data.env) {
+      const { getEnvironmentBySlug, getProductionEnvironment } =
+        await import("../db/queries/environments");
+      const env = data.env === "production"
+        ? await getProductionEnvironment(data.projectId)
+        : await getEnvironmentBySlug(data.env, data.projectId);
+      if (env) {
+        environmentId = env.id;
+      }
+    }
+
     const items = await listItems(collection.id, {
       page: data.page,
       limit: data.limit,
+      environmentId,
     });
 
-    return { collection, items };
+    return { collection, items, environment: environmentId ? undefined : undefined };
   });
 
 export const createItemServerFn = createServerFn({ method: "POST" })

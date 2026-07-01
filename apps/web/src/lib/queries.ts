@@ -5,6 +5,7 @@ import {
   getCollectionSchemaServerFn,
   getCollectionItemCountsServerFn,
 } from "./collections-helpers";
+import { listEnvironmentsServerFn } from "./environment-helpers";
 import { listAssetsServerFn } from "./assets-helpers";
 import { listProjectsServerFn, getProjectServerFn } from "./projects-helpers";
 import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
@@ -46,6 +47,7 @@ export const queryKeys = {
     ["analytics", { projectId, range }] as const,
   assets: (page: number, limit: number, projectId?: string, status?: "pending" | "active") =>
     ["assets", { page, limit, projectId, status }] as const,
+  environments: (projectId: string) => ["environments", projectId] as const,
 };
 
 // ── Query options factories ─────────────────────────────────
@@ -96,10 +98,11 @@ export function collectionPageQueryOptions(
   page = 1,
   limit = 10,
   projectId?: string,
+  env?: string,
 ) {
   return queryOptions({
-    queryKey: queryKeys.collectionPage(slug, page, limit, projectId),
-    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit, projectId } }),
+    queryKey: [...queryKeys.collectionPage(slug, page, limit, projectId), { env }] as const,
+    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit, projectId, env } }),
     staleTime: STALE_SHORT,
   });
 }
@@ -151,6 +154,15 @@ export function analyticsQueryOptions(projectId: string, range: DateRange) {
     queryFn: () =>
       getAnalyticsOverviewServerFn({ data: { projectId, range } }),
     staleTime: STALE_SHORT,
+    enabled: !!projectId,
+  });
+}
+
+export function environmentsQueryOptions(projectId: string) {
+  return queryOptions({
+    queryKey: queryKeys.environments(projectId),
+    queryFn: () => listEnvironmentsServerFn({ data: { projectId } }),
+    staleTime: STALE_MEDIUM,
     enabled: !!projectId,
   });
 }
