@@ -248,3 +248,77 @@ export async function reorderItems(collectionId: string, itemIds: string[]) {
     ),
   );
 }
+
+/**
+ * Promote items to the production environment.
+ * Moves items from their current environment to the production environment.
+ */
+export async function promoteItemsToProduction(
+  itemIds: string[],
+  productionEnvironmentId: string,
+) {
+  if (itemIds.length === 0) return;
+
+  const now = new Date().toISOString();
+
+  // Batch update in chunks of 50
+  const chunkSize = 50;
+  for (let i = 0; i < itemIds.length; i += chunkSize) {
+    const chunk = itemIds.slice(i, i + chunkSize);
+    await db
+      .update(collectionItems)
+      .set({
+        environmentId: productionEnvironmentId,
+        updatedAt: now,
+      })
+      .where(inArray(collectionItems.id, chunk));
+  }
+}
+
+/**
+ * Duplicate items to another environment.
+ * Creates copies of the specified items in the target environment.
+ * The original items remain unchanged.
+ */
+export async function duplicateItemsToEnvironment(
+  itemIds: string[],
+  sourceEnvironmentId: string,
+  targetEnvironmentId: string,
+) {
+  if (itemIds.length === 0) return;
+
+  const now = new Date().toISOString();
+
+  // Fetch the original items
+  const originals = await db
+    .select()
+    .from(collectionItems)
+    .where(
+      and(
+        inArray(collectionItems.id, itemIds),
+        eq(collectionItems.environmentId, sourceEnvironmentId),
+      ),
+    );
+
+  if (originals.length === 0) return;
+
+  // Insert copies with new IDs in the target environment
+  const copies = originals.map((original) => ({
+    id: nanoid(),
+    collectionId: original.collectionId,
+    environmentId: targetEnvironmentId,
+    data: original.data,
+    order: original.order,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  // Insert in chunks of 50
+  const chunkSize = 50;
+  for (let i = 0; i < copies.length; i += chunkSize) {
+    const chunk = copies.slice(i, i + chunkSize);
+    await db.insert(collectionItems).values(chunk);
+  }
+
+  return copies.map((c) => c.id);
+}

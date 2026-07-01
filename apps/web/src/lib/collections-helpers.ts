@@ -147,6 +147,42 @@ export const deleteItemServerFn = createServerFn({ method: "POST" })
     return { success: true };
   });
 
+export const promoteItemsServerFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      itemIds: string[];
+      productionEnvironmentId: string;
+      collectionSlug: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { promoteItemsAction } = await import("../server/functions/items");
+    return promoteItemsAction(
+      data.itemIds,
+      data.productionEnvironmentId,
+      data.collectionSlug,
+    );
+  });
+
+export const duplicateItemsServerFn = createServerFn({ method: "POST" })
+  .validator(
+    (data: {
+      itemIds: string[];
+      sourceEnvironmentId: string;
+      targetEnvironmentId: string;
+      collectionSlug: string;
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const { duplicateItemsAction } = await import("../server/functions/items");
+    return duplicateItemsAction(
+      data.itemIds,
+      data.sourceEnvironmentId,
+      data.targetEnvironmentId,
+      data.collectionSlug,
+    );
+  });
+
 export const deleteCollectionServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; slug?: string }) => data)
   .handler(async ({ data }) => {
