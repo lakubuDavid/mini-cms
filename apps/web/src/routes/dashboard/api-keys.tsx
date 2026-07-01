@@ -68,7 +68,6 @@ type ApiKeyRow = {
 
 function ApiKeysPage() {
   const queryClient = useQueryClient();
-  const { organization: ssrOrganization, projects: ssrProjects } = Route.useRouteContext();
   const {
     page,
     pageSize,
@@ -81,16 +80,11 @@ function ApiKeysPage() {
   } = useDataTableRouterState({
     defaults: { page: 1, pageSize: 25, defaultSort: null },
   });
-  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
+  const orgQuery = useQuery(organizationQueryOptions());
   const apiKeysQuery = useQuery({
     ...apiKeysQueryOptions(page, pageSize),
-    enabled: !!orgQuery.data,
   });
-  const projectsQuery = useQuery({
-    ...projectsQueryOptions(),
-    initialData: ssrProjects,
-    enabled: !!orgQuery.data,
-  });
+  const projectsQuery = useQuery(projectsQueryOptions());
 
   const isLoading =
     orgQuery.isLoading || apiKeysQuery.isLoading || projectsQuery.isLoading;

@@ -49,11 +49,10 @@ function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
 
 function ProjectsPage() {
   const queryClient = useQueryClient();
-  const { projects: ssrProjects } = Route.useRouteContext();
   const table = useDataTableRouterState({
     defaults: { page: 1, pageSize: 25, defaultSort: null },
   });
-  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
+  const projectsQuery = useQuery(projectsQueryOptions());
   const collectionsQuery = useQuery(collectionsQueryOptions(1, 200));
 
   const [showCreate, setShowCreate] = useState(false);

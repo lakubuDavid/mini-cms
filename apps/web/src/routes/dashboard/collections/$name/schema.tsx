@@ -150,7 +150,7 @@ function SchemaEditor(props: {
         <Link
           to="/dashboard/collections/$name"
           params={{ name: collection.slug }}
-          search={{ page: 1, projectId }}
+          search={{ page: 1, projectId, env: undefined }}
           className="inline-flex items-center gap-1.5 text-sm text-stone-500 transition hover:text-stone-900"
         >
           <ArrowLeft className="h-4 w-4" />

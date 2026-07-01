@@ -54,8 +54,7 @@ function DashboardAssetsPage() {
     type?: "images" | "videos" | "documents";
   };
 
-  const { projects: ssrProjects } = Route.useRouteContext();
-  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
+  const projectsQuery = useQuery(projectsQueryOptions());
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;

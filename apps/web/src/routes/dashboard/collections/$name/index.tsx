@@ -792,6 +792,7 @@ function CollectionPageContent(props: {
             search={{
               page: Math.max(1, search.page - 1),
               projectId: search.projectId,
+              env: search.env,
             }}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${search.page <= 1 ? "pointer-events-none border-stone-200 text-stone-300" : "border-stone-300 hover:bg-stone-50"}`}
           >
@@ -804,6 +805,7 @@ function CollectionPageContent(props: {
             search={{
               page: Math.min(items.pagination.totalPages, search.page + 1),
               projectId: search.projectId,
+              env: search.env,
             }}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${!items.pagination.hasMore ? "pointer-events-none border-stone-200 text-stone-300" : "border-stone-300 hover:bg-stone-50"}`}
           >

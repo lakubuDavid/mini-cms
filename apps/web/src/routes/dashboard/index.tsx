@@ -9,6 +9,8 @@ import { createProjectServerFn } from "@/lib/projects-helpers";
 import {
   collectionsQueryOptions,
   collectionItemCountsQueryOptions,
+  organizationQueryOptions,
+  projectsQueryOptions,
 } from "@/lib/queries";
 import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
@@ -40,11 +42,14 @@ export const Route = createFileRoute("/dashboard/")({
 function DashboardHome() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
-  const { organization, projects } = Route.useRouteContext();
+  const orgQuery = useQuery(organizationQueryOptions());
+  const projectsQuery = useQuery(projectsQueryOptions());
+  const organization = orgQuery.data ?? null;
+  const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const collectionsQuery = useQuery({
     ...collectionsQueryOptions(1, 24, selectedProjectId || undefined),
-    enabled: !!organization && !!selectedProjectId,
+    enabled: Boolean(organization) && !!selectedProjectId,
   });
 
   const collectionIds = collectionsQuery.data?.items.map((c) => c.id) ?? [];
@@ -216,7 +221,7 @@ function DashboardHome() {
                     <Link
                       to="/dashboard/collections/$name"
                       params={{ name: collection.slug }}
-                      search={{ page: 1, projectId: selectedProjectId || undefined }}
+                      search={{ page: 1, projectId: selectedProjectId || undefined, env: undefined }}
                       className="flex items-center gap-2.5 group"
                     >
                       <Folder className="h-4 w-4 shrink-0 text-stone-400" />
@@ -272,7 +277,7 @@ function DashboardHome() {
                 <Link
                   to="/dashboard/collections/$name"
                   params={{ name: collection.slug }}
-                  search={{ page: 1, projectId: selectedProjectId || undefined }}
+                  search={{ page: 1, projectId: selectedProjectId || undefined, env: undefined }}
                   className="flex items-center gap-2.5 min-w-0"
                 >
                   <Folder className="h-4 w-4 shrink-0 text-stone-400" />
@@ -804,7 +809,7 @@ function CollectionActionsMenu(props: {
           <Link
             to="/dashboard/collections/$name"
             params={{ name: props.collection.slug }}
-            search={{ page: 1, projectId: props.projectId || undefined }}
+            search={{ page: 1, projectId: props.projectId || undefined, env: undefined }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-stone-700 transition hover:bg-stone-50"
             onClick={() => setOpen(false)}
           >

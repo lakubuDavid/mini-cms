@@ -84,8 +84,8 @@ type InviteRow = {
 
 function TeamPage() {
   const queryClient = useQueryClient();
-  const { organization: ssrOrganization, user: currentUser } = Route.useRouteContext();
-  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
+  const { user: currentUser } = Route.useRouteContext();
+  const orgQuery = useQuery(organizationQueryOptions());
 
   // Two table state slots, namespaced via prefix in the URL.
   const membersTable = useDataTableRouterState({
@@ -99,11 +99,9 @@ function TeamPage() {
 
   const usersQuery = useQuery({
     ...teamQueryOptions(membersTable.page, membersTable.pageSize),
-    enabled: !!orgQuery.data,
   });
   const invitesQuery = useQuery({
     ...invitesQueryOptions(invitesTable.page, invitesTable.pageSize),
-    enabled: !!orgQuery.data,
   });
 
   const isLoading =

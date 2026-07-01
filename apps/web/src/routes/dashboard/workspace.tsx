@@ -46,9 +46,8 @@ function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
 
 function WorkspacePage() {
   const queryClient = useQueryClient();
-  const { organization: ssrOrganization, organizations: ssrOrganizations } = Route.useRouteContext();
-  const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
-  const orgsQuery = useQuery({ ...organizationsQueryOptions(), initialData: ssrOrganizations });
+  const orgQuery = useQuery(organizationQueryOptions());
+  const orgsQuery = useQuery(organizationsQueryOptions());
 
   const isLoading = orgQuery.isLoading || orgsQuery.isLoading;
 
