@@ -50,6 +50,13 @@
       "when": 1774700035998,
       "tag": "0006_striped_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1782874150382,
+      "tag": "0007_deep_gambit",
+      "breakpoints": true
     }
   ]
 }

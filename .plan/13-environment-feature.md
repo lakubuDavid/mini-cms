@@ -466,25 +466,26 @@ This is a one-time migration. New projects automatically get environments seeded
 ## Task Breakdown (Checklist)
 
 ### Database
-- [ ] Create `apps/web/src/db/schema/environments.ts`
-- [ ] Update `apps/web/src/db/schema/collection-items.ts` — add `environmentId`
-- [ ] Update `apps/web/src/db/schema/index.ts` — export environments
-- [ ] Write migration SQL/script for existing data
-- [ ] Create `apps/web/src/db/queries/environments.ts`
-- [ ] Update `apps/web/src/db/queries/items.ts` — environment-aware filtering
+- [x] Create `apps/web/src/db/schema/environments.ts`
+- [x] Update `apps/web/src/db/schema/collection-items.ts` — add `environmentId`
+- [x] Update `apps/web/src/db/schema/index.ts` — export environments
+- [x] Write migration SQL/script for existing data
+- [x] Create `apps/web/src/db/queries/environments.ts`
+- [x] Update `apps/web/src/db/queries/items.ts` — environment-aware filtering
 - [ ] Add `promoteItemsToProduction()` to `items.ts`
 - [ ] Add `duplicateItemsToEnvironment()` to `items.ts`
-- [ ] Update `apps/web/src/db/queries/projects.ts` — seed production env on create
+- [x] Update `apps/web/src/db/queries/projects.ts` — seed production env on create
 
 ### API
-- [ ] Update `apps/web/src/routes/api/collections/items.ts` — add `env` param
+- [x] Update `apps/web/src/routes/api/collections/items.ts` — add `env` param
 - [ ] Update `apps/web/src/routes/api/schema/pull.ts` — env scope
 - [ ] Update `apps/web/src/routes/api/schema/push.ts` — env scope
 - [ ] Update `apps/web/src/lib/schema-sync.ts` — env awareness
-- [ ] Update `apps/web/src/lib/cache.ts` — env in cache keys
+- [x] Update `apps/web/src/lib/cache.ts` — env in cache keys
 
 ### Server Functions
-- [ ] Update `apps/web/src/server/functions/items.ts` — env context, promoteItems, duplicateItems
+- [x] Update `apps/web/src/server/functions/items.ts` — env context (createItem signature)
+- [ ] Add promoteItems/duplicateItems server functions
 - [ ] Update `apps/web/src/server/functions/collections.ts` — env context
 
 ### Dashboard UI
