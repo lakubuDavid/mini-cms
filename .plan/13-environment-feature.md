@@ -2,7 +2,7 @@
 
 ## Goal
 
-Allow a Mini CMS **project** (website) to define multiple **environments** (e.g. `production`, `staging`, `development`, `preview`). Each environment holds its own copy of collection items, so edits in one environment don't affect another until explicitly promoted. This enables content staging workflows.
+Allow a Mini CMS **project** (website) to define multiple **environments** (e.g. `production`, `staging`, `development`, `preview`). Each item belongs to **exactly one environment** at a time. Items can be **moved** (promoted) or **copied** (duplicated) between environments. The public API serves whichever environment is marked as `production`, giving you content staging workflows.
 
 ---
 
@@ -16,7 +16,23 @@ The environment feature adds a new axis:
 Workspace → Project → Environment → Collection → Items
 ```
 
-When fetching data, the caller specifies which environment to read from. If no environment is specified, `production` is used as the default. Items are duplicated across environments (like Git branches), not shared with a status field — this allows completely different content in each environment without cross-contamination.
+### How it works
+
+- Each **item** has an `environmentId` — it lives in exactly one environment
+- One environment per project is marked `isProduction = true` — that's what the public API serves by default
+- **Promote to production** → moves the item(s) from whatever env they're in to the production environment (changes `environmentId` to the production env's id)
+- **Duplicate to / Copy to** → creates a copy of the item(s) in another environment (the original stays put, a new row appears in the target)
+- **Bulk operations** → select multiple items in the dashboard, then promote or duplicate them all at once
+- The **collection schema** (fields, types) is **shared** across all environments — only the *data* (items) differs per environment
+
+### Comparison with other CMS platforms
+
+| | Contentful (Environment Aliases) | Sanity (Content Releases) | **Mini CMS (our model)** |
+|---|---|---|---|
+| **Environments** | Full copies of all content; aliases swap which is "master" | Datasets + releases on top | Named buckets; items belong to one at a time |
+| **Promote** | Re-alias `master` to point to a different environment | Publish the release bundle | **Move** item(s) to the production env |
+| **Duplicate** | Clone entire env or copy entries via API | Clone a release | **Copy** selected item(s) to another env |
+| **Bulk actions** | Full env only | Entire release | Select multiple items → move or copy at once |
 
 ---
 
@@ -25,12 +41,12 @@ When fetching data, the caller specifies which environment to read from. If no e
 | Layer | Files to change |
 |---|---|
 | **DB Schema** | `apps/web/src/db/schema/environments.ts` (new), `apps/web/src/db/schema/collection-items.ts` (add env col), `apps/web/src/db/schema/index.ts` (export) |
-| **DB Queries** | `apps/web/src/db/queries/environments.ts` (new), `apps/web/src/db/queries/items.ts` (add env filter), `apps/web/src/db/queries/collections.ts` (no change) |
+| **DB Queries** | `apps/web/src/db/queries/environments.ts` (new), `apps/web/src/db/queries/items.ts` (add env filter, add promote/duplicate helpers), `apps/web/src/db/queries/collections.ts` (no change) |
 | **Server Functions** | `apps/web/src/server/functions/*` (environment-scoped helpers) |
 | **Public API** | `apps/web/src/routes/api/collections/items.ts` (add `env` param, env filter) |
 | **Schema API** | `apps/web/src/routes/api/schema/*.ts` (env-scoped pull/push) |
 | **Cache** | `apps/web/src/lib/cache.ts` (include env in cache keys) |
-| **Dashboard UI** | Environment management pages, env switcher, item editor changes |
+| **Dashboard UI** | Environment management pages, env switcher, item row actions (promote, duplicate), bulk actions toolbar |
 | **CLI** | `packages/cli/src/*` (env flag, config, pull/push/generate) |
 | **Generated Client** | `packages/cli/src/codegen.ts` (env in client) |
 | **Docs** | `apps/docs/content/docs/*.mdx` (API, CLI, env management) |
@@ -45,7 +61,7 @@ When fetching data, the caller specifies which environment to read from. If no e
 
 ```ts
 import { relations } from "drizzle-orm";
-import { index, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { projects } from "./projects";
 
 export const environments = sqliteTable(
@@ -139,13 +155,11 @@ export async function getProductionEnvironment(projectId: string): Promise<...>
 export async function createEnvironment(input: CreateEnvironmentInput): Promise<...>
 export async function updateEnvironment(id: string, data: Partial<...>): Promise<...>
 export async function deleteEnvironment(id: string): Promise<...>
-export async function promoteItems(sourceEnvId: string, targetEnvId: string, collectionId?: string): Promise<...>
 ```
 
 Key functions:
 
 - **`getProductionEnvironment`** — finds the env where `isProduction = true`. Used as default when no env is specified in API calls.
-- **`promoteItems`** — copies/merges items from one environment to another. This is the "deploy content" operation.
 
 ### Step 5 — DB Queries: Update `items.ts` to filter by environment
 
@@ -159,6 +173,51 @@ conditions.push(eq(collectionItems.environmentId, environmentId));
 ```
 
 The `listItems`, `getItemById`, `createItem`, `updateItem`, `deleteItem`, `countItemsByCollectionIds`, `reorderItems` functions all need to accept and use `environmentId`.
+
+**New functions for environment operations:**
+
+```ts
+// PROMOTE: move items from current env to the production env
+export async function promoteItemsToProduction(
+  itemIds: string[],
+  currentEnvironmentId: string,
+  productionEnvironmentId: string,
+  projectId: string,
+): Promise<void>
+
+// DUPLICATE: copy items from one env to another (same collection, new IDs)
+export async function duplicateItemsToEnvironment(
+  itemIds: string[],
+  sourceEnvironmentId: string,
+  targetEnvironmentId: string,
+): Promise<void>
+```
+
+**Promote logic:**
+```sql
+UPDATE collection_items
+SET environment_id = :productionEnvironmentId
+WHERE id IN (:itemIds)
+  AND environment_id = :currentEnvironmentId
+  AND project_id = :projectId
+```
+
+**Duplicate logic:**
+```sql
+INSERT INTO collection_items (id, project_id, collection_id, environment_id, data, sort_order, created_at, updated_at)
+SELECT
+  nanoid(),
+  ci.project_id,
+  ci.collection_id,
+  :targetEnvironmentId,
+  ci.data,
+  ci.sort_order,
+  now(),
+  now()
+FROM collection_items ci
+WHERE ci.id IN (:itemIds)
+  AND ci.environment_id = :sourceEnvironmentId
+```
 
 **Design decision:** Pass `environmentId` explicitly (not implicitly from the session) so the public API can set it from the `env` query parameter.
 
@@ -223,6 +282,12 @@ Server functions (createItem, updateItem, deleteItem, etc.) need the active envi
 - Dashboard UI passes the currently selected environment.
 - If no environment is specified, use the production environment for the project.
 
+Add new server functions:
+```ts
+export const promoteItemsServerFn = serverFn(...) // moves items to production env
+export const duplicateItemsServerFn = serverFn(...) // copies items to another env
+```
+
 ### Step 10 — Dashboard UI: Environment Management
 
 **New routes:**
@@ -233,13 +298,15 @@ Server functions (createItem, updateItem, deleteItem, etc.) need the active envi
 **Components to build:**
 - `EnvironmentSwitcher` — a dropdown in the project header to switch between environments. Affects all collection/item views.
 - `EnvironmentBadge` — shows current env name + color (green=production, yellow=staging, blue=development).
-- `PromoteDialog` — modal to promote items from current env to another.
+- `PromoteToProductionButton` — per-item action that moves it to the production env
+- `DuplicateToButton` — per-item action that copies it to a chosen env (shows a target env picker)
+- `BulkActionToolbar` — appears when items are selected; offers "Promote to production" and "Duplicate to..." with a target env selector
 - `EnvironmentForm` — create/edit environment name, slug, isProduction flag.
 
 **Modifications to existing views:**
-- Collection list page — add environment filter/context
-- Item editor — show which environment the item belongs to
-- Collection schema editor — environment-scoped (schema is shared, items are per-env)
+- Collection list page — each item row shows a "Promote" and "Duplicate" action (when not already in production). Add checkboxes for bulk selection.
+- Item editor — show which environment the item belongs to, with a "Switch environment" dropdown.
+- Collection schema editor — environment-scoped (schema is shared, items are per-env).
 
 ### Step 11 — Dashboard UI: Environment Switcher Context
 
@@ -301,18 +368,21 @@ export const CLI_ENV_KEYS = {
 
 **File: `packages/cli/schemas/mini.config.schema.json`** — add `environment` field.
 
-### Step 14 — Promote Content (Deploy Workflow)
+### Step 14 — Promote & Duplicate Content (Deploy Workflow)
 
-**Server function:** `promoteItemsServerFn` — copies all items from source environment to target environment for a given collection.
+**Server functions:**
+- `promoteItemsToProduction(items: string[], fromEnvId: string)` — moves items to the project's production env
+- `duplicateItemsToEnvironment(items: string[], toEnvId: string, fromEnvId: string)` — copies items to the target env
 
-**Dashboard UI:** A "Promote to Production" button on staging environment pages.
+**Dashboard UI:**
+- **Item row:** "Promote to production" button (disabled if already in production env)
+- **Item row:** "Duplicate to..." button opens a small popover to pick the target environment
+- **Bulk toolbar:** checkboxes on items; "Promote selected" or "Duplicate selected to..." in the toolbar
 
-**CLI command:** `mini-cms environment promote --from staging --to production`
-
-This is the key workflow:
-1. Edit content in `staging`
-2. Preview it (staging env has its own public API endpoint)
-3. Promote to `production` when ready
+**CLI commands:**
+- `mini-cms items promote <item-id>... [--to production]` — promote one or more items
+- `mini-cms items duplicate <item-id>... [--to <env-slug>]` — duplicate items to another env
+- `mini-cms environment promote --all` — promote all items from current env to production
 
 ### Step 15 — Documentation
 
@@ -321,11 +391,12 @@ This is the key workflow:
 - How to create/manage them in the dashboard
 - How `env` parameter works in the API
 - CLI environment flags
-- Promotion workflow
+- Promote vs Duplicate workflows
+- Bulk operations
 
 **File: `apps/docs/content/docs/api.mdx`** — add `env` parameter to the public API docs.
 
-**File: `apps/docs/content/docs/cli.mdx`** — add `--env` flag to all commands, update examples.
+**File: `apps/docs/content/docs/cli.mdx`** — add `--env` flag to all commands, add `items promote` and `items duplicate` commands, update examples.
 
 **File: `apps/docs/content/docs/dashboard.mdx`** — add environment management section.
 
@@ -341,12 +412,14 @@ A separate table allows:
 - Clean FK constraints that prevent orphan items.
 - Future extension (e.g., env-level API keys, env-level settings).
 
-### 2. Why duplicate items instead of sharing with a status field?
+### 2. Why belong-to-one-env instead of full copies per environment?
 
-- **Isolation:** Edits in `staging` never leak to `production`. No accidental publishes.
-- **Simplicity:** Queries are straightforward (`WHERE environment_id = ?`). No complex visibility rules.
-- **Branching:** Like Git branches for content. Each env can diverge independently.
-- **Promotion is explicit:** Copying items from staging → production is a deliberate action, not a side effect of saving.
+Unlike Contentful's model where each environment is a full independent copy of all content, Mini CMS keeps items **in exactly one environment at a time**. This is simpler, avoids data duplication, and gives you granular control:
+
+- **Promote = move** (UPDATE `environment_id`). Fast, cheap, doesn't create orphaned copies.
+- **Duplicate = copy** (INSERT with new id). Intentional action when you really want the item in two places.
+- **Bulk operations** work on individual items, not whole environments.
+- No need to clean up stale environment copies when promoting.
 
 ### 3. Schema is shared, items are not
 
@@ -356,6 +429,15 @@ The collection schema (fields, types) is the same across all environments within
 
 Backward compatibility: existing API calls with no `env` parameter continue to work and return the production environment's content. New projects get a `production` environment seeded automatically.
 
+### 5. "Promote" vs "Duplicate" — two distinct operations
+
+| | Promote | Duplicate |
+|---|---|---|
+| **Effect** | Item moves to production env | Item is copied to target env |
+| **Original stays?** | No | Yes |
+| **Use case** | "This draft is ready to go live" | "I want this item in staging too, as a starting point" |
+| **Bulk** | Select all ready items, promote at once | Select items, duplicate to another env in one go |
+
 ---
 
 ## Future Considerations (Not in Scope for This Phase)
@@ -364,7 +446,7 @@ Backward compatibility: existing API calls with no `env` parameter continue to w
 - **Scheduled promotions** — automate content promotion at a specific time.
 - **Environment-level domain restrictions** — different allowed domains per env.
 - **Preview URLs** — auto-generated preview links for staging content.
-- **Environment cloning** — copy all items from one env to a new env (for creating a staging env from production baseline).
+- **Auto-duplicate on create** — option to automatically duplicate new items to another env (e.g., create in staging → auto-copy to production).
 
 ---
 
@@ -390,6 +472,8 @@ This is a one-time migration. New projects automatically get environments seeded
 - [ ] Write migration SQL/script for existing data
 - [ ] Create `apps/web/src/db/queries/environments.ts`
 - [ ] Update `apps/web/src/db/queries/items.ts` — environment-aware filtering
+- [ ] Add `promoteItemsToProduction()` to `items.ts`
+- [ ] Add `duplicateItemsToEnvironment()` to `items.ts`
 - [ ] Update `apps/web/src/db/queries/projects.ts` — seed production env on create
 
 ### API
@@ -400,17 +484,19 @@ This is a one-time migration. New projects automatically get environments seeded
 - [ ] Update `apps/web/src/lib/cache.ts` — env in cache keys
 
 ### Server Functions
-- [ ] Update `apps/web/src/server/functions/items.ts` — env context
+- [ ] Update `apps/web/src/server/functions/items.ts` — env context, promoteItems, duplicateItems
 - [ ] Update `apps/web/src/server/functions/collections.ts` — env context
 
 ### Dashboard UI
-- [ ] Create environment management routes
+- [ ] Create environment management routes (list, manage, create)
 - [ ] Build `EnvironmentSwitcher` component
 - [ ] Build `EnvironmentBadge` component
-- [ ] Build `PromoteDialog` component
-- [ ] Build `EnvironmentForm` component
+- [ ] Build `PromoteToProductionButton` (per-item + bulk)
+- [ ] Build `DuplicateToButton` with target env picker (per-item + bulk)
+- [ ] Build `BulkActionToolbar` (appears on item selection)
+- [ ] Build `EnvironmentForm` (create/edit)
 - [ ] Create `apps/web/src/lib/environment-context.ts`
-- [ ] Update collection list page — env filter
+- [ ] Update collection list page — env filter, per-item env actions, checkboxes
 - [ ] Update item editor — env context
 
 ### CLI
@@ -419,7 +505,9 @@ This is a one-time migration. New projects automatically get environments seeded
 - [ ] Update `packages/cli/src/collections.ts` — no schema change needed
 - [ ] Update `packages/cli/src/file-utils.ts` — if needed
 - [ ] Update `packages/cli/src/codegen.ts` — env in generated client
-- [ ] Add `mini-cms environment promote` command
+- [ ] Add `mini-cms items promote <item-id>...` command
+- [ ] Add `mini-cms items duplicate <item-id>... --to <env>` command
+- [ ] Add `mini-cms environment promote --all` command
 - [ ] Update config schema JSON files
 
 ### Generated Client
@@ -436,9 +524,12 @@ This is a one-time migration. New projects automatically get environments seeded
 
 ## Test Plan
 
-- Unit tests for environment queries (create, list, promote).
+- Unit tests for environment queries (create, list, promote, duplicate).
 - API tests: calling with `env=staging` returns staging items, calling with no env returns production.
-- Integration: promote items from staging to production, verify production items updated.
-- CLI tests: `--env` flag correctly scopes pull/push.
+- Integration: promote items to production, verify they now belong to production env.
+- Integration: duplicate items to another env, verify both copies exist independently.
+- CLI tests: `--env` flag correctly scopes pull/push, `items promote` works.
 - Dashboard: environment switcher changes the data shown in collection/item views.
+- Dashboard: per-item promote/duplicate actions work correctly.
+- Dashboard: bulk promote/duplicate works.
 - Migration: existing projects get a production env and all items are migrated.
