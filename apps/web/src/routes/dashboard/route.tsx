@@ -98,7 +98,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardLayout() {
-  const { user } = useRouteContext({ from: "/dashboard/" });
+  const { user } = useRouteContext({ from: "/dashboard" });
   const orgQuery = useQuery(organizationQueryOptions());
   const projectsQuery = useQuery(projectsQueryOptions());
   const orgsQuery = useQuery(organizationsQueryOptions());
