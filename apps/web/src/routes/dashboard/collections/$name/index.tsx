@@ -33,6 +33,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/component
 import { Checkbox } from "@workspace/ui/components/checkbox";
 import { Button } from "@workspace/ui/components/button";
 import { Separator } from "@workspace/ui/components/separator";
+import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
 import { SYSTEM_COLLECTION_FIELDS as SYSTEM_FIELDS } from "@/lib/collections-system-fields";
 import {
   requestAssetUploadServerFn,
@@ -337,6 +338,11 @@ function CollectionPageContent(props: {
           </button>
         </div>
       </div>
+
+      {/* Toolbar */}
+      <CollectionToolbar
+        onRefresh={onInvalidate}
+      />
 
       {message ? (
         <div
@@ -1629,6 +1635,35 @@ function AssetUploadInlineDialog(props: {
         </form>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Collection toolbar (filter + sort + refresh)
+// ---------------------------------------------------------------------------
+
+function CollectionToolbar({ onRefresh }: {
+  onRefresh: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  return (
+    <DataToolbar
+      query={query}
+      onQueryChange={setQuery}
+      refresh={{
+        onRefresh,
+        isRefreshing: false,
+      }}
+      sortColumns={[
+        { id: "name", label: "Name" },
+        { id: "createdAt", label: "Created" },
+      ]}
+      sort={sort}
+      onSortChange={setSort}
+      filterPlaceholder="Filter items…"
+    />
   );
 }
 

@@ -8,6 +8,7 @@ import {
 } from "@/lib/assets-helpers";
 import { projectsQueryOptions, assetsQueryOptions } from "@/lib/queries";
 import { ALLOWED_ASSET_MIME_TYPES, MAX_ASSET_FILE_SIZE } from "@/lib/assets";
+import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   Check,
@@ -58,6 +59,11 @@ function DashboardAssetsPage() {
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;
+
+  // Client-side filter/sort for the assets grid
+  const [assetQ, setAssetQ] = useState("");
+  const [assetSort, setAssetSort] = useState<SortState | null>(null);
+
   const effectiveProjectId = selectedProjectId;
 
   const assetsQuery = useQuery({
@@ -68,16 +74,50 @@ function DashboardAssetsPage() {
   const allAssets = assetsQuery.data?.items ?? [];
   const isLoading = projectsQuery.isLoading || assetsQuery.isLoading;
 
-  // Client-side type filter
+  // Client-side type filter + text filter + sort
   const assets = useMemo(() => {
-    if (!selectedType) return allAssets;
-    return allAssets.filter((asset) => {
-      if (selectedType === "images") return asset.contentType.startsWith("image/");
-      if (selectedType === "videos") return asset.contentType.startsWith("video/");
-      if (selectedType === "documents") return asset.contentType === "application/pdf";
-      return true;
-    });
-  }, [allAssets, selectedType]);
+    let list = allAssets;
+
+    // Type filter
+    if (selectedType) {
+      list = list.filter((asset) => {
+        if (selectedType === "images") return asset.contentType.startsWith("image/");
+        if (selectedType === "videos") return asset.contentType.startsWith("video/");
+        if (selectedType === "documents") return asset.contentType === "application/pdf";
+        return true;
+      });
+    }
+
+    // Text filter
+    if (assetQ) {
+      const q = assetQ.toLowerCase();
+      list = list.filter((a) => a.filename.toLowerCase().includes(q));
+    }
+
+    // Sort
+    if (assetSort) {
+      list = [...list].sort((a, b) => {
+        let cmp = 0;
+        switch (assetSort.by) {
+          case "filename":
+            cmp = a.filename.localeCompare(b.filename);
+            break;
+          case "contentType":
+            cmp = a.contentType.localeCompare(b.contentType);
+            break;
+          case "size":
+            cmp = a.size - b.size;
+            break;
+          case "createdAt":
+            cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            break;
+        }
+        return assetSort.order === "desc" ? -cmp : cmp;
+      });
+    }
+
+    return list;
+  }, [allAssets, selectedType, assetQ, assetSort]);
 
   // Counts per type
   const typeCounts = useMemo(() => {
@@ -169,6 +209,25 @@ function DashboardAssetsPage() {
           })}
         </div>
       </div>
+
+      {/* Toolbar */}
+      <DataToolbar
+        query={assetQ}
+        onQueryChange={setAssetQ}
+        refresh={{
+          onRefresh: invalidate,
+          isRefreshing: assetsQuery.isFetching,
+        }}
+        sortColumns={[
+          { id: "filename", label: "Name" },
+          { id: "contentType", label: "Type" },
+          { id: "size", label: "Size" },
+          { id: "createdAt", label: "Created" },
+        ]}
+        sort={assetSort}
+        onSortChange={setAssetSort}
+        filterPlaceholder="Filter by filename…"
+      />
 
       {!effectiveProjectId ? (
         <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
