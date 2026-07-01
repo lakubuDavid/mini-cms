@@ -14,6 +14,8 @@ import {
   invitesQueryOptions,
 } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
+import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
 import {
   UserPlus,
   Mail,
@@ -28,7 +30,31 @@ import {
   ChevronDown,
 } from "lucide-react";
 
+function intOrUndefined(v: unknown): number | undefined {
+  if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
+  if (typeof v === "number" && Number.isFinite(v)) return Math.floor(v);
+  return undefined;
+}
+function strOrUndefined(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
+  return v === "asc" || v === "desc" ? v : undefined;
+}
+
 export const Route = createFileRoute("/dashboard/team")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    membersPage: intOrUndefined(search.membersPage),
+    membersPageSize: intOrUndefined(search.membersPageSize),
+    membersQ: strOrUndefined(search.membersQ),
+    membersSort: strOrUndefined(search.membersSort),
+    membersOrder: orderOrUndefined(search.membersOrder),
+    invitesPage: intOrUndefined(search.invitesPage),
+    invitesPageSize: intOrUndefined(search.invitesPageSize),
+    invitesQ: strOrUndefined(search.invitesQ),
+    invitesSort: strOrUndefined(search.invitesSort),
+    invitesOrder: orderOrUndefined(search.invitesOrder),
+  }),
   component: TeamPage,
 });
 
@@ -44,12 +70,37 @@ type TeamMember = {
   };
 };
 
+type InviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  createdAt?: string | Date;
+  expiresAt?: string | Date;
+};
+
 function TeamPage() {
   const queryClient = useQueryClient();
   const { organization: ssrOrganization, user: currentUser } = Route.useRouteContext();
   const orgQuery = useQuery({ ...organizationQueryOptions(), initialData: ssrOrganization });
-  const usersQuery = useQuery(teamQueryOptions());
-  const invitesQuery = useQuery(invitesQueryOptions());
+
+  // Two table state slots, namespaced via prefix in the URL.
+  const membersTable = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+    prefix: "members",
+  });
+  const invitesTable = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+    prefix: "invites",
+  });
+
+  const usersQuery = useQuery({
+    ...teamQueryOptions(membersTable.page, membersTable.pageSize),
+    enabled: !!orgQuery.data,
+  });
+  const invitesQuery = useQuery({
+    ...invitesQueryOptions(invitesTable.page, invitesTable.pageSize),
+    enabled: !!orgQuery.data,
+  });
 
   const isLoading =
     orgQuery.isLoading || usersQuery.isLoading || invitesQuery.isLoading;
@@ -130,9 +181,155 @@ function TeamPage() {
   if (isLoading) return <TeamPageSkeleton />;
 
   const organization = orgQuery.data ?? null;
-  const members: TeamMember[] = ((usersQuery.data as { members?: TeamMember[] } | undefined)?.members ?? []);
-  const invites = invitesQuery.data ?? [];
+  const members: TeamMember[] = ((usersQuery.data as { items?: TeamMember[] } | undefined)?.items ?? []) as TeamMember[];
+  const invites: InviteRow[] = ((invitesQuery.data as { items?: InviteRow[] } | undefined)?.items ?? []) as InviteRow[];
+  const membersTotal = Number((usersQuery.data as { total?: number } | undefined)?.total ?? 0);
+  const invitesTotal = Number((invitesQuery.data as { total?: number } | undefined)?.total ?? 0);
   const isAdmin = members.some((m) => m.user.id === currentUser.id && m.role === "admin");
+
+  const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersTable.pageSize));
+  const invitesTotalPages = Math.max(1, Math.ceil(invitesTotal / invitesTable.pageSize));
+  const currentMembersPage = Math.min(membersTable.page, membersTotalPages);
+  const currentInvitesPage = Math.min(invitesTable.page, invitesTotalPages);
+
+  const memberColumns: DataTableColumn<TeamMember>[] = [
+    {
+      id: "name",
+      header: "Name",
+      accessor: (m) => m.user?.name ?? "",
+      cell: (m) => {
+        const isSelf = m.user.id === currentUser.id;
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-200 text-xs font-medium text-stone-600">
+              {m.user.image ? (
+                <img src={m.user.image} alt="" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                (m.user.name?.charAt(0)?.toUpperCase() ?? "?")
+              )}
+            </div>
+            <span className="font-medium text-stone-900">
+              {m.user.name ?? "Unknown"}
+              {isSelf && <span className="ml-1.5 text-xs font-normal text-stone-400">(you)</span>}
+            </span>
+          </div>
+        );
+      },
+      sortable: false,
+    },
+    {
+      id: "email",
+      header: "Email",
+      accessor: (m) => m.user?.email ?? "",
+      cell: (m) => <span className="text-stone-500">{m.user?.email ?? "-"}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (m) => m.role,
+      cell: (m) => {
+        const isSelf = m.user.id === currentUser.id;
+        const isBusy = memberAction?.memberId === m.id && memberAction?.status === "busy";
+        if (isAdmin && !isSelf) {
+          return (
+            <div className="flex items-center gap-2">
+              <div className="relative inline-block">
+                <select
+                  value={m.role}
+                  disabled={isBusy}
+                  onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                  className="appearance-none rounded-md border border-stone-200 bg-white py-1 pl-2 pr-6 text-xs font-medium text-stone-700 outline-none transition hover:border-stone-300 focus:border-stone-900 disabled:opacity-50"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="reviewer">Reviewer</option>
+                  <option value="member">Member</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-stone-400" />
+              </div>
+              {memberAction?.memberId === m.id && memberAction?.status === "done" && (
+                <span className={`inline-flex items-center gap-1 text-xs ${
+                  memberAction.message ? "text-green-600" : "text-red-600"
+                }`}>
+                  {memberAction.message ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                  {memberAction.message ?? memberAction.error}
+                </span>
+              )}
+            </div>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
+            <Shield className="h-3 w-3" />
+            {m.role}
+          </span>
+        );
+      },
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: "actions" as const,
+            header: () => <span className="sr-only">Actions</span>,
+            accessor: (m: TeamMember) => m.id,
+            sortable: false,
+            cell: (m: TeamMember) => {
+              const isSelf = m.user.id === currentUser.id;
+              const isBusy = memberAction?.memberId === m.id && memberAction?.status === "busy";
+              if (isSelf || m.role === "owner") return null;
+              return (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                    title="Remove from workspace"
+                  >
+                    {isBusy && memberAction?.type === "remove" ? (
+                      <LoaderCircle className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <UserMinus className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+              );
+            },
+          } as DataTableColumn<TeamMember>,
+        ]
+      : []),
+  ];
+
+  const inviteColumns: DataTableColumn<InviteRow>[] = [
+    {
+      id: "email",
+      header: "Email",
+      accessor: (i) => i.email,
+      cell: (i) => <span className="text-stone-700">{i.email}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (i) => i.role,
+      cell: (i) => (
+        <span className="inline-block rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
+          {i.role}
+        </span>
+      ),
+    },
+    {
+      id: "sent",
+      header: "Sent",
+      accessor: (i) => i.createdAt ? new Date(i.createdAt).toISOString() : "",
+      cell: (i) => <span className="text-xs text-stone-400">{i.createdAt ? new Date(i.createdAt).toLocaleDateString() : "-"}</span>,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      accessor: (i) => i.id,
+      sortable: false,
+      cell: (i) => <InviteActionsCell invite={i} organizationId={organization?.id ?? ""} onUpdate={invalidate} />,
+    },
+  ];
 
   return (
     <section className="space-y-8">
@@ -150,40 +347,35 @@ function TeamPage() {
         <h3 className="flex items-center gap-2 text-sm font-medium text-stone-900">
           Members
           <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs tabular-nums text-stone-500">
-            {members.length}
+            {membersTotal}
           </span>
         </h3>
-        <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-          <table className="min-w-full divide-y divide-stone-200 text-sm">
-            <thead className="bg-stone-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">Name</th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">Email</th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">Role</th>
-                {isAdmin && <th className="px-4 py-3 text-right font-medium text-stone-600"><span className="sr-only">Actions</span></th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 bg-white">
-              {members.map((member) => (
-                <MemberRow
-                  key={member.id}
-                  member={member}
-                  currentUserId={currentUser.id}
-                  isAdmin={isAdmin}
-                  actionState={memberAction}
-                  onRoleChange={handleRoleChange}
-                  onRemove={handleRemoveMember}
-                />
-              ))}
-              {members.length === 0 && (
-                <tr>
-                  <td colSpan={isAdmin ? 4 : 3} className="px-4 py-8 text-center text-sm text-stone-400">
-                    No members found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="mt-3">
+          <DataTable<TeamMember>
+            data={members}
+            rowKey={(m) => m.id}
+            columns={memberColumns}
+            searchFields={[(m) => m.user?.name ?? "", (m) => m.user?.email ?? ""]}
+            defaultQuery={membersTable.q}
+            onQueryChange={membersTable.setQ}
+            defaultSort={membersTable.sort}
+            sort={membersTable.sort}
+            onSortChange={membersTable.setSort}
+            pagination={{
+              page: currentMembersPage,
+              totalPages: membersTotalPages,
+              total: membersTotal,
+              pageSize: membersTable.pageSize,
+              onPageChange: membersTable.setPage,
+              onPageSizeChange: membersTable.setPageSize,
+            }}
+            refresh={{
+              onRefresh: () => void usersQuery.refetch(),
+              isRefreshing: usersQuery.isFetching,
+            }}
+            emptyState="No members yet."
+            caption="Team members"
+          />
         </div>
       </div>
 
@@ -244,133 +436,54 @@ function TeamPage() {
       )}
 
       {/* Pending invites */}
-      {isAdmin && (
-        <InvitesTable
-          invites={invites}
-          organizationId={organization?.id ?? ""}
-          onUpdate={invalidate}
-        />
-      )}
+      {isAdmin && invites.length > 0 ? (
+        <div>
+          <h3 className="flex items-center gap-1.5 text-sm font-medium text-stone-900">
+            <Clock className="h-3.5 w-3.5 text-stone-400" />
+            Pending invites
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs tabular-nums text-stone-500">
+              {invitesTotal}
+            </span>
+          </h3>
+          <div className="mt-3">
+            <DataTable<InviteRow>
+              data={invites}
+              rowKey={(i) => i.id}
+              columns={inviteColumns}
+              searchFields={[(i) => i.email]}
+              defaultQuery={invitesTable.q}
+              onQueryChange={invitesTable.setQ}
+              defaultSort={invitesTable.sort}
+              sort={invitesTable.sort}
+              onSortChange={invitesTable.setSort}
+              pagination={{
+                page: currentInvitesPage,
+                totalPages: invitesTotalPages,
+                total: invitesTotal,
+                pageSize: invitesTable.pageSize,
+                onPageChange: invitesTable.setPage,
+                onPageSizeChange: invitesTable.setPageSize,
+              }}
+              refresh={{
+                onRefresh: () => void invitesQuery.refetch(),
+                isRefreshing: invitesQuery.isFetching,
+              }}
+              emptyState="No pending invites."
+              caption="Pending invites"
+            />
+          </div>
+        </div>
+      ) : isAdmin ? null : null}
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Member row with role selector & remove
+// Invite actions cell (resend / revoke) with local action state
 // ---------------------------------------------------------------------------
 
-function MemberRow({
-  member,
-  currentUserId,
-  isAdmin,
-  actionState,
-  onRoleChange,
-  onRemove,
-}: {
-  member: TeamMember;
-  currentUserId: string;
-  isAdmin: boolean;
-  actionState: { type: string; memberId: string; status: string; message: string | null; error: string | null } | null;
-  onRoleChange: (memberId: string, role: string) => void;
-  onRemove: (memberId: string) => void;
-}) {
-  const isSelf = member.user.id === currentUserId;
-  const isBusy = actionState?.memberId === member.id && actionState?.status === "busy";
-
-  return (
-    <tr className="hover:bg-stone-50">
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-200 text-xs font-medium text-stone-600">
-            {member.user.image ? (
-              <img src={member.user.image} alt="" className="h-7 w-7 rounded-full object-cover" />
-            ) : (
-              (member.user.name?.charAt(0)?.toUpperCase() ?? "?")
-            )}
-          </div>
-          <span className="font-medium text-stone-900">
-            {member.user.name ?? "Unknown"}
-            {isSelf && <span className="ml-1.5 text-xs font-normal text-stone-400">(you)</span>}
-          </span>
-        </div>
-      </td>
-      <td className="px-4 py-3 text-stone-500">{member.user.email ?? "-"}</td>
-      <td className="px-4 py-3">
-        {isAdmin && !isSelf ? (
-          <RoleSelect
-            value={member.role}
-            disabled={isBusy}
-            onChange={(newRole) => onRoleChange(member.id, newRole)}
-          />
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
-            <Shield className="h-3 w-3" />
-            {member.role}
-          </span>
-        )}
-        {/* Feedback */}
-        {actionState?.memberId === member.id && actionState?.status === "done" && (
-          <span className={`ml-2 inline-flex items-center gap-1 text-xs ${
-            actionState.message ? "text-green-600" : "text-red-600"
-          }`}>
-            {actionState.message ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-            {actionState.message ?? actionState.error}
-          </span>
-        )}
-      </td>
-      {isAdmin && (
-        <td className="px-4 py-3 text-right">
-          {!isSelf && member.role !== "owner" && (
-            <button
-              type="button"
-              disabled={isBusy}
-              onClick={() => onRemove(member.id)}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-              title="Remove from workspace"
-            >
-              {isBusy && actionState?.type === "remove" ? (
-                <LoaderCircle className="h-3 w-3 animate-spin" />
-              ) : (
-                <UserMinus className="h-3 w-3" />
-              )}
-            </button>
-          )}
-        </td>
-      )}
-    </tr>
-  );
-}
-
-function RoleSelect({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (role: string) => void }) {
-  return (
-    <div className="relative inline-block">
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-md border border-stone-200 bg-white py-1 pl-2 pr-6 text-xs font-medium text-stone-700 outline-none transition hover:border-stone-300 focus:border-stone-900 disabled:opacity-50"
-      >
-        <option value="admin">Admin</option>
-        <option value="reviewer">Reviewer</option>
-        <option value="member">Member</option>
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-stone-400" />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Invites table
-// ---------------------------------------------------------------------------
-
-function InvitesTable({ invites, organizationId, onUpdate }: {
-  invites: Array<{
-    id: string;
-    email: string;
-    role: string;
-    createdAt?: string | Date;
-    expiresAt?: string | Date;
-  }>;
+function InviteActionsCell({ invite, organizationId, onUpdate }: {
+  invite: InviteRow;
   organizationId: string;
   onUpdate: () => void;
 }) {
@@ -382,9 +495,11 @@ function InvitesTable({ invites, organizationId, onUpdate }: {
     error: string | null;
   } | null>(null);
 
-  if (!invites.length) return null;
+  const action = actionState?.inviteId === invite.id ? actionState : null;
+  const isBusy = action?.status === "busy";
+  const isDone = action?.status === "done";
 
-  async function handleResend(invite: typeof invites[number]) {
+  async function handleResend() {
     setActionState({ type: "resend", inviteId: invite.id, status: "busy", message: null, error: null });
     try {
       const result = await resendInvitationAction({
@@ -410,86 +525,52 @@ function InvitesTable({ invites, organizationId, onUpdate }: {
     setTimeout(() => setActionState(null), 5000);
   }
 
-  async function handleRevoke(inviteId: string) {
-    setActionState({ type: "revoke", inviteId, status: "busy", message: null, error: null });
+  async function handleRevoke() {
+    setActionState({ type: "revoke", inviteId: invite.id, status: "busy", message: null, error: null });
     try {
-      await cancelInvitationAction({ data: { invitationId: inviteId } });
-      setActionState({ type: "revoke", inviteId, status: "done", message: "Invitation revoked.", error: null });
+      await cancelInvitationAction({ data: { invitationId: invite.id } });
+      setActionState({ type: "revoke", inviteId: invite.id, status: "done", message: "Invitation revoked.", error: null });
       onUpdate();
     } catch (err) {
       setActionState({
-        type: "revoke", inviteId, status: "done", message: null,
+        type: "revoke", inviteId: invite.id, status: "done", message: null,
         error: err instanceof Error ? err.message : "Failed to revoke invitation.",
       });
     }
     setTimeout(() => setActionState(null), 5000);
   }
 
-  return (
-    <div>
-      <h3 className="flex items-center gap-1.5 text-sm font-medium text-stone-900">
-        <Clock className="h-3.5 w-3.5 text-stone-400" />
-        Pending invites
-        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs tabular-nums text-stone-500">
-          {invites.length}
+  if (isDone && action?.message) {
+    return (
+      <div className="flex justify-end">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
+          <CheckCircle className="h-3 w-3" />{action.message}
         </span>
-      </h3>
-      <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-        <table className="min-w-full divide-y divide-stone-200 text-sm">
-          <thead className="bg-stone-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">Email</th>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">Role</th>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">Sent</th>
-              <th className="px-4 py-3 text-right font-medium text-stone-600"><span className="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100 bg-white">
-            {invites.map((invite) => {
-              const action = actionState?.inviteId === invite.id ? actionState : null;
-              const isBusy = action?.status === "busy";
-              const isDone = action?.status === "done";
-              return (
-                <tr key={invite.id} className="hover:bg-stone-50">
-                  <td className="px-4 py-3 text-stone-700">{invite.email}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-block rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
-                      {invite.role}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-stone-400">
-                    {invite.createdAt ? new Date(invite.createdAt).toLocaleDateString() : "-"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {isDone && action?.message ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600">
-                        <CheckCircle className="h-3 w-3" />{action.message}
-                      </span>
-                    ) : isDone && action?.error ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
-                        <AlertCircle className="h-3 w-3" />{action.error}
-                      </span>
-                    ) : (
-                      <div className="flex items-center justify-end gap-1">
-                        <button type="button" disabled={isBusy} onClick={() => void handleResend(invite)}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50">
-                          {isBusy && action?.type === "resend" ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                          Resend
-                        </button>
-                        <button type="button" disabled={isBusy} onClick={() => void handleRevoke(invite.id)}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50">
-                          {isBusy && action?.type === "revoke" ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                          Revoke
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
       </div>
+    );
+  }
+  if (isDone && action?.error) {
+    return (
+      <div className="flex justify-end">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
+          <AlertCircle className="h-3 w-3" />{action.error}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <button type="button" disabled={isBusy} onClick={() => void handleResend()}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50">
+        {isBusy && action?.type === "resend" ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+        Resend
+      </button>
+      <button type="button" disabled={isBusy} onClick={() => void handleRevoke()}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50">
+        {isBusy && action?.type === "revoke" ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+        Revoke
+      </button>
     </div>
   );
 }

@@ -225,7 +225,7 @@ function DashboardLayout() {
   const isMobile = useIsMobile();
 
   const currentPath = location.pathname;
-  const currentSearch = new URLSearchParams(location.search);
+  const currentSearch = new URLSearchParams(location.search as string);
   const currentProjectId = currentSearch.get("projectId") ?? "";
 
   useEffect(() => {
@@ -233,7 +233,7 @@ function DashboardLayout() {
       if (currentPath !== "/dashboard/workspace") {
         void navigate({
           to: "/dashboard/workspace",
-          search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined },
+          search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined } as any,
         });
       }
       return;
@@ -384,7 +384,7 @@ function DashboardLayout() {
                 <Link
                   to="/dashboard/projects/$projectId/settings"
                   params={{ projectId: currentProjectId }}
-                  search={(prev) => prev}
+                  search={{page: undefined, pageSize: undefined, q: undefined, sort: undefined, order: undefined}}
                   className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
                 >
                   <Settings className="h-3.5 w-3.5" />

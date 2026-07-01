@@ -488,7 +488,7 @@ export const removeMemberAction = createServerFn({ method: "POST" })
       return await auth.api.removeMember({
         headers,
         body: {
-          memberId: data.memberId,
+          memberIdOrEmail: data.memberId,
           organizationId: data.organizationId,
         },
       });
