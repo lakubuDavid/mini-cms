@@ -8,6 +8,8 @@ import {
   invitesQueryOptions,
 } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
+import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
 import {
   UserPlus,
   Mail,
@@ -18,14 +20,75 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/team")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    membersPage: intOrUndefined(search.membersPage),
+    membersPageSize: intOrUndefined(search.membersPageSize),
+    membersQ: strOrUndefined(search.membersQ),
+    membersSort: strOrUndefined(search.membersSort),
+    membersOrder: orderOrUndefined(search.membersOrder),
+    invitesPage: intOrUndefined(search.invitesPage),
+    invitesPageSize: intOrUndefined(search.invitesPageSize),
+    invitesQ: strOrUndefined(search.invitesQ),
+    invitesSort: strOrUndefined(search.invitesSort),
+    invitesOrder: orderOrUndefined(search.invitesOrder),
+  }),
   component: TeamPage,
 });
+
+function intOrUndefined(v: unknown): number | undefined {
+  if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
+  if (typeof v === "number" && Number.isFinite(v)) return Math.floor(v);
+  return undefined;
+}
+function strOrUndefined(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
+  return v === "asc" || v === "desc" ? v : undefined;
+}
+
+type TeamMember = {
+  id: string;
+  role: string;
+  createdAt?: string | Date;
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+};
+
+type InviteRow = {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  expiresAt: string | Date;
+};
 
 function TeamPage() {
   const queryClient = useQueryClient();
   const orgQuery = useQuery(organizationQueryOptions());
-  const usersQuery = useQuery(teamQueryOptions());
-  const invitesQuery = useQuery(invitesQueryOptions());
+
+  // Two table state slots, namespaced via prefix in the URL.
+  const membersTable = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+    prefix: "members",
+  });
+  const invitesTable = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+    prefix: "invites",
+  });
+
+  const usersQuery = useQuery({
+    ...teamQueryOptions(membersTable.page, membersTable.pageSize),
+    enabled: !!orgQuery.data,
+  });
+  const invitesQuery = useQuery({
+    ...invitesQueryOptions(invitesTable.page, invitesTable.pageSize),
+    enabled: !!orgQuery.data,
+  });
 
   const isLoading =
     orgQuery.isLoading || usersQuery.isLoading || invitesQuery.isLoading;
@@ -45,38 +108,22 @@ function TeamPage() {
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!orgQuery.data) {
-      setMessage({
-        type: "error",
-        text: "Create or activate an organization first.",
-      });
+      setMessage({ type: "error", text: "Create or activate an organization first." });
       return;
     }
-
     setPending(true);
     setMessage(null);
-
     const result = await createInvitationAction({
-      data: {
-        email,
-        role: role as "admin" | "reviewer",
-        organizationId: orgQuery.data.id,
-      },
+      data: { email, role: role as "admin" | "reviewer", organizationId: orgQuery.data.id },
     });
-
     setPending(false);
-
     if (!result) {
       setMessage({ type: "error", text: "Unable to send invite." });
       return;
     }
-
     setEmail("");
-    setMessage({
-      type: "success",
-      text: `Invitation sent to ${result.email}.`,
-    });
+    setMessage({ type: "success", text: `Invitation sent to ${result.email}.` });
     invalidate();
   }
 
@@ -84,19 +131,61 @@ function TeamPage() {
     return <TeamPageSkeleton />;
   }
 
-  type TeamMemberRow = {
-    id: string;
-    role: string | string[] | null;
-    user?: { name?: string | null; email?: string | null } | null;
-  };
-
   const organization = orgQuery.data ?? null;
-  const members: TeamMemberRow[] = Array.isArray(
-    (usersQuery.data as { members?: TeamMemberRow[] } | undefined)?.members,
-  )
-    ? ((usersQuery.data as { members?: TeamMemberRow[] }).members ?? [])
-    : [];
-  const invites = invitesQuery.data ?? [];
+  const members: TeamMember[] = ((usersQuery.data as { items?: TeamMember[] } | undefined)?.items ?? []) as TeamMember[];
+  const invites: InviteRow[] = ((invitesQuery.data as { items?: InviteRow[] } | undefined)?.items ?? []) as InviteRow[];
+  const membersTotal = Number((usersQuery.data as { total?: number } | undefined)?.total ?? 0);
+  const invitesTotal = Number((invitesQuery.data as { total?: number } | undefined)?.total ?? 0);
+
+  const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersTable.pageSize));
+  const invitesTotalPages = Math.max(1, Math.ceil(invitesTotal / invitesTable.pageSize));
+  const currentMembersPage = Math.min(membersTable.page, membersTotalPages);
+  const currentInvitesPage = Math.min(invitesTable.page, invitesTotalPages);
+
+  const memberColumns: DataTableColumn<TeamMember>[] = [
+    {
+      id: "name",
+      header: "Name",
+      accessor: (m) => m.user?.name ?? "",
+      cell: (m) => <span className="font-medium text-stone-900">{m.user?.name ?? "Unknown"}</span>,
+    },
+    {
+      id: "email",
+      header: "Email",
+      accessor: (m) => m.user?.email ?? "",
+      cell: (m) => <span className="text-stone-500">{m.user?.email ?? "-"}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (m) => (Array.isArray(m.role) ? m.role.join(", ") : m.role ?? "member"),
+      cell: (m) => (
+        <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
+          <Shield className="h-3 w-3" />
+          {Array.isArray(m.role) ? m.role.join(", ") : m.role ?? "member"}
+        </span>
+      ),
+    },
+  ];
+
+  const inviteColumns: DataTableColumn<InviteRow>[] = [
+    {
+      id: "email",
+      header: "Email",
+      accessor: (i) => i.email,
+      cell: (i) => <span className="text-stone-700">{i.email}</span>,
+    },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (i) => i.role,
+      cell: (i) => (
+        <span className="inline-block rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
+          {i.role}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <section className="space-y-8">
@@ -113,40 +202,32 @@ function TeamPage() {
 
       <div>
         <h3 className="text-sm font-medium text-stone-900">Members</h3>
-        <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-          <table className="min-w-full divide-y divide-stone-200 text-sm">
-            <thead className="bg-stone-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Role
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 bg-white">
-              {members.map((member) => (
-                <tr key={member.id} className="hover:bg-stone-50">
-                  <td className="px-4 py-3 font-medium text-stone-900">
-                    {member.user?.name ?? "Unknown"}
-                  </td>
-                  <td className="px-4 py-3 text-stone-500">{member.user?.email ?? "-"}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
-                      <Shield className="h-3 w-3" />
-                      {Array.isArray(member.role)
-                        ? member.role.join(", ")
-                        : (member.role ?? "member")}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mt-3">
+          <DataTable<TeamMember>
+            data={members}
+            rowKey={(m) => m.id}
+            columns={memberColumns}
+            searchFields={[(m) => m.user?.name ?? "", (m) => m.user?.email ?? ""]}
+            defaultQuery={membersTable.q}
+            onQueryChange={membersTable.setQ}
+            defaultSort={membersTable.sort}
+            sort={membersTable.sort}
+            onSortChange={membersTable.setSort}
+            pagination={{
+              page: currentMembersPage,
+              totalPages: membersTotalPages,
+              total: membersTotal,
+              pageSize: membersTable.pageSize,
+              onPageChange: membersTable.setPage,
+              onPageSizeChange: membersTable.setPageSize,
+            }}
+            refresh={{
+              onRefresh: () => void usersQuery.refetch(),
+              isRefreshing: usersQuery.isFetching,
+            }}
+            emptyState="No members yet."
+            caption="Team members"
+          />
         </div>
       </div>
 
@@ -219,37 +300,38 @@ function TeamPage() {
         ) : null}
       </div>
 
-      {invites.length > 0 ? (
+      {invites.length > 0 || invitesTable.q ? (
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-medium text-stone-900">
             <Clock className="h-3.5 w-3.5 text-stone-400" />
             Pending invites
           </h3>
-          <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-            <table className="min-w-full divide-y divide-stone-200 text-sm">
-              <thead className="bg-stone-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-stone-600">
-                    Email
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-stone-600">
-                    Role
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 bg-white">
-                {invites.map((invite: (typeof invites)[number]) => (
-                  <tr key={invite.id} className="hover:bg-stone-50">
-                    <td className="px-4 py-3 text-stone-700">{invite.email}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-block rounded-md bg-stone-100 px-2 py-0.5 text-xs font-medium uppercase tracking-wider text-stone-600">
-                        {invite.role}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-3">
+            <DataTable<InviteRow>
+              data={invites}
+              rowKey={(i) => i.id}
+              columns={inviteColumns}
+              searchFields={[(i) => i.email]}
+              defaultQuery={invitesTable.q}
+              onQueryChange={invitesTable.setQ}
+              defaultSort={invitesTable.sort}
+              sort={invitesTable.sort}
+              onSortChange={invitesTable.setSort}
+              pagination={{
+                page: currentInvitesPage,
+                totalPages: invitesTotalPages,
+                total: invitesTotal,
+                pageSize: invitesTable.pageSize,
+                onPageChange: invitesTable.setPage,
+                onPageSizeChange: invitesTable.setPageSize,
+              }}
+              refresh={{
+                onRefresh: () => void invitesQuery.refetch(),
+                isRefreshing: invitesQuery.isFetching,
+              }}
+              emptyState="No pending invites."
+              caption="Pending invites"
+            />
           </div>
         </div>
       ) : null}
@@ -267,47 +349,10 @@ function TeamPageSkeleton() {
 
       <div>
         <Skeleton className="h-4 w-20" />
-        <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-          <table className="min-w-full divide-y divide-stone-200 text-sm">
-            <thead className="bg-stone-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-stone-600">
-                  Role
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 bg-white">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <tr key={i}>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-4 w-36" />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Skeleton className="h-5 w-16 rounded-md" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-64" />
-        <div className="flex gap-3">
-          <Skeleton className="h-10 flex-1 rounded-lg" />
-          <Skeleton className="h-10 w-36 rounded-lg" />
-          <Skeleton className="h-10 w-24 rounded-lg" />
+        <div className="mt-3 space-y-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
       </div>
     </section>

@@ -12,6 +12,8 @@ import {
 } from "@/lib/queries";
 import { CreateWorkspaceForm } from "@/components/dashboard/create-workspace-form";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
+import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
 import {
   Copy,
   AlertTriangle,
@@ -20,8 +22,27 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/workspace")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: intOrUndefined(search.page),
+    pageSize: intOrUndefined(search.pageSize),
+    q: strOrUndefined(search.q),
+    sort: strOrUndefined(search.sort),
+    order: orderOrUndefined(search.order),
+  }),
   component: WorkspacePage,
 });
+
+function intOrUndefined(v: unknown): number | undefined {
+  if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
+  if (typeof v === "number" && Number.isFinite(v)) return Math.floor(v);
+  return undefined;
+}
+function strOrUndefined(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
+  return v === "asc" || v === "desc" ? v : undefined;
+}
 
 function WorkspacePage() {
   const queryClient = useQueryClient();
@@ -278,6 +299,9 @@ function SwitcherSection(props: {
   onSwitched: () => void;
 }) {
   const [pending, setPending] = useState<string | null>(null);
+  const table = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+  });
 
   async function handleSwitch(organizationId: string) {
     setPending(organizationId);
@@ -290,58 +314,68 @@ function SwitcherSection(props: {
     }
   }
 
+  const columns: DataTableColumn<{ id: string; name: string; slug: string }>[] = [
+    {
+      id: "name",
+      header: "Name",
+      accessor: (o) => o.name,
+      cell: (o) => <span className="font-medium text-stone-900">{o.name}</span>,
+    },
+    {
+      id: "slug",
+      header: "Slug",
+      accessor: (o) => o.slug,
+      cell: (o) => <span className="font-mono text-xs text-stone-500">{o.slug}</span>,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Actions</span>,
+      accessor: (o) => o.id,
+      sortable: false,
+      cell: (o) =>
+        o.id === props.activeId ? (
+          <span className="text-xs font-medium text-stone-400">Active</span>
+        ) : (
+          <button
+            type="button"
+            disabled={pending === o.id}
+            onClick={() => void handleSwitch(o.id)}
+            className="text-sm font-medium text-stone-700 transition hover:text-stone-900 disabled:opacity-60"
+          >
+            {pending === o.id ? "Switching..." : "Switch"}
+          </button>
+        ),
+    },
+  ];
+
   return (
     <div>
-      <h3 className="text-sm font-medium text-stone-900">
-        Switch workspace
-      </h3>
+      <h3 className="text-sm font-medium text-stone-900">Switch workspace</h3>
       <p className="mt-1 text-sm text-stone-500">
         You belong to {props.organizations.length} workspaces.
       </p>
-      <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
-        <table className="min-w-full divide-y divide-stone-200 text-sm">
-          <thead className="bg-stone-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">
-                Name
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">
-                Slug
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-stone-600">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100 bg-white">
-            {props.organizations.map((org) => (
-              <tr key={org.id} className="hover:bg-stone-50">
-                <td className="px-4 py-3 font-medium text-stone-900">
-                  {org.name}
-                </td>
-                <td className="px-4 py-3 font-mono text-xs text-stone-500">
-                  {org.slug}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {org.id === props.activeId ? (
-                    <span className="text-xs font-medium text-stone-400">
-                      Active
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={pending === org.id}
-                      onClick={() => void handleSwitch(org.id)}
-                      className="text-sm font-medium text-stone-700 transition hover:text-stone-900 disabled:opacity-60"
-                    >
-                      {pending === org.id ? "Switching..." : "Switch"}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-3">
+        <DataTable
+          data={props.organizations}
+          rowKey={(o) => o.id}
+          columns={columns}
+          searchFields={["name", "slug"]}
+          defaultQuery={table.q}
+          onQueryChange={table.setQ}
+          defaultSort={table.sort}
+          sort={table.sort}
+          onSortChange={table.setSort}
+          pagination={{
+            page: table.page,
+            totalPages: Math.max(1, Math.ceil(props.organizations.length / table.pageSize)),
+            total: props.organizations.length,
+            pageSize: table.pageSize,
+            onPageChange: table.setPage,
+            onPageSizeChange: table.setPageSize,
+          }}
+          emptyState="No workspaces found."
+          caption="Workspaces"
+        />
       </div>
     </div>
   );

@@ -95,43 +95,91 @@ export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
-  async (ctx) => {
+type PaginatedItems = { [x: string]: {} };
+type MemberRecord = PaginatedItems;
+type InviteRecord = PaginatedItems;
+
+export const listPendingInvitations = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
-      return [];
+      return {
+        items: [] as InviteRecord[],
+        total: 0,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      };
     }
 
-    return auth.api.listInvitations({
+    const { page = 1, limit = 25 } = data ?? {};
+    const offset = (page - 1) * limit;
+
+    const result = await auth.api.listInvitations({
       headers,
       query: {
         organizationId,
       },
     });
-  },
-);
 
-export const listAdminUsers = createServerFn({ method: "GET" }).handler(
-  async (ctx) => {
+    const list = Array.isArray(result) ? result : [];
+    const total = list.length;
+    const items = list.slice(offset, offset + limit) as InviteRecord[];
+    return toPlainJson({
+      items,
+      total,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  });
+
+export const listAdminUsers = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
     const headers = getHeaders(ctx);
     const { organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
-      return { users: [] };
+      return {
+        items: [] as MemberRecord[],
+        total: 0,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      };
     }
 
-    return auth.api.listMembers({
+    const { page = 1, limit = 25 } = data ?? {};
+    const offset = (page - 1) * limit;
+
+    const result = await auth.api.listMembers({
       headers,
       query: {
         organizationId,
-        limit: 100,
-        offset: 0,
+        limit,
+        offset,
       },
     });
-  },
-);
+
+    const members = ((result as { members?: MemberRecord[] }).members ??
+      []) as MemberRecord[];
+    const total = Number((result as { total?: number }).total ?? members.length);
+    return toPlainJson({
+      items: members,
+      total,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  });
 
 export const createOrganizationAction = createServerFn({ method: "POST" })
   .inputValidator((data: { name: string; slug: string }) => data)
@@ -449,23 +497,33 @@ export async function requireSessionUserId(ctx?: unknown) {
   return session.user.id;
 }
 
-export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
-  async (ctx) => {
+export const listApiKeysServerFn = createServerFn({ method: "GET" })
+  .inputValidator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
     const headers = getHeaders(ctx);
     const organizationId = await requireActiveOrganizationId(ctx);
+
+    const { page = 1, limit = 25 } = data ?? {};
+    const offset = (page - 1) * limit;
 
     const result = await auth.api.listApiKeys({
       headers,
       query: {
         organizationId,
+        limit,
+        offset,
       },
     });
 
     return toPlainJson({
       total: Number(result.total ?? 0),
-      limit: Number(result.limit ?? 0),
-      offset: Number(result.offset ?? 0),
+      limit: Number(result.limit ?? limit),
+      offset: Number(result.offset ?? offset),
+      page,
+      pageSize: limit,
       apiKeys: result.apiKeys.map((apiKey) => ({
         id: String(apiKey.id),
         name: apiKey.name ? String(apiKey.name) : null,
