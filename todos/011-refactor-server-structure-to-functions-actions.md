@@ -1,9 +1,9 @@
 ---
 id: "011"
 title: "Refactor server structure to functions + actions"
-status: pending
+status: done
 created_at: 2026-07-11T05:10:10
-last_modified: 2026-07-11T05:10:10
+last_modified: 2026-10-24T08:19:15
 ---
 
 # 011: Refactor server structure to functions + actions

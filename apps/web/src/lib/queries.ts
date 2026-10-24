@@ -194,10 +194,16 @@ export function assetsQueryOptions(
   limit = 24,
   projectId?: string,
   status?: "pending" | "active",
+  q?: string,
+  type?: "images" | "videos" | "documents",
+  sortBy?: "filename" | "contentType" | "size" | "createdAt",
+  order?: "asc" | "desc",
 ) {
   return queryOptions({
-    queryKey: queryKeys.assets(page, limit, projectId, status),
-    queryFn: () => listAssetsServerFn({ data: { page, limit, projectId, status } }),
+    queryKey: [...queryKeys.assets(page, limit, projectId, status), q, type, sortBy, order],
+    queryFn: () =>
+      listAssetsServerFn({ data: { page, limit, projectId, status, q, type, sortBy, order } }),
     staleTime: STALE_SHORT,
+    placeholderData: (previous) => previous,
   });
 }

@@ -8,6 +8,10 @@ export const listAssetsServerFn = createServerFn({ method: "GET" })
           limit?: number;
           projectId?: string;
           status?: "pending" | "active";
+          q?: string;
+          type?: "images" | "videos" | "documents";
+          sortBy?: "filename" | "contentType" | "size" | "createdAt";
+          order?: "asc" | "desc";
         }
       | undefined) => data,
   )

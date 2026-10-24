@@ -147,8 +147,17 @@ export async function listAssetsAction(input: {
   limit?: number;
   projectId?: string;
   status?: "pending" | "active";
+  q?: string;
+  type?: "images" | "videos" | "documents";
+  sortBy?: "filename" | "contentType" | "size" | "createdAt";
+  order?: "asc" | "desc";
 }) {
-  return listAssets(input);
+  const { countAssetsByType } = await import("@/db/queries/assets");
+  const [result, counts] = await Promise.all([
+    listAssets(input),
+    countAssetsByType({ organizationId: input.organizationId, projectId: input.projectId }),
+  ]);
+  return { ...result, counts };
 }
 
 export async function getAssetInfoAction(input: {

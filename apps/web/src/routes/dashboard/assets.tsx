@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAssetServerFn,
@@ -7,8 +7,9 @@ import {
   confirmAssetUploadServerFn,
 } from "@/lib/assets-helpers";
 import { projectsQueryOptions, assetsQueryOptions } from "@/lib/queries";
+import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { ALLOWED_ASSET_MIME_TYPES, MAX_ASSET_FILE_SIZE } from "@/lib/assets";
-import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
+import { DataToolbar } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   Check,
@@ -39,6 +40,17 @@ export const Route = createFileRoute("/dashboard/assets")({
       ["images", "videos", "documents"].includes(search.type)
         ? (search.type as "images" | "videos" | "documents")
         : undefined,
+    page: typeof search.page === "number" ? search.page : undefined,
+    q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
+    sortBy:
+      typeof search.sortBy === "string" &&
+      ["filename", "contentType", "size", "createdAt"].includes(search.sortBy)
+        ? (search.sortBy as "filename" | "contentType" | "size" | "createdAt")
+        : undefined,
+    order:
+      typeof search.order === "string" && ["asc", "desc"].includes(search.order)
+        ? (search.order as "asc" | "desc")
+        : undefined,
   }),
   component: DashboardAssetsPage,
 });
@@ -49,87 +61,36 @@ export const Route = createFileRoute("/dashboard/assets")({
 
 function DashboardAssetsPage() {
   const queryClient = useQueryClient();
-  const search = Route.useSearch() as {
-    projectId?: string;
-    type?: "images" | "videos" | "documents";
-  };
-
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
   const projectsQuery = useQuery(projectsQueryOptions());
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;
-
-  // Client-side filter/sort for the assets grid
-  const [assetQ, setAssetQ] = useState("");
-  const [assetSort, setAssetSort] = useState<SortState | null>(null);
+  const page = search.page ?? 1;
+  const q = search.q ?? "";
+  const sortBy = search.sortBy ?? "createdAt";
+  const order = search.order ?? "desc";
 
   const effectiveProjectId = selectedProjectId;
 
   const assetsQuery = useQuery({
-    ...assetsQueryOptions(1, 100, effectiveProjectId || undefined),
+    ...assetsQueryOptions(page, 24, effectiveProjectId || undefined, undefined, q || undefined, selectedType, sortBy, order),
     enabled: !!effectiveProjectId,
   });
 
-  const allAssets = assetsQuery.data?.items ?? [];
+  const data = assetsQuery.data;
+  const allAssets = data?.items ?? [];
+  const pagination = data?.pagination;
+  const counts = data?.counts;
   const isLoading = projectsQuery.isLoading || assetsQuery.isLoading;
 
-  // Client-side type filter + text filter + sort
-  const assets = useMemo(() => {
-    let list = allAssets;
+  const assets = allAssets;
+  const typeCounts = counts ?? { all: allAssets.length, images: 0, videos: 0, documents: 0 };
 
-    // Type filter
-    if (selectedType) {
-      list = list.filter((asset) => {
-        if (selectedType === "images") return asset.contentType.startsWith("image/");
-        if (selectedType === "videos") return asset.contentType.startsWith("video/");
-        if (selectedType === "documents") return asset.contentType === "application/pdf";
-        return true;
-      });
-    }
-
-    // Text filter
-    if (assetQ) {
-      const q = assetQ.toLowerCase();
-      list = list.filter((a) => a.filename.toLowerCase().includes(q));
-    }
-
-    // Sort
-    if (assetSort) {
-      list = [...list].sort((a, b) => {
-        let cmp = 0;
-        switch (assetSort.by) {
-          case "filename":
-            cmp = a.filename.localeCompare(b.filename);
-            break;
-          case "contentType":
-            cmp = a.contentType.localeCompare(b.contentType);
-            break;
-          case "size":
-            cmp = a.size - b.size;
-            break;
-          case "createdAt":
-            cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            break;
-        }
-        return assetSort.order === "desc" ? -cmp : cmp;
-      });
-    }
-
-    return list;
-  }, [allAssets, selectedType, assetQ, assetSort]);
-
-  // Counts per type
-  const typeCounts = useMemo(() => {
-    let images = 0;
-    let videos = 0;
-    let documents = 0;
-    for (const asset of allAssets) {
-      if (asset.contentType.startsWith("image/")) images++;
-      else if (asset.contentType.startsWith("video/")) videos++;
-      else if (asset.contentType === "application/pdf") documents++;
-    }
-    return { all: allAssets.length, images, videos, documents };
-  }, [allAssets]);
+  function updateSearch(next: Partial<typeof search>) {
+    void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
+  }
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -147,7 +108,7 @@ function DashboardAssetsPage() {
             <h2 className="text-2xl font-semibold tracking-tight">Assets</h2>
             {!isLoading && (
               <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium tabular-nums text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-                {allAssets.length}
+                {pagination?.total ?? allAssets.length}
               </span>
             )}
           </div>
@@ -181,15 +142,11 @@ function DashboardAssetsPage() {
                 key={chip.label}
                 type="button"
                   onClick={() => {
-                    const params = new URLSearchParams(window.location.search);
                     if (chip.key) {
-                      params.set("type", chip.key);
+                      updateSearch({ type: chip.key as "images" | "videos" | "documents", page: 1 });
                     } else {
-                      params.delete("type");
+                      updateSearch({ type: undefined, page: 1 });
                     }
-                    const query = params.toString();
-                    window.history.replaceState({}, "", query ? `${window.location.pathname}?${query}` : window.location.pathname);
-                    window.dispatchEvent(new PopStateEvent("popstate"));
                   }}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   isActive
@@ -211,8 +168,8 @@ function DashboardAssetsPage() {
 
       {/* Toolbar */}
       <DataToolbar
-        query={assetQ}
-        onQueryChange={setAssetQ}
+        query={q}
+        onQueryChange={(value) => updateSearch({ q: value || undefined, page: 1 })}
         refresh={{
           onRefresh: invalidate,
           isRefreshing: assetsQuery.isFetching,
@@ -223,8 +180,14 @@ function DashboardAssetsPage() {
           { id: "size", label: "Size" },
           { id: "createdAt", label: "Created" },
         ]}
-        sort={assetSort}
-        onSortChange={setAssetSort}
+        sort={sortBy ? { by: sortBy, order: order } : null}
+        onSortChange={(value) =>
+          updateSearch({
+            sortBy: (value?.by as "filename" | "contentType" | "size" | "createdAt") ?? undefined,
+            order: (value?.order as "asc" | "desc") ?? undefined,
+            page: 1,
+          })
+        }
         filterPlaceholder="Filter by filename…"
       />
 
@@ -240,7 +203,34 @@ function DashboardAssetsPage() {
       ) : isLoading ? (
         <AssetsGridSkeleton />
       ) : (
-        <AssetsGrid assets={assets} onDeleted={invalidate} />
+        <>
+          <AssetsGrid assets={assets} onDeleted={invalidate} />
+          {pagination && pagination.totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between text-sm text-stone-500">
+              <span>
+                Page {pagination.page} of {pagination.totalPages} ({pagination.total} assets)
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => updateSearch({ page: page - 1 })}
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= pagination.totalPages}
+                  onClick={() => updateSearch({ page: page + 1 })}
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -294,11 +284,7 @@ function AssetsGrid(props: {
           >
             <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
               {asset.contentType.startsWith("image/") ? (
-                <img
-                  src={asset.publicUrl}
-                  alt={asset.filename}
-                  className="h-full w-full object-cover"
-                />
+                <AssetThumb src={asset.publicUrl} alt={asset.filename} />
               ) : asset.contentType.startsWith("video/") ? (
                 <video
                   src={asset.publicUrl}
@@ -354,6 +340,7 @@ function AssetUploadDialog(props: {
   projectName: string | null;
   onUploaded: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -364,15 +351,7 @@ function AssetUploadDialog(props: {
 
   const acceptedTypes = useMemo(() => ALLOWED_ASSET_MIME_TYPES.join(","), []);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pending) setOpen(false);
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, pending]);
+  useDialogA11y(dialogRef, () => { if (!pending) setOpen(false); }, open);
 
   function handleFileSelect(selectedFile: File | null) {
     if (!selectedFile) return;
@@ -539,10 +518,15 @@ function AssetUploadDialog(props: {
           aria-modal="true"
           aria-label="Upload asset"
         >
-          <div className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900">
+          <div
+            ref={dialogRef}
+            tabIndex={-1}
+            aria-labelledby="asset-upload-title"
+            className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold tracking-tight">
+                <h3 id="asset-upload-title" className="text-lg font-semibold tracking-tight">
                   Upload asset
                 </h3>
                 <p className="mt-1 text-sm text-stone-500">
@@ -698,32 +682,21 @@ function AssetDetailsDialog(props: {
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Close on Escape
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pendingDelete) {
-        props.onClose();
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [pendingDelete, props]);
+  useDialogA11y(dialogRef, props.onClose, !pendingDelete);
 
   async function handleDelete() {
-    if (!confirm(`Delete asset "${props.asset.filename}"?`)) {
-      return;
-    }
-
     setPendingDelete(true);
-
     try {
       await deleteAssetServerFn({ data: { id: props.asset.id } });
       props.onDeleted();
     } finally {
       setPendingDelete(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -745,10 +718,15 @@ function AssetDetailsDialog(props: {
       aria-modal="true"
       aria-label="Asset details"
     >
-      <div className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-labelledby="asset-details-title"
+        className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-semibold tracking-tight">
+            <h3 id="asset-details-title" className="truncate text-lg font-semibold tracking-tight">
               {props.asset.filename}
             </h3>
             <p className="mt-1 text-sm text-stone-500">
@@ -830,19 +808,38 @@ function AssetDetailsDialog(props: {
               </>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={pendingDelete}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {pendingDelete ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-600 dark:text-red-400">
+                Delete this asset?
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                disabled={pendingDelete}
+                className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={pendingDelete}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {pendingDelete ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+            >
               <Trash2 className="h-4 w-4" />
-            )}
-            {pendingDelete ? "Deleting..." : "Delete asset"}
-          </button>
+              Delete asset
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -875,6 +872,23 @@ function AssetsGridSkeleton() {
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+function AssetThumb(props: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <ImageIcon className="h-10 w-10 text-stone-400 dark:text-stone-500" />;
+  }
+  return (
+    <img
+      src={props.src}
+      alt={props.alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="h-full w-full object-cover"
+    />
+  );
+}
 
 function AssetTypeIcon(props: { contentType: string; className?: string }) {
   if (props.contentType.startsWith("image/")) {

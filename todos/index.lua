@@ -12,7 +12,7 @@ return {
     { id = "008", title = "Fix performances", status = "done", created_at = "2026-07-11T04:25:09", last_modified = "2026-10-24T07:03:13", file = "008-fix-performances.md" },
     { id = "009", title = "Create DashboardContext", status = "done", created_at = "2026-07-11T04:56:36", last_modified = "2026-07-11T05:11:26", file = "009-create-dashboardcontext.md" },
     { id = "010", title = "Fix workspace redirect flash", status = "done", created_at = "2026-07-11T04:56:43", last_modified = "2026-07-11T05:11:26", file = "010-fix-workspace-redirect-flash.md" },
-    { id = "011", title = "Refactor server structure to functions + actions", status = "pending", created_at = "2026-07-11T05:10:10", last_modified = "2026-07-11T05:10:10", file = "011-refactor-server-structure-to-functions-actions.md" },
+    { id = "011", title = "Refactor server structure to functions + actions", status = "done", created_at = "2026-07-11T05:10:10", last_modified = "2026-10-24T08:19:15", file = "011-refactor-server-structure-to-functions-actions.md" },
     { id = "012", title = "Fix schema page using wrong project", status = "done", created_at = "2026-07-11T05:16:13", last_modified = "2026-07-11T05:18:04", file = "012-fix-schema-page-using-wrong-project.md" },
     { id = "013", title = "Invalidate queries on project switch", status = "done", created_at = "2026-07-11T05:16:13", last_modified = "2026-07-11T05:18:04", file = "013-invalidate-queries-on-project-switch.md" },
     { id = "014", title = "Enable better-auth cookie cache", status = "done", created_at = "2026-10-24T02:21:05", last_modified = "2026-10-24T02:21:33", file = "optimize/014-enable-better-auth-cookie-cache.md", slice = "optimize" },

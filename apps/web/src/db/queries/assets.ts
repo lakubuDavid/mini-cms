@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, like } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { assets } from "@/db/schema";
@@ -23,26 +23,53 @@ export type CreateAssetInput = {
   status?: AssetStatus;
 };
 
+export type AssetListSortBy = "filename" | "contentType" | "size" | "createdAt";
+export type AssetListTypeFilter = "images" | "videos" | "documents";
+
 export type ListAssetsInput = PaginationInput & {
   organizationId: string;
   projectId?: string;
   status?: AssetStatus;
+  q?: string;
+  type?: AssetListTypeFilter;
+  sortBy?: AssetListSortBy;
+  order?: "asc" | "desc";
 };
 
 export async function listAssets(input: ListAssetsInput) {
   const { page, limit, offset } = normalizePagination(input);
+  const order = input.order === "asc" ? "asc" : "desc";
   const where = and(
     eq(assets.organizationId, input.organizationId),
     input.projectId ? eq(assets.projectId, input.projectId) : undefined,
     input.status ? eq(assets.status, input.status) : eq(assets.status, "active"),
+    input.q ? like(assets.filename, `%${input.q}%`) : undefined,
+    input.type === "images"
+      ? like(assets.contentType, "image/%")
+      : input.type === "videos"
+        ? like(assets.contentType, "video/%")
+        : input.type === "documents"
+          ? eq(assets.contentType, "application/pdf")
+          : undefined,
   );
+
+  const sortColumn =
+    input.sortBy === "filename"
+      ? assets.filename
+      : input.sortBy === "contentType"
+        ? assets.contentType
+        : input.sortBy === "size"
+          ? assets.size
+          : assets.createdAt;
+
+  const orderFn = order === "asc" ? (c: typeof sortColumn) => c : (c: typeof sortColumn) => desc(c);
 
   const [items, [{ value: total }]] = await Promise.all([
     db
       .select()
       .from(assets)
       .where(where)
-      .orderBy(desc(assets.createdAt))
+      .orderBy(orderFn(sortColumn))
       .limit(limit)
       .offset(offset),
     db.select({ value: count() }).from(assets).where(where),
@@ -52,6 +79,43 @@ export async function listAssets(input: ListAssetsInput) {
     items,
     pagination: buildPagination(page, limit, total),
   };
+}
+
+export type AssetTypeCounts = {
+  all: number;
+  images: number;
+  videos: number;
+  documents: number;
+};
+
+export async function countAssetsByType(input: {
+  organizationId: string;
+  projectId?: string;
+}): Promise<AssetTypeCounts> {
+  const where = and(
+    eq(assets.organizationId, input.organizationId),
+    input.projectId ? eq(assets.projectId, input.projectId) : undefined,
+    eq(assets.status, "active"),
+  );
+
+  const rows = await db
+    .select({ contentType: assets.contentType, value: count() })
+    .from(assets)
+    .where(where)
+    .groupBy(assets.contentType);
+
+  let all = 0;
+  let images = 0;
+  let videos = 0;
+  let documents = 0;
+  for (const row of rows) {
+    all += row.value;
+    if (row.contentType.startsWith("image/")) images += row.value;
+    else if (row.contentType.startsWith("video/")) videos += row.value;
+    else if (row.contentType === "application/pdf") documents += row.value;
+  }
+
+  return { all, images, videos, documents };
 }
 
 export async function getAssetById(id: string, organizationId?: string) {

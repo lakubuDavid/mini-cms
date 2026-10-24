@@ -294,20 +294,6 @@ function DashboardLayoutInner() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ) : null}
-              {currentProjectId ? (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link
-                      to="/dashboard/projects/$projectId/settings"
-                      params={{ projectId: currentProjectId }}
-                      className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
-                    >
-                      <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                      Project Settings
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ) : null}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <a
