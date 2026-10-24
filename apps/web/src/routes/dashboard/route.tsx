@@ -237,9 +237,8 @@ function DashboardLayoutInner() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Assets">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Link
-                    to={"/dashboard/assets" as any}
+                    to="/dashboard/assets"
                     className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />

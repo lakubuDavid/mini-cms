@@ -33,8 +33,17 @@ import {
 // Route
 // ---------------------------------------------------------------------------
 
+type AssetsSearch = {
+  projectId?: string;
+  type?: "images" | "videos" | "documents";
+  page?: number;
+  q?: string;
+  sortBy?: "filename" | "contentType" | "size" | "createdAt";
+  order?: "asc" | "desc";
+};
+
 export const Route = createFileRoute("/dashboard/assets")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): AssetsSearch => ({
     projectId:
       typeof search.projectId === "string" && search.projectId.length > 0
         ? search.projectId
