@@ -20,6 +20,7 @@ import {
   Film,
   Image as ImageIcon,
   LoaderCircle,
+  Play,
   Plus,
   Search,
   Trash2,
@@ -101,6 +102,18 @@ function DashboardAssetsPage() {
   const projectName =
     projects.find((p) => p.id === effectiveProjectId)?.name ?? null;
 
+  const [imageFit, setImageFit] = useState<"cover" | "contain">("cover");
+
+  useEffect(() => {
+    if (window.localStorage.getItem("assets-image-fit") === "contain") {
+      setImageFit("contain");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("assets-image-fit", imageFit);
+  }, [imageFit]);
+
   return (
     <section className="space-y-6">
       {/* Header */}
@@ -166,6 +179,33 @@ function DashboardAssetsPage() {
             );
           })}
         </div>
+
+        <div
+          role="group"
+          aria-label="Image fit"
+          className="ml-auto inline-flex rounded-lg border border-stone-300 p-0.5 dark:border-stone-700"
+        >
+          {(
+            [
+              { key: "cover", label: "Fill" },
+              { key: "contain", label: "Fit" },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setImageFit(option.key)}
+              aria-pressed={imageFit === option.key}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
+                imageFit === option.key
+                  ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                  : "text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -227,6 +267,7 @@ function DashboardAssetsPage() {
             projectId={effectiveProjectId}
             projectName={projectName}
             hasFilters={Boolean(q || selectedType)}
+            imageFit={imageFit}
             onClearFilters={() =>
               updateSearch({ q: undefined, type: undefined, page: 1 })
             }
@@ -279,6 +320,7 @@ function AssetsGrid(props: {
   projectId: string;
   projectName: string | null;
   hasFilters: boolean;
+  imageFit: "cover" | "contain";
   onClearFilters: () => void;
   onChanged: () => void;
 }) {
@@ -505,16 +547,27 @@ function AssetsGrid(props: {
                       : "border-stone-200 dark:border-stone-800"
                   }`}
                 >
-                  <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+                  <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
                     {asset.contentType.startsWith("image/") ? (
-                      <AssetThumb src={asset.publicUrl} alt={asset.filename} />
-                    ) : asset.contentType.startsWith("video/") ? (
-                      <video
+                      <AssetThumb
                         src={asset.publicUrl}
-                        className="h-full w-full object-cover"
-                        muted
-                        preload="metadata"
+                        alt={asset.filename}
+                        fit={props.imageFit}
                       />
+                    ) : asset.contentType.startsWith("video/") ? (
+                      <>
+                        <video
+                          src={asset.publicUrl}
+                          className={`h-full w-full ${props.imageFit === "contain" ? "object-contain" : "object-cover"}`}
+                          muted
+                          preload="metadata"
+                        />
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white shadow-sm">
+                            <Play className="ml-0.5 h-4 w-4" />
+                          </span>
+                        </span>
+                      </>
                     ) : (
                       <AssetTypeIcon
                         contentType={asset.contentType}
@@ -1115,7 +1168,11 @@ function AssetsGridSkeleton() {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-function AssetThumb(props: { src: string; alt: string }) {
+function AssetThumb(props: {
+  src: string;
+  alt: string;
+  fit: "cover" | "contain";
+}) {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return <ImageIcon className="h-10 w-10 text-stone-400 dark:text-stone-500" />;
@@ -1127,7 +1184,7 @@ function AssetThumb(props: { src: string; alt: string }) {
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
-      className="h-full w-full object-cover"
+      className={`h-full w-full ${props.fit === "contain" ? "object-contain" : "object-cover"}`}
     />
   );
 }
