@@ -1,9 +1,9 @@
 ---
 id: "019"
 title: "Sidebar width and collapse"
-status: pending
+status: done
 created_at: 2026-10-24T11:14:59
-last_modified: 2026-10-24T11:14:59
+last_modified: 2026-10-24T11:25:38
 slice: ux
 ---
 

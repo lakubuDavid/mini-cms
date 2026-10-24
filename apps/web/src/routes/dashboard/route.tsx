@@ -297,25 +297,21 @@ function DashboardLayoutInner() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ) : null}
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Docs">
-                  <a
-                    href={env.PUBLIC_DOCS_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
-                  >
-                    <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    <span className="truncate group-data-[collapsible=icon]:hidden">Docs</span>
-                    <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter className="border-t border-stone-200 p-2 pt-3 dark:border-stone-800">
+          <a
+            href={env.PUBLIC_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-stone-600 transition hover:bg-stone-100 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:text-stone-300 dark:hover:bg-stone-800"
+          >
+            <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+            <span className="group-data-[collapsible=icon]:hidden">Docs</span>
+            <ExternalLink className="ml-auto h-3 w-3 text-stone-400 group-data-[collapsible=icon]:hidden" />
+          </a>
           <div className="relative">
             {workspaceMenuOpen ? (
               <>

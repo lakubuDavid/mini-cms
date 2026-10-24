@@ -20,7 +20,7 @@ return {
     { id = "016", title = "Batch dashboard bootstrap", status = "done", created_at = "2026-10-24T02:21:05", last_modified = "2026-10-24T02:23:12", file = "optimize/016-batch-dashboard-bootstrap.md", slice = "optimize" },
     { id = "017", title = "Batch reorderItems updates", status = "done", created_at = "2026-10-24T02:21:05", last_modified = "2026-10-24T02:25:09", file = "optimize/017-batch-reorderitems-updates.md", slice = "optimize" },
     { id = "018", title = "Use secondary storage (Redis) for sessions", status = "done", created_at = "2026-10-24T02:21:05", last_modified = "2026-10-24T02:27:18", file = "optimize/018-use-secondary-storage-redis-for-sessions.md", slice = "optimize" },
-    { id = "019", title = "Sidebar width and collapse", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/019-sidebar-width-and-collapse.md", slice = "ux" },
+    { id = "019", title = "Sidebar width and collapse", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:25:38", file = "ux/019-sidebar-width-and-collapse.md", slice = "ux" },
     { id = "020", title = "Utility nav grouping", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/020-utility-nav-grouping.md", slice = "ux" },
     { id = "021", title = "Single scroll region", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/021-single-scroll-region.md", slice = "ux" },
     { id = "022", title = "Focus rings", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/022-focus-rings.md", slice = "ux" },
