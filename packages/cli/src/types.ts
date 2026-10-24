@@ -92,6 +92,7 @@ export type MiniConfig = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
   collectionId?: string;
   collectionsPath?: string;
@@ -105,6 +106,7 @@ export type ResolvedConfig = {
   baseUrl: string;
   workspaceId: string;
   projectId?: string;
+  environmentId?: string;
   apiKey: string;
   collectionId?: string;
   collectionsPath: string;
@@ -118,6 +120,7 @@ export type CommandOptions = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
   collectionId?: string;
   collections?: string;
@@ -135,5 +138,6 @@ export type CliEnv = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
 };
