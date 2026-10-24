@@ -29,12 +29,16 @@ export async function createItemAction(
   slug: string,
   data: CollectionItemData,
   order?: number,
+  organizationId?: string,
 ) {
   const identity = createAnonymousServerIdentity({ subject: collectionId });
 
   try {
     await ensureItemLimit(collectionId);
-    const item = await createItem(collectionId, data, { order });
+    const item = await createItem(collectionId, data, {
+      order,
+      organizationId,
+    });
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({
@@ -65,11 +69,12 @@ export async function updateItemAction(
   id: string,
   slug: string,
   data: CollectionItemData,
+  organizationId?: string,
 ) {
   const identity = createAnonymousServerIdentity({ subject: id });
 
   try {
-    const item = await updateItem(id, data);
+    const item = await updateItem(id, data, organizationId);
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({
@@ -95,11 +100,15 @@ export async function updateItemAction(
   }
 }
 
-export async function deleteItemAction(id: string, slug: string) {
+export async function deleteItemAction(
+  id: string,
+  slug: string,
+  organizationId?: string,
+) {
   const identity = createAnonymousServerIdentity({ subject: id });
 
   try {
-    await deleteItem(id);
+    await deleteItem(id, organizationId);
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({

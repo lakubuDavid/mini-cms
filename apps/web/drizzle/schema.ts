@@ -1,4 +1,4 @@
-import { sqliteTable, AnySQLiteColumn, foreignKey, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core"
   import { sql } from "drizzle-orm"
 
 export const accounts = sqliteTable("accounts", {
@@ -72,12 +72,12 @@ export const users = sqliteTable("users", {
 	id: text().primaryKey().notNull(),
 	name: text().notNull(),
 	email: text().notNull(),
-	emailVerified: integer("email_verified").default(false).notNull(),
+	emailVerified: integer("email_verified").default(0).notNull(),
 	image: text(),
 	createdAt: integer("created_at").default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`).notNull(),
 	updatedAt: integer("updated_at").default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`).notNull(),
 	role: text(),
-	banned: integer().default(false),
+	banned: integer().default(0),
 	banReason: text("ban_reason"),
 	banExpires: integer("ban_expires"),
 },
@@ -99,6 +99,7 @@ export const verifications = sqliteTable("verifications", {
 
 export const collectionItems = sqliteTable("collection_items", {
 	id: text().primaryKey().notNull(),
+	environmentId: text("environment_id").references(() => environments.id, { onDelete: "cascade" } ),
 	collectionId: text("collection_id").notNull().references(() => collections.id, { onDelete: "cascade" } ),
 	data: text().default("{}").notNull(),
 	order: integer().default(0).notNull(),
@@ -108,6 +109,7 @@ export const collectionItems = sqliteTable("collection_items", {
 (table) => [
 	index("collection_items_order_idx").on(table.order),
 	index("collection_items_collection_id_idx").on(table.collectionId),
+	index("collection_items_environment_id_idx").on(table.environmentId),
 ]);
 
 export const apikeys = sqliteTable("apikeys", {
@@ -121,8 +123,8 @@ export const apikeys = sqliteTable("apikeys", {
 	refillInterval: integer("refill_interval"),
 	refillAmount: integer("refill_amount"),
 	lastRefillAt: integer("last_refill_at"),
-	enabled: integer().default(true),
-	rateLimitEnabled: integer("rate_limit_enabled").default(true),
+	enabled: integer().default(1),
+	rateLimitEnabled: integer("rate_limit_enabled").default(1),
 	rateLimitTimeWindow: integer("rate_limit_time_window").default(60000),
 	rateLimitMax: integer("rate_limit_max").default(100),
 	requestCount: integer("request_count").default(0),
@@ -152,6 +154,20 @@ export const projects = sqliteTable("projects", {
 (table) => [
 	uniqueIndex("projects_organization_slug_uidx").on(table.organizationId, table.slug),
 	index("projects_organization_id_idx").on(table.organizationId),
+]);
+
+export const environments = sqliteTable("environments", {
+	id: text().primaryKey().notNull(),
+	projectId: text("project_id").notNull().references(() => projects.id, { onDelete: "cascade" } ),
+	name: text().notNull(),
+	slug: text().notNull(),
+	isProduction: integer("is_production").default(0).notNull(),
+	createdAt: text("created_at").notNull(),
+	updatedAt: text("updated_at").notNull(),
+},
+(table) => [
+	index("environments_project_id_idx").on(table.projectId),
+	uniqueIndex("environments_project_slug_uidx").on(table.projectId, table.slug),
 ]);
 
 export const collections = sqliteTable("collections", {

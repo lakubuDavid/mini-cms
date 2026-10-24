@@ -32,6 +32,10 @@ dist
 
 .playwright-cli
 
+# Pi agent runtime artifacts (.pi/settings.json and .pi/skills stay tracked)
+.pi/delegate/
+.pi/tasks/
+
 # Debug
 npm-debug.log*
 

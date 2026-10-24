@@ -102,6 +102,9 @@ export type DataTableProps<Row> = {
     isRefreshing: boolean
   }
 
+  /** When true, the table shows loading state (opacity fade + progress bar). */
+  isLoading?: boolean
+
   /** Custom empty state shown when `data.length === 0`. */
   emptyState?: ReactNode
 

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -22,9 +22,10 @@ import {
   AlertCircle,
   Layers,
   Star,
+  Settings,
 } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard/projects")({
+export const Route = createFileRoute("/dashboard/projects/")({
   validateSearch: (search: Record<string, unknown>) => ({
     page: intOrUndefined(search.page),
     pageSize: intOrUndefined(search.pageSize),
@@ -212,6 +213,14 @@ function ProjectsPage() {
                 const isDefault = p.metadata?.isDefault === true;
                 return (
                   <div className="flex justify-end gap-1.5">
+                    <Link
+                      to="/dashboard/projects/$projectId/settings"
+                      params={{ projectId: p.id }}
+                      className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+                    >
+                      <Settings className="h-3 w-3" />
+                      Settings
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setEditingId(p.id)}

@@ -91,6 +91,34 @@ bun run lint
 bun run format
 ```
 
+## End-to-End Tests
+
+```bash
+# Run the whole e2e suite (starts a dev server automatically)
+bun run test:e2e
+```
+
+The suite runs against the configured database, so point `TURSO_DB_URL` at a
+throwaway database before running it. Test data is created and removed by the
+tests themselves, but the schema must already exist.
+
+### Capturing outbound email
+
+The invite flow test asserts on the email that Resend would send. To avoid
+delivering real mail, run the local Resend stand-in and point the dev server
+at it:
+
+```bash
+# Terminal 1 - capture outgoing mail instead of sending it
+bun --cwd apps/web run test:e2e:mail
+
+# Terminal 2 - dev server with the capture base URL
+RESEND_BASE_URL=http://127.0.0.1:3999 bun run dev
+```
+
+The invite test skips itself when the stand-in is not running, so it can never
+send a real email. Everything else in the suite runs either way.
+
 ## API Endpoints
 
 ### Public (Cached, Rate-limited)

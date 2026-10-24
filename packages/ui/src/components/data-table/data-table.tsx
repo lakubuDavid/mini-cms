@@ -34,6 +34,7 @@ export function DataTable<Row>({
   onQueryChange,
   pagination,
   refresh,
+  isLoading = false,
   emptyState,
   className,
   caption,
@@ -93,7 +94,14 @@ export function DataTable<Row>({
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-stone-200">
+      <div className="relative overflow-hidden rounded-lg border border-stone-200">
+        {/* Progress bar */}
+        {isLoading ? (
+          <div className="absolute top-0 left-0 right-0 z-10 h-0.5 overflow-hidden bg-stone-200">
+            <div className="h-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-stone-400 via-stone-600 to-stone-400" />
+          </div>
+        ) : null}
+
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           {caption ? <caption className="sr-only">{caption}</caption> : null}
           <thead className="bg-stone-50">
@@ -139,7 +147,10 @@ export function DataTable<Row>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100 bg-white">
+          <tbody className={cn(
+            "divide-y divide-stone-100 bg-white transition-opacity duration-200",
+            isLoading && "opacity-50 pointer-events-none",
+          )}>
             {visible.length === 0 ? (
               <tr>
                 <td

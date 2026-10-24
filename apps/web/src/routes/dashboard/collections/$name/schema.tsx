@@ -40,7 +40,7 @@ function CollectionSchemaPage() {
   const { name } = Route.useParams();
   const search = Route.useSearch();
   const queryClient = useQueryClient();
-  const schemaQuery = useQuery(collectionSchemaQueryOptions(name));
+  const schemaQuery = useQuery(collectionSchemaQueryOptions(name, search.projectId));
 
   function invalidate() {
     void queryClient.invalidateQueries({

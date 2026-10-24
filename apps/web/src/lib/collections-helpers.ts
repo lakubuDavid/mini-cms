@@ -35,15 +35,20 @@ export const updateCollectionServerFn = createServerFn({ method: "POST" })
       schema?: CollectionField[];
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { updateCollectionAction } =
       await import("../server/functions/collections");
-    return updateCollectionAction(data.id, {
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      schema: data.schema,
-    });
+    return updateCollectionAction(
+      data.id,
+      {
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
+        schema: data.schema,
+      },
+      await requireActiveOrganizationId(ctx),
+    );
   });
 
 export const listCollectionsServerFn = createServerFn({ method: "GET" })
@@ -61,13 +66,14 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
   });
 
 export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
-  .validator((data: { slug: string }) => data)
+  .validator((data: { slug: string; projectId?: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { getCollectionBySlug } = await import("../db/queries/collections");
     const collection = await getCollectionBySlug(
       data.slug,
       await requireActiveOrganizationId(ctx),
+      data.projectId,
     );
 
     if (!collection) {
@@ -137,13 +143,15 @@ export const createItemServerFn = createServerFn({ method: "POST" })
       order?: number;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { createItemAction } = await import("../server/functions/items");
     return createItemAction(
       data.collectionId,
       data.slug,
       data.values,
       data.order,
+      await requireActiveOrganizationId(ctx),
     );
   });
 
@@ -155,16 +163,27 @@ export const updateItemServerFn = createServerFn({ method: "POST" })
       values: Record<string, string | number | boolean | null>;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { updateItemAction } = await import("../server/functions/items");
-    return updateItemAction(data.id, data.slug, data.values);
+    return updateItemAction(
+      data.id,
+      data.slug,
+      data.values,
+      await requireActiveOrganizationId(ctx),
+    );
   });
 
 export const deleteItemServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; slug: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { deleteItemAction } = await import("../server/functions/items");
-    await deleteItemAction(data.id, data.slug);
+    await deleteItemAction(
+      data.id,
+      data.slug,
+      await requireActiveOrganizationId(ctx),
+    );
     return { success: true };
   });
 
@@ -206,10 +225,15 @@ export const duplicateItemsServerFn = createServerFn({ method: "POST" })
 
 export const deleteCollectionServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; slug?: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const { deleteCollectionAction } =
       await import("../server/functions/collections");
-    return deleteCollectionAction(data.id, data.slug);
+    return deleteCollectionAction(
+      data.id,
+      data.slug,
+      await requireActiveOrganizationId(ctx),
+    );
   });
 
 export const getCollectionItemCountsServerFn = createServerFn({ method: "GET" })

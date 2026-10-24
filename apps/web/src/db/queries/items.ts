@@ -1,7 +1,27 @@
-import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, inArray, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
-import { collectionItems } from "@/db/schema";
+import { collectionItems, collections } from "@/db/schema";
+
+/**
+ * Restricts a collection item to a workspace.
+ *
+ * Drizzle cannot join another table inside an UPDATE or DELETE, so the
+ * ownership check is expressed as a subquery over the collection's workspace.
+ */
+function ownedByWorkspace(organizationId: string) {
+  return exists(
+    db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(
+        and(
+          eq(collections.id, collectionItems.collectionId),
+          eq(collections.organizationId, organizationId),
+        ),
+      ),
+  );
+}
 import {
   toStoredItemValues,
   withSystemItemValues,
@@ -149,9 +169,11 @@ function parseBooleanFilter(value: string) {
   return null;
 }
 
-export async function getItemById(id: string) {
+export async function getItemById(id: string, organizationId?: string) {
   const item = await db.query.collectionItems.findFirst({
-    where: eq(collectionItems.id, id),
+    where: organizationId
+      ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+      : eq(collectionItems.id, id),
   });
 
   return item ? withSystemItemValues(item) : null;
@@ -163,10 +185,22 @@ export async function createItem(
   options?: {
     order?: number;
     environmentId?: string;
+    organizationId?: string;
   },
 ) {
   const id = nanoid();
   const now = new Date().toISOString();
+
+  if (options?.organizationId) {
+    const { getCollectionById } = await import("./collections");
+    const collection = await getCollectionById(
+      collectionId,
+      options.organizationId,
+    );
+    if (!collection) {
+      throw new Error("Collection not found in this workspace.");
+    }
+  }
 
   await db.insert(collectionItems).values({
     id,
@@ -178,12 +212,18 @@ export async function createItem(
     updatedAt: now,
   });
 
-  return getItemById(id);
+  return getItemById(id, options?.organizationId);
 }
 
-export async function updateItem(id: string, data: CollectionItemData) {
+export async function updateItem(
+  id: string,
+  data: CollectionItemData,
+  organizationId?: string,
+) {
   const existing = await db.query.collectionItems.findFirst({
-    where: eq(collectionItems.id, id),
+    where: organizationId
+      ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+      : eq(collectionItems.id, id),
   });
 
   if (!existing) {
@@ -196,12 +236,23 @@ export async function updateItem(id: string, data: CollectionItemData) {
       data: toStoredItemValues(data, existing.data._published === true),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(collectionItems.id, id));
+    .where(
+      organizationId
+        ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+        : eq(collectionItems.id, id),
+    );
 
-  return getItemById(id);
+  return getItemById(id, organizationId);
 }
 
-export async function deleteItem(id: string) {
+export async function deleteItem(id: string, organizationId?: string) {
+  if (organizationId) {
+    await db
+      .delete(collectionItems)
+      .where(and(eq(collectionItems.id, id), ownedByWorkspace(organizationId)));
+    return;
+  }
+
   await db.delete(collectionItems).where(eq(collectionItems.id, id));
 }
 

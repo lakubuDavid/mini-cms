@@ -1116,7 +1116,8 @@ export async function run(argv = process.argv): Promise<void> {
       throw new Error(incompleteCommandError);
     }
 
-    return await runCommand(miniCmsCommand, { rawArgs });
+    await runCommand(miniCmsCommand, { rawArgs });
+    return;
   } catch (error) {
     throw formatCliError(error, argv);
   }

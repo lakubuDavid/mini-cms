@@ -126,6 +126,7 @@ export async function createCollection(input: CreateCollectionInput) {
 export async function updateCollection(
   id: string,
   input: Partial<CreateCollectionInput>,
+  organizationId?: string,
 ) {
   await db
     .update(collections)
@@ -138,13 +139,23 @@ export async function updateCollection(
       ...(input.schema !== undefined ? { schema: input.schema } : {}),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(collections.id, id));
+    .where(
+      organizationId
+        ? and(eq(collections.id, id), eq(collections.organizationId, organizationId))
+        : eq(collections.id, id),
+    );
 
-  return getCollectionById(id);
+  return getCollectionById(id, organizationId);
 }
 
-export async function deleteCollection(id: string) {
-  await db.delete(collections).where(eq(collections.id, id));
+export async function deleteCollection(id: string, organizationId?: string) {
+  await db
+    .delete(collections)
+    .where(
+      organizationId
+        ? and(eq(collections.id, id), eq(collections.organizationId, organizationId))
+        : eq(collections.id, id),
+    );
 }
 
 export async function getCollectionItemCount(collectionId: string) {

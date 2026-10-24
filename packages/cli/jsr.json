@@ -1,7 +1,10 @@
 {
   "name": "@lakubudavid/mini-cli",
   "version": "0.1.0",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./codegen-core": "./src/codegen-core.ts"
+  },
   "publish": {
     "include": [
       "src/**/*.ts",

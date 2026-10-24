@@ -14,18 +14,17 @@ function getEnvColor(slug: string): string {
   return ENV_COLORS[slug] ?? "bg-stone-400";
 }
 
-function getEnvSlugFromUrl(): string {
+function getEnvFromUrl(): string {
   if (typeof window === "undefined") return "production";
-  const params = new URLSearchParams(window.location.search);
-  return params.get("env") ?? "production";
+  return new URLSearchParams(window.location.search).get("env") ?? "production";
 }
 
 export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
-  const [currentEnvSlug, setCurrentEnvSlug] = useState(getEnvSlugFromUrl);
+  const [currentEnvSlug, setCurrentEnvSlug] = useState(getEnvFromUrl);
 
-  // Listen for popstate events (triggered by our own replaceState)
+  // Sync with URL changes (from TanStack Router navigation)
   useEffect(() => {
-    const handler = () => setCurrentEnvSlug(getEnvSlugFromUrl());
+    const handler = () => setCurrentEnvSlug(getEnvFromUrl());
     window.addEventListener("popstate", handler);
     return () => window.removeEventListener("popstate", handler);
   }, []);
@@ -42,12 +41,12 @@ export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
       params.set("env", envSlug);
     }
     const query = params.toString();
-    window.history.replaceState(
-      {},
-      "",
-      query ? `${window.location.pathname}?${query}` : window.location.pathname,
-    );
+    const url = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname;
+    window.history.pushState({}, "", url);
     window.dispatchEvent(new PopStateEvent("popstate"));
+    setCurrentEnvSlug(envSlug === "production" || !envSlug ? "production" : envSlug);
   }, []);
 
   if (isLoading || environments.length <= 1) {

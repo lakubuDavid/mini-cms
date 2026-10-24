@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getSession,
-  setActiveOrganizationAction,
-} from "@/lib/auth-helpers";
+import { getSession } from "@/lib/auth-helpers";
 import { authClient } from "@/lib/auth-client";
 import { env } from "@/lib/env";
-import {
-  organizationQueryOptions,
-  projectsQueryOptions,
-  organizationsQueryOptions,
-} from "@/lib/queries";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EnvironmentSwitcher } from "@/components/environment-switcher";
+import { DashboardProvider, useDashboard } from "@/lib/dashboard-context";
 import { useIsMobile } from "@workspace/ui/hooks/use-mobile";
 import {
   Sidebar,
@@ -54,34 +46,6 @@ import {
   PlusCircle,
 } from "lucide-react";
 
-function getProjectStorageKey(organizationId: string) {
-  return `mini-cms:last-project:${organizationId}`;
-}
-
-function readStoredProjectId(organizationId: string) {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    return window.localStorage.getItem(getProjectStorageKey(organizationId));
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredProjectId(organizationId: string, projectId: string) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(getProjectStorageKey(organizationId), projectId);
-  } catch {
-    // Ignore local storage failures.
-  }
-}
-
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
     const session = await getSession();
@@ -98,105 +62,78 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardLayout() {
-  const { user } = useRouteContext({ from: "/dashboard" });
-  const orgQuery = useQuery(organizationQueryOptions());
-  const projectsQuery = useQuery(projectsQueryOptions());
-  const orgsQuery = useQuery(organizationsQueryOptions());
+  return (
+    <DashboardProvider>
+      <DashboardLayoutInner />
+    </DashboardProvider>
+  );
+}
 
-  const organization = orgQuery.data ?? null;
-  const projects = projectsQuery.data ?? [];
-  const organizations = orgsQuery.data ?? [];
-  const hasWorkspace = Boolean(organization);
+function DashboardLayoutInner() {
+  const { user } = useRouteContext({ from: "/dashboard" });
+  const {
+    organization,
+    organizations,
+    workspaceLoading,
+    currentProject,
+    projects,
+    setCurrentProject,
+    switchWorkspace,
+  } = useDashboard();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const location = useLocation();
   const isMobile = useIsMobile();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
 
   const currentPath = location.pathname;
-  const currentSearch = new URLSearchParams(location.search as string);
-  const currentProjectId = currentSearch.get("projectId") ?? "";
+  const hasWorkspace = Boolean(organization);
+  const currentProjectId = currentProject?.id ?? "";
 
+  // Redirect to workspace page if no workspace exists
   useEffect(() => {
-    if (!hasWorkspace) {
-      if (currentPath !== "/dashboard/workspace") {
-        void navigate({
-          to: "/dashboard/workspace",
-          search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined } as any,
-        });
-      }
-      return;
+    if (workspaceLoading) return;
+    if (!hasWorkspace && currentPath !== "/dashboard/workspace") {
+      void navigate({
+        to: "/dashboard/workspace",
+        search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined } as any,
+      });
     }
+  }, [workspaceLoading, hasWorkspace, currentPath, navigate]);
 
-    if (!organization || projects.length === 0) {
-      return;
-    }
+  // Ensure projectId is in URL for pages that need it
+  useEffect(() => {
+    if (workspaceLoading || !currentProject || !organization) return;
 
-    const hasValidCurrentProject = projects.some(
-      (project) => project.id === currentProjectId,
-    );
+    const urlParams = new URLSearchParams(location.search as string);
+    const urlProjectId = urlParams.get("projectId");
 
-    if (hasValidCurrentProject && currentProjectId) {
-      writeStoredProjectId(organization.id, currentProjectId);
-      return;
-    }
+    // Only add projectId if the page uses it and it's missing
+    const pagesNeedingProjectId = [
+      "/dashboard",
+      "/dashboard/team",
+      "/dashboard/assets",
+      "/dashboard/api-keys",
+      "/dashboard/analytics",
+    ];
 
     if (
-      currentPath === "/dashboard" ||
-      currentPath === "/dashboard/team" ||
-      currentPath === "/dashboard/assets" ||
-      currentPath === "/dashboard/api-keys" ||
-      currentPath === "/dashboard/analytics"
+      pagesNeedingProjectId.includes(currentPath) &&
+      !urlProjectId
     ) {
-      const storedProjectId = readStoredProjectId(organization.id);
-      const preferredProjectId = projects.some(
-        (project) => project.id === storedProjectId,
-      )
-        ? storedProjectId
-        : projects[0]?.id;
-
-      if (!preferredProjectId) {
-        return;
-      }
-
-      const params = new URLSearchParams(currentSearch);
-      params.set("projectId", preferredProjectId);
-      if (currentPath === "/dashboard/analytics" && !params.get("range")) {
-        params.set("range", "30d");
-      }
-      window.history.replaceState({}, "", `${currentPath}?${params.toString()}`);
+      urlParams.set("projectId", currentProject.id);
+      const query = urlParams.toString();
+      window.history.replaceState(
+        {},
+        "",
+        `${currentPath}?${query}`,
+      );
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
-  }, [
-    currentPath,
-    currentProjectId,
-    currentSearch,
-    hasWorkspace,
-    navigate,
-    organization,
-    projects,
-  ]);
+  }, [workspaceLoading, currentProject, organization, currentPath, location.search]);
 
-  function handleProjectSelect(projectId: string) {
-    if (organization && projectId) {
-      writeStoredProjectId(organization.id, projectId);
-    }
-
-    const params = new URLSearchParams(currentSearch);
-    if (projectId) {
-      params.set("projectId", projectId);
-    } else {
-      params.delete("projectId");
-    }
-
-    if (currentPath === "/dashboard/analytics" && !params.get("range")) {
-      params.set("range", "30d");
-    }
-
-    const query = params.toString();
-    window.history.replaceState({}, "", query ? `${currentPath}?${query}` : currentPath);
-    window.dispatchEvent(new PopStateEvent("popstate"));
+  function handleProjectChange(projectId: string) {
+    setCurrentProject(projectId);
   }
 
   async function handleWorkspaceSwitch(organizationId: string) {
@@ -204,29 +141,18 @@ function DashboardLayout() {
       setWorkspaceMenuOpen(false);
       return;
     }
-
-    await setActiveOrganizationAction({ data: { organizationId } });
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["organization"] }),
-      queryClient.invalidateQueries({ queryKey: ["organizations"] }),
-      queryClient.invalidateQueries({ queryKey: ["projects"] }),
-    ]);
-
+    await switchWorkspace(organizationId);
     setWorkspaceMenuOpen(false);
-    void navigate({
-      to: "/dashboard/workspace",
-      search: { page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined },
-    });
   }
 
   return (
     <SidebarProvider
-      className="min-h-svh bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100"
+      className="min-h-svh bg-background text-foreground"
       style={{ "--sidebar-width": "300px" } as React.CSSProperties}
     >
       <Sidebar
         collapsible={isMobile ? "offcanvas" : "none"}
-        className="border-r border-stone-200 bg-white text-stone-900 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-100 h-svh"
+        className="border-r border-sidebar-border h-svh"
       >
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-2.5 px-2 py-1">
@@ -237,14 +163,14 @@ function DashboardLayout() {
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="rounded-xl border flex flex-col border-stone-200 bg-stone-50 p-2.5 dark:border-stone-800 dark:bg-stone-950/50">
+            <div className="rounded-xl border flex flex-col border-stone-200 bg-white p-2.5 dark:border-stone-800 dark:bg-stone-800">
               <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
                 Project
               </p>
               {hasWorkspace ? (
                 <select
                   value={currentProjectId || projects[0]?.id || ""}
-                  onChange={(event) => handleProjectSelect(event.target.value)}
+                  onChange={(event) => handleProjectChange(event.target.value)}
                   className="mt-2 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
                 >
                   {projects.length ? (
@@ -364,6 +290,20 @@ function DashboardLayout() {
                     >
                       <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                       Analytics
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+              {currentProjectId ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link
+                      to="/dashboard/projects/$projectId/settings"
+                      params={{ projectId: currentProjectId }}
+                      className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    >
+                      <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      Project Settings
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

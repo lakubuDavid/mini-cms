@@ -23,6 +23,7 @@ import {
   ExternalLink,
   CheckCircle,
   AlertCircle,
+  Code2,
   Calendar,
   Image as ImageIcon,
   Upload,
@@ -55,6 +56,7 @@ type CollectionField = {
 type ItemRecord = {
   id: string;
   data: Record<string, string | number | boolean | null>;
+  environmentId?: string | null;
 };
 
 export const Route = createFileRoute("/dashboard/collections/$name/")({
@@ -77,8 +79,9 @@ function CollectionPage() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
 
+  // Always fetch all items (no env filter) — we filter client-side for optimistic UX
   const pageQuery = useQuery(
-    collectionPageQueryOptions(name, search.page, 10, search.projectId, search.env),
+    collectionPageQueryOptions(name, search.page, 100, search.projectId),
   );
 
   const [showModal, setShowModal] = useState(false);
@@ -201,8 +204,6 @@ function CollectionPage() {
       handleBulkPublish={handleBulkPublish}
       bulkActionLoading={bulkActionLoading}
       allSelected={allSelected}
-      projectId={search.projectId}
-      env={search.env}
     />
   );
 }
@@ -246,8 +247,6 @@ function CollectionPageContent(props: {
   handleBulkPublish: (publish: boolean) => Promise<void>;
   bulkActionLoading: boolean;
   allSelected: boolean;
-  projectId?: string;
-  env?: string;
 }) {
   const {
     collection,
@@ -272,9 +271,31 @@ function CollectionPageContent(props: {
     handleBulkPublish,
     bulkActionLoading,
     allSelected,
-    projectId,
-    env,
   } = props;
+
+  // ── Environments ────────────────────────────────────────────
+  const environmentsQuery = useQuery({
+    ...environmentsQueryOptions(search.projectId ?? ""),
+    enabled: !!search.projectId,
+  });
+  const allEnvironments = environmentsQuery.data ?? [];
+  const productionEnv = allEnvironments.find((e) => e.isProduction) ?? allEnvironments[0] ?? null;
+  const currentEnv = search.env
+    ? allEnvironments.find((e) => e.slug === search.env) ?? productionEnv
+    : productionEnv;
+
+  // Client-side environment filtering (optimistic — instant switch)
+  const filteredItems = useMemo(() => {
+    if (!currentEnv) return items.items;
+    if (currentEnv.isProduction) {
+      return items.items.filter(
+        (item: ItemRecord) => !item.environmentId || item.environmentId === currentEnv.id,
+      );
+    }
+    return items.items.filter(
+      (item: ItemRecord) => item.environmentId === currentEnv.id,
+    );
+  }, [items.items, currentEnv]);
   const tableFields: Array<
     | (typeof SYSTEM_FIELDS)[number]
     | CollectionField
@@ -285,7 +306,7 @@ function CollectionPageContent(props: {
       items.items.find(
         (item: ItemRecord) => item.id === editingItemId,
       ) ?? null,
-    [editingItemId, items.items],
+    [editingItemId, filteredItems],
   );
 
   async function handleDeleteItem(id: string) {
@@ -306,16 +327,7 @@ function CollectionPageContent(props: {
     }
   }
 
-  // ── Environments ────────────────────────────────────────────
-  const environmentsQuery = useQuery({
-    ...environmentsQueryOptions(projectId ?? ""),
-    enabled: !!projectId,
-  });
-  const allEnvironments = environmentsQuery.data ?? [];
-  const productionEnv = allEnvironments.find((e) => e.isProduction) ?? allEnvironments[0] ?? null;
-  const currentEnv = env
-    ? allEnvironments.find((e) => e.slug === env) ?? productionEnv
-    : productionEnv;
+
 
   // ── Promote / Duplicate handlers ───────────────────────────
   const [duplicateTargetId, setDuplicateTargetId] = useState<string | null>(null);
@@ -391,8 +403,19 @@ function CollectionPageContent(props: {
             {collection.name}
           </h2>
           <p className="mt-1 text-sm text-stone-500">
-            {collection.description ?? "Manage items for this collection."} --{" "}
-            {items.pagination.total} items
+            {collection.description ?? "Manage items for this collection."}
+            {currentEnv ? (
+              <>
+                {" — "}
+                <span className="font-medium text-stone-700">{filteredItems.length}</span>
+                {" of "}
+                {items.pagination.total}
+                {" items in "}
+                <span className="font-medium text-stone-700">{currentEnv.name}</span>
+              </>
+            ) : (
+              <> -- {items.pagination.total} items</>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -404,6 +427,15 @@ function CollectionPageContent(props: {
           >
             <Settings className="h-4 w-4" />
             Edit schema
+          </Link>
+          <Link
+            to="/dashboard/collections/$name/code"
+            params={{ name: collection.slug }}
+            search={{ projectId: search.projectId }}
+            className="inline-flex items-center gap-2 rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium transition hover:bg-stone-50"
+          >
+            <Code2 className="h-4 w-4" />
+            Code
           </Link>
           <button
             type="button"
@@ -565,7 +597,7 @@ function CollectionPageContent(props: {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
-              {items.items.map((item: ItemRecord) => (
+              {filteredItems.map((item: ItemRecord) => (
                 <tr key={item.id} className="hover:bg-stone-50">
                   <td className="px-3 py-3 align-top">
                     <Checkbox
@@ -703,7 +735,7 @@ function CollectionPageContent(props: {
       {/* Mobile cards */}
       <div className="space-y-3 md:hidden">
         {items.items.length ? (
-          items.items.map((item: ItemRecord) => (
+          filteredItems.map((item: ItemRecord) => (
             <div
               key={item.id}
               className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"

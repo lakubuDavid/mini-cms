@@ -8,7 +8,9 @@ import {
 import { listEnvironmentsServerFn } from "./environment-helpers";
 import { listAssetsServerFn } from "./assets-helpers";
 import { listProjectsServerFn, getProjectServerFn } from "./projects-helpers";
+import { getDashboardBootstrapServerFn } from "./auth-helpers";
 import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
+import { getCollectionSnippetsServerFn } from "./codegen-helpers";
 import {
   getActiveOrganization,
   listAdminUsers,
@@ -31,6 +33,7 @@ const STALE_SHORT = 30_000; // 30 seconds
 export const queryKeys = {
   organization: () => ["organization"] as const,
   organizations: () => ["organizations"] as const,
+  dashboardBootstrap: () => ["dashboard-bootstrap"] as const,
   projects: () => ["projects"] as const,
   project: (id: string) => ["project", id] as const,
   collections: (page: number, limit: number) =>
@@ -38,6 +41,8 @@ export const queryKeys = {
   collectionPage: (slug: string, page: number, limit: number, projectId?: string) =>
     ["collection-page", slug, { page, limit, projectId }] as const,
   collectionSchema: (slug: string) => ["collection-schema", slug] as const,
+  collectionSnippets: (slug: string, projectId?: string) =>
+    ["collection-snippets", slug, { projectId }] as const,
   collectionItemCounts: (collectionIds: string[]) =>
     ["collection-item-counts", collectionIds] as const,
   team: () => ["team"] as const,
@@ -76,6 +81,14 @@ export function projectsQueryOptions() {
   });
 }
 
+export function dashboardBootstrapQueryOptions() {
+  return queryOptions({
+    queryKey: queryKeys.dashboardBootstrap(),
+    queryFn: () => getDashboardBootstrapServerFn(),
+    staleTime: STALE_LONG,
+  });
+}
+
 export function projectQueryOptions(projectId: string) {
   return queryOptions({
     queryKey: queryKeys.project(projectId),
@@ -107,11 +120,20 @@ export function collectionPageQueryOptions(
   });
 }
 
-export function collectionSchemaQueryOptions(slug: string) {
+export function collectionSchemaQueryOptions(slug: string, projectId?: string) {
   return queryOptions({
-    queryKey: queryKeys.collectionSchema(slug),
-    queryFn: () => getCollectionSchemaServerFn({ data: { slug } }),
+    queryKey: [...queryKeys.collectionSchema(slug), { projectId }],
+    queryFn: () => getCollectionSchemaServerFn({ data: { slug, projectId } }),
     staleTime: STALE_LONG,
+  });
+}
+
+export function collectionSnippetsQueryOptions(slug: string, projectId: string) {
+  return queryOptions({
+    queryKey: queryKeys.collectionSnippets(slug, projectId),
+    queryFn: () => getCollectionSnippetsServerFn({ data: { slug, projectId } }),
+    staleTime: STALE_LONG,
+    enabled: Boolean(projectId),
   });
 }
 

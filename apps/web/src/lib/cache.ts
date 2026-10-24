@@ -61,7 +61,6 @@ export async function invalidateCollectionCache(
 export async function invalidateCollectionCacheByPattern(slug: string) {
   // We use a scan-based approach for Redis pattern matching
   try {
-    const pattern = `*:${slug}:*`;
     let cursor = 0;
     do {
       const [nextCursor, keys] = await redis.scan(cursor, {

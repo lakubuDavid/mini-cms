@@ -1,7 +1,25 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, exists } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { environments } from "@/db/schema/environments";
+import { projects } from "@/db/schema/projects";
+
+/**
+ * Restricts an environment row to a workspace.
+ *
+ * Drizzle cannot join another table inside an UPDATE or DELETE, so the
+ * ownership check is expressed as a subquery over the project's workspace.
+ */
+function ownedByWorkspace(organizationId: string) {
+  return exists(
+    db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(eq(projects.id, environments.projectId), eq(projects.organizationId, organizationId)),
+      ),
+  );
+}
 
 export type CreateEnvironmentInput = {
   projectId: string;
@@ -17,7 +35,26 @@ export async function listEnvironments(projectId: string) {
   });
 }
 
-export async function getEnvironmentById(id: string) {
+export async function getEnvironmentById(id: string, organizationId?: string) {
+  if (organizationId) {
+    return db.query.environments.findFirst({
+      where: and(
+        eq(environments.id, id),
+        exists(
+          db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, environments.projectId),
+                eq(projects.organizationId, organizationId),
+              ),
+            ),
+        ),
+      ),
+    });
+  }
+
   return db.query.environments.findFirst({
     where: eq(environments.id, id),
   });
@@ -68,6 +105,7 @@ export async function updateEnvironment(
     slug?: string;
     isProduction?: boolean;
   },
+  organizationId?: string,
 ) {
   await db
     .update(environments)
@@ -79,12 +117,23 @@ export async function updateEnvironment(
         : {}),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(environments.id, id));
+    .where(
+      organizationId
+        ? and(eq(environments.id, id), ownedByWorkspace(organizationId))
+        : eq(environments.id, id),
+    );
 
   return getEnvironmentById(id);
 }
 
-export async function deleteEnvironment(id: string) {
+export async function deleteEnvironment(id: string, organizationId?: string) {
+  if (organizationId) {
+    await db
+      .delete(environments)
+      .where(and(eq(environments.id, id), ownedByWorkspace(organizationId)));
+    return;
+  }
+
   await db.delete(environments).where(eq(environments.id, id));
 }
 

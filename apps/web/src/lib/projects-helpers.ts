@@ -169,3 +169,4 @@ export const deleteProjectServerFn = createServerFn({ method: "POST" })
       throw error;
     }
   });
+

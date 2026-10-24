@@ -11,7 +11,14 @@ export const listEnvironmentsServerFn = createServerFn({ method: "GET" })
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { listEnvironments } = await import("../db/queries/environments");
-      await requireActiveOrganizationId(ctx); // ensure authenticated
+      const { getProjectById } = await import("../db/queries/projects");
+      const organizationId = await requireActiveOrganizationId(ctx);
+
+      const project = await getProjectById(data.projectId, organizationId);
+      if (!project) {
+        throw new Error("Project not found in this workspace.");
+      }
+
       return listEnvironments(data.projectId);
     } catch (error) {
       await captureServerError({
@@ -29,8 +36,8 @@ export const getEnvironmentServerFn = createServerFn({ method: "GET" })
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { getEnvironmentById } = await import("../db/queries/environments");
-      await requireActiveOrganizationId(ctx);
-      return getEnvironmentById(data.id);
+      const organizationId = await requireActiveOrganizationId(ctx);
+      return getEnvironmentById(data.id, organizationId);
     } catch (error) {
       await captureServerError({
         error,
@@ -48,7 +55,13 @@ export const getEnvironmentBySlugServerFn = createServerFn({ method: "GET" })
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { getEnvironmentBySlug } = await import("../db/queries/environments");
       const { getProductionEnvironment } = await import("../db/queries/environments");
-      await requireActiveOrganizationId(ctx);
+      const { getProjectById } = await import("../db/queries/projects");
+      const organizationId = await requireActiveOrganizationId(ctx);
+
+      const project = await getProjectById(data.projectId, organizationId);
+      if (!project) {
+        throw new Error("Project not found in this workspace.");
+      }
 
       // If no slug or "production", return the production environment
       if (!data.slug || data.slug === "production") {
@@ -117,13 +130,17 @@ export const updateEnvironmentServerFn = createServerFn({ method: "POST" })
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { updateEnvironment } = await import("../db/queries/environments");
-      await requireActiveOrganizationId(ctx);
+      const organizationId = await requireActiveOrganizationId(ctx);
 
-      const env = await updateEnvironment(data.id, {
-        name: data.name,
-        slug: data.slug,
-        isProduction: data.isProduction,
-      });
+      const env = await updateEnvironment(
+        data.id,
+        {
+          name: data.name,
+          slug: data.slug,
+          isProduction: data.isProduction,
+        },
+        organizationId,
+      );
 
       await captureServerEvent({
         event: "environment_updated",
@@ -151,10 +168,8 @@ export const deleteEnvironmentServerFn = createServerFn({ method: "POST" })
     try {
       const { requireActiveOrganizationId } = await import("./auth-helpers");
       const { deleteEnvironment } = await import("../db/queries/environments");
-      const { listEnvironments } = await import("../db/queries/environments");
       const { getEnvironmentById } = await import("../db/queries/environments");
-
-      await requireActiveOrganizationId(ctx);
+      const organizationId = await requireActiveOrganizationId(ctx);
 
       // Don't allow deleting the production environment
       const env = await getEnvironmentById(data.id);
@@ -162,7 +177,7 @@ export const deleteEnvironmentServerFn = createServerFn({ method: "POST" })
         throw new Error("Cannot delete the production environment. Change the production flag to another environment first.");
       }
 
-      await deleteEnvironment(data.id);
+      await deleteEnvironment(data.id, organizationId);
 
       await captureServerEvent({
         event: "environment_deleted",

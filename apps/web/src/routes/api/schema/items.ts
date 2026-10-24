@@ -117,12 +117,13 @@ export async function handleSchemaItems(
         body.itemId,
         collection.slug,
         nextValues,
+        body.workspaceId,
       );
 
       return json({ collectionId: collection.id, item });
     }
 
-    await deps.deleteItemAction(body.itemId, collection.slug);
+    await deps.deleteItemAction(body.itemId, collection.slug, body.workspaceId);
 
     return json({ success: true, id: body.itemId });
   } catch (error) {

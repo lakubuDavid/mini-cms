@@ -95,6 +95,31 @@ export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
   },
 );
 
+export const getDashboardBootstrapServerFn = createServerFn({ method: "GET" }).handler(
+  async (ctx) => {
+    const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
+
+    const [organizations, fullOrganization] = await Promise.all([
+      auth.api.listOrganizations({ headers }),
+      organizationId
+        ? auth.api.getFullOrganization({ headers, query: { organizationId } })
+        : Promise.resolve(null),
+    ]);
+
+    const { listProjects } = await import("../db/queries/projects");
+    const projects = organizationId
+      ? await listProjects(organizationId)
+      : [];
+
+    return {
+      organization: fullOrganization,
+      organizations,
+      projects,
+      organizationId,
+    };
+  },
+);
+
 type PaginatedItems = { [x: string]: {} };
 type MemberRecord = PaginatedItems;
 type InviteRecord = PaginatedItems;
