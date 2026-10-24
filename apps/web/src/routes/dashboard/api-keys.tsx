@@ -10,6 +10,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { formatDate } from "@/lib/format-date";
 import {
   organizationQueryOptions,
   projectsQueryOptions,
@@ -479,9 +480,7 @@ function ApiKeysPage() {
                   accessor: (k) => k.createdAt ?? "",
                   cell: (k) => (
                     <span className="text-stone-500">
-                      {k.createdAt
-                        ? new Date(k.createdAt).toLocaleDateString()
-                        : "-"}
+                      {formatDate(k.createdAt)}
                     </span>
                   ),
                   className: "hidden md:table-cell",
@@ -493,9 +492,7 @@ function ApiKeysPage() {
                   accessor: (k) => k.expiresAt ?? "",
                   cell: (k) => (
                     <span className="text-stone-500">
-                      {k.expiresAt
-                        ? new Date(k.expiresAt).toLocaleDateString()
-                        : "Never"}
+                      {k.expiresAt ? formatDate(k.expiresAt) : "Never"}
                     </span>
                   ),
                   className: "hidden lg:table-cell",

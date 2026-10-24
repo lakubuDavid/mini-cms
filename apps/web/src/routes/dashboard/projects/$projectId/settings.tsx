@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { updateProjectServerFn } from "@/lib/projects-helpers";
 import { projectQueryOptions, environmentsQueryOptions } from "@/lib/queries";
+import { formatDate } from "@/lib/format-date";
 import {
   createEnvironmentServerFn,
   updateEnvironmentServerFn,
@@ -384,11 +385,7 @@ function InfoSection({
         <div className="flex items-center justify-between">
           <dt className="text-sm text-stone-500">Created</dt>
           <dd className="text-sm">
-            {new Date(createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {formatDate(createdAt)}
           </dd>
         </div>
       </dl>

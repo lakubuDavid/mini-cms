@@ -14,6 +14,7 @@ import { CreateWorkspaceForm } from "@/components/dashboard/create-workspace-for
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { formatDate } from "@/lib/format-date";
 import {
   Copy,
   AlertTriangle,
@@ -281,11 +282,7 @@ function InfoSection(props: { id: string; createdAt: Date }) {
         <div className="flex items-center justify-between rounded-lg border border-stone-200 px-4 py-3">
           <dt className="text-stone-500">Created</dt>
           <dd className="text-stone-700">
-            {new Date(props.createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {formatDate(props.createdAt)}
           </dd>
         </div>
       </dl>

@@ -10,6 +10,7 @@ import {
 import { projectsQueryOptions, assetsQueryOptions } from "@/lib/queries";
 import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { ALLOWED_ASSET_MIME_TYPES, MAX_ASSET_FILE_SIZE } from "@/lib/assets";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { DataToolbar } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
@@ -585,7 +586,7 @@ function AssetsGrid(props: {
                       </p>
                     </div>
                     <p className="text-xs text-stone-400 dark:text-stone-500">
-                      Added {new Date(asset.createdAt).toLocaleDateString()}
+                      Added {formatDate(asset.createdAt)}
                     </p>
                   </div>
                 </button>
@@ -1071,7 +1072,7 @@ function AssetDetailsDialog(props: {
             <Detail label="Size" value={formatAssetSize(props.asset.size)} />
             <Detail
               label="Uploaded"
-              value={new Date(props.asset.createdAt).toLocaleString()}
+              value={formatDateTime(props.asset.createdAt)}
             />
             <Detail label="Asset ID" value={props.asset.id} mono />
             <Detail

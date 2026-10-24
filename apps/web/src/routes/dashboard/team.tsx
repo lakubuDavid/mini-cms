@@ -16,6 +16,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { formatDate } from "@/lib/format-date";
 import {
   UserPlus,
   Mail,
@@ -322,7 +323,7 @@ function TeamPage() {
       id: "sent",
       header: "Sent",
       accessor: (i) => i.createdAt ? new Date(i.createdAt).toISOString() : "",
-      cell: (i) => <span className="text-xs text-stone-400">{i.createdAt ? new Date(i.createdAt).toLocaleDateString() : "-"}</span>,
+      cell: (i) => <span className="text-xs text-stone-400">{formatDate(i.createdAt)}</span>,
     },
     {
       id: "actions",

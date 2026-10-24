@@ -21,6 +21,7 @@ import {
   projectsQueryOptions,
 } from "@/lib/queries";
 import { env } from "@/lib/env";
+import { formatDate } from "@/lib/format-date";
 import {
   Activity,
   Layers,
@@ -214,16 +215,7 @@ function AnalyticsPage() {
                       <ChartTooltip
                         content={
                           <ChartTooltipContent
-                            labelFormatter={(v) => {
-                              return new Date(v as string).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              );
-                            }}
+                            labelFormatter={(v) => formatDate(v as string)}
                           />
                         }
                       />

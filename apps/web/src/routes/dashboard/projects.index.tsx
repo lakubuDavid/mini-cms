@@ -10,6 +10,7 @@ import { projectsQueryOptions, collectionsQueryOptions } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { formatDate } from "@/lib/format-date";
 import {
   Plus,
   FolderTree,
@@ -194,11 +195,7 @@ function ProjectsPage() {
               accessor: (p) => new Date(p.createdAt).toISOString(),
               cell: (p) => (
                 <span className="text-stone-500">
-                  {new Date(p.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  {formatDate(p.createdAt)}
                 </span>
               ),
               className: "hidden md:table-cell",
