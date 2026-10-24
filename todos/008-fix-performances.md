@@ -1,9 +1,9 @@
 ---
 id: "008"
 title: "Fix performances"
-status: pending
+status: in-progress
 created_at: 2026-07-11T04:25:09
-last_modified: 2026-07-11T04:25:09
+last_modified: 2026-10-24T06:51:34
 ---
 
 # 008: Fix performances

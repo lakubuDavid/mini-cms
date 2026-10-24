@@ -1,0 +1,1 @@
+CREATE INDEX `request_logs_project_timestamp_idx` ON `request_logs` (`project_id`,`timestamp`);
