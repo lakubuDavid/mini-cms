@@ -290,14 +290,20 @@ export async function reorderItems(collectionId: string, itemIds: string[]) {
     .map((item) => item.id)
     .filter((id) => itemIds.includes(id));
 
-  await Promise.all(
-    validIds.map((id, index) =>
-      db
-        .update(collectionItems)
-        .set({ order: index, updatedAt: new Date().toISOString() })
-        .where(inArray(collectionItems.id, [id])),
-    ),
-  );
+  if (validIds.length === 0) return;
+
+  const now = new Date().toISOString();
+  const cases = validIds
+    .map((id, index) => sql`WHEN ${id} THEN ${index}`)
+    .reduce((acc, c, i) => (i === 0 ? c : sql`${acc} ${c}`), sql``);
+
+  await db
+    .update(collectionItems)
+    .set({
+      order: sql`CASE ${collectionItems.id} ${cases} ELSE ${collectionItems.order} END`,
+      updatedAt: now,
+    })
+    .where(inArray(collectionItems.id, validIds));
 }
 
 /**
