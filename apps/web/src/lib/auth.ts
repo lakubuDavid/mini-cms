@@ -14,6 +14,7 @@ import {
 
 
 import { env } from "@/lib/env";
+import { redis } from "@/lib/cache";
 import {
   ac,
   adminRole,
@@ -31,7 +32,24 @@ export const auth = betterAuth({
   }),
   secret: env.AUTH_SECRET,
   baseURL: env.APP_URL,
+  secondaryStorage: {
+    get: async (key) => {
+      const value = await redis.get(key);
+      return value ? (typeof value === "string" ? value : JSON.stringify(value)) : null;
+    },
+    set: async (key, value, ttl) => {
+      if (ttl) {
+        await redis.set(key, value, { ex: ttl });
+      } else {
+        await redis.set(key, value);
+      }
+    },
+    delete: async (key) => {
+      await redis.del(key);
+    },
+  },
   session: {
+    storeSessionInDatabase: false,
     cookieCache: {
       enabled: true,
       maxAge: 5 * 60,
