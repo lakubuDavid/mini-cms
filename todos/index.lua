@@ -29,6 +29,6 @@ return {
     { id = "025", title = "Asset media presentation", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:47:15", file = "ux/025-asset-media-presentation.md", slice = "ux" },
     { id = "026", title = "Stable date formatting", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:50:57", file = "ux/026-stable-date-formatting.md", slice = "ux" },
     { id = "027", title = "Route typing", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:55:25", file = "ux/027-route-typing.md", slice = "ux" },
-    { id = "028", title = "Docs update", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/028-docs-update.md", slice = "ux" },
+    { id = "028", title = "Docs update", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:58:19", file = "ux/028-docs-update.md", slice = "ux" },
   },
 }

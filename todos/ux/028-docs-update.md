@@ -1,9 +1,9 @@
 ---
 id: "028"
 title: "Docs update"
-status: pending
+status: done
 created_at: 2026-10-24T11:14:59
-last_modified: 2026-10-24T11:14:59
+last_modified: 2026-10-24T11:58:19
 slice: ux
 ---
 
