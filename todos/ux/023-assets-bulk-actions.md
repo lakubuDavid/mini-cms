@@ -1,9 +1,9 @@
 ---
 id: "023"
 title: "Assets bulk actions"
-status: pending
+status: done
 created_at: 2026-10-24T11:14:59
-last_modified: 2026-10-24T11:14:59
+last_modified: 2026-10-24T11:40:41
 slice: ux
 ---
 

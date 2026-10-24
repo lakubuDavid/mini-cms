@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   LoaderCircle,
   Plus,
+  Search,
   Trash2,
   Upload,
   X,
@@ -203,9 +204,34 @@ function DashboardAssetsPage() {
         </div>
       ) : isLoading ? (
         <AssetsGridSkeleton />
+      ) : assets.length === 0 && pagination && pagination.total > 0 ? (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <h3 className="text-base font-medium text-stone-900 dark:text-stone-100">
+            Nothing on this page
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            The last item on this page was removed.
+          </p>
+          <button
+            type="button"
+            onClick={() => updateSearch({ page: 1 })}
+            className="mt-4 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+          >
+            Back to first page
+          </button>
+        </div>
       ) : (
         <>
-          <AssetsGrid assets={assets} onDeleted={invalidate} />
+          <AssetsGrid
+            assets={assets}
+            projectId={effectiveProjectId}
+            projectName={projectName}
+            hasFilters={Boolean(q || selectedType)}
+            onClearFilters={() =>
+              updateSearch({ q: undefined, type: undefined, page: 1 })
+            }
+            onChanged={invalidate}
+          />
           {pagination && pagination.totalPages > 1 ? (
             <div className="mt-4 flex items-center justify-between text-sm text-stone-500">
               <span>
@@ -250,7 +276,11 @@ function AssetsGrid(props: {
     size: number;
     createdAt: string;
   }>;
-  onDeleted: () => void;
+  projectId: string;
+  projectName: string | null;
+  hasFilters: boolean;
+  onClearFilters: () => void;
+  onChanged: () => void;
 }) {
   const [selectedAsset, setSelectedAsset] = useState<
     (typeof props.assets)[number] | null
@@ -319,7 +349,7 @@ function AssetsGrid(props: {
 
       setSelectedIds(new Set());
       setConfirmingDelete(false);
-      props.onDeleted();
+      props.onChanged();
     } catch (error) {
       setBulkError(
         error instanceof Error ? error.message : "Unable to delete assets.",
@@ -330,6 +360,29 @@ function AssetsGrid(props: {
   }
 
   if (!props.assets.length) {
+    if (props.hasFilters) {
+      return (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm dark:bg-stone-800 dark:text-stone-400">
+            <Search className="h-5 w-5" />
+          </div>
+          <h3 className="mt-4 text-base font-medium text-stone-900 dark:text-stone-100">
+            No matching assets
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            Try a different search term or clear the active filters.
+          </p>
+          <button
+            type="button"
+            onClick={props.onClearFilters}
+            className="mt-4 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+          >
+            Clear filters
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm dark:bg-stone-800 dark:text-stone-400">
@@ -341,6 +394,13 @@ function AssetsGrid(props: {
         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           Upload your first file to create a project asset library.
         </p>
+        <div className="mt-4 flex justify-center">
+          <AssetUploadDialog
+            projectId={props.projectId}
+            projectName={props.projectName}
+            onUploaded={props.onChanged}
+          />
+        </div>
       </div>
     );
   }
@@ -505,7 +565,7 @@ function AssetsGrid(props: {
           onClose={() => setSelectedAsset(null)}
           onDeleted={() => {
             setSelectedAsset(null);
-            props.onDeleted();
+            props.onChanged();
           }}
         />
       ) : null}
