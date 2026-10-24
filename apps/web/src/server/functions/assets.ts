@@ -167,6 +167,21 @@ export async function getAssetInfoAction(input: {
   return getAssetById(input.id, input.organizationId);
 }
 
+export async function deleteAssetsAction(input: {
+  ids: string[];
+  organizationId: string;
+}) {
+  const results = await Promise.allSettled(
+    input.ids.map((id) =>
+      deleteAssetAction({ id, organizationId: input.organizationId }),
+    ),
+  );
+
+  const deleted = results.filter((result) => result.status === "fulfilled").length;
+
+  return { deleted, failed: results.length - deleted };
+}
+
 export async function deleteAssetAction(input: {
   id: string;
   organizationId: string;

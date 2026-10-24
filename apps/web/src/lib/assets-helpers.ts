@@ -75,6 +75,18 @@ export const deleteAssetServerFn = createServerFn({ method: "POST" })
     });
   });
 
+export const deleteAssetsServerFn = createServerFn({ method: "POST" })
+  .validator((data: { ids: string[] }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { deleteAssetsAction } = await import("../server/functions/assets");
+
+    return deleteAssetsAction({
+      ids: data.ids,
+      organizationId: await requireActiveOrganizationId(ctx),
+    });
+  });
+
 export const getAssetInfoServerFn = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {

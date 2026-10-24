@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAssetServerFn,
+  deleteAssetsServerFn,
   requestAssetUploadServerFn,
   confirmAssetUploadServerFn,
 } from "@/lib/assets-helpers";
@@ -254,6 +255,79 @@ function AssetsGrid(props: {
   const [selectedAsset, setSelectedAsset] = useState<
     (typeof props.assets)[number] | null
   >(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Drop selections that disappeared after a refetch or page change.
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      const available = new Set(props.assets.map((asset) => asset.id));
+      const next = new Set(
+        [...previous].filter((id) => available.has(id)),
+      );
+
+      return next.size === previous.size ? previous : next;
+    });
+  }, [props.assets]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 2000);
+
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  const selectedAssets = props.assets.filter((asset) =>
+    selectedIds.has(asset.id),
+  );
+
+  function toggleSelection(id: string) {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+    setConfirmingDelete(false);
+  }
+
+  async function copySelectedUrls() {
+    const text = selectedAssets.map((asset) => asset.publicUrl).join("\n");
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+  }
+
+  async function deleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+
+    try {
+      const result = await deleteAssetsServerFn({
+        data: { ids: [...selectedIds] },
+      });
+
+      if (result.failed > 0) {
+        setBulkError(`${result.failed} asset(s) could not be deleted.`);
+      }
+
+      setSelectedIds(new Set());
+      setConfirmingDelete(false);
+      props.onDeleted();
+    } catch (error) {
+      setBulkError(
+        error instanceof Error ? error.message : "Unable to delete assets.",
+      );
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   if (!props.assets.length) {
     return (
@@ -273,48 +347,156 @@ function AssetsGrid(props: {
 
   return (
     <>
+      {selectedIds.size > 0 ? (
+        <div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-stone-700 dark:bg-stone-900/95">
+          <span className="text-sm font-medium tabular-nums text-stone-900 dark:text-stone-100">
+            {selectedIds.size} selected
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedIds(new Set(props.assets.map((asset) => asset.id)))
+            }
+            className="rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+          >
+            Select all
+          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={copySelectedUrls}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copied ? "Copied" : "Copy URLs"}
+            </button>
+            {confirmingDelete ? (
+              <>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={bulkDeleting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-60"
+                >
+                  {bulkDeleting ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  Delete {selectedIds.size}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={bulkDeleting}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-stone-500 transition hover:bg-stone-100 dark:hover:bg-stone-800"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-stone-700 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIds(new Set());
+                setConfirmingDelete(false);
+              }}
+              aria-label="Clear selection"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {bulkError ? (
+        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {bulkError}
+        </p>
+      ) : null}
+
       <div className="max-h-[640px] overflow-y-auto rounded-xl">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {props.assets.map((asset) => (
-          <button
-            key={asset.id}
-            type="button"
-            onClick={() => setSelectedAsset(asset)}
-            className="group overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:focus-visible:ring-stone-500"
-          >
-            <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-              {asset.contentType.startsWith("image/") ? (
-                <AssetThumb src={asset.publicUrl} alt={asset.filename} />
-              ) : asset.contentType.startsWith("video/") ? (
-                <video
-                  src={asset.publicUrl}
-                  className="h-full w-full object-cover"
-                  muted
-                  preload="metadata"
-                />
-              ) : (
-                <AssetTypeIcon
-                  contentType={asset.contentType}
-                  className="h-10 w-10 text-stone-400 dark:text-stone-500"
-                />
-              )}
-            </div>
-            <div className="space-y-2 p-4">
-              <div>
-                <p className="line-clamp-1 text-sm font-medium text-stone-900 dark:text-stone-100">
-                  {asset.filename}
-                </p>
-                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                  {formatAssetSize(asset.size)} &middot; {asset.contentType}
-                </p>
+          {props.assets.map((asset) => {
+            const isSelected = selectedIds.has(asset.id);
+
+            return (
+              <div key={asset.id} className="group/card relative">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAsset(asset)}
+                  className={`group block w-full overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:bg-stone-900 dark:focus-visible:ring-stone-500 ${
+                    isSelected
+                      ? "border-stone-900 ring-2 ring-stone-900 dark:border-stone-100 dark:ring-stone-100"
+                      : "border-stone-200 dark:border-stone-800"
+                  }`}
+                >
+                  <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+                    {asset.contentType.startsWith("image/") ? (
+                      <AssetThumb src={asset.publicUrl} alt={asset.filename} />
+                    ) : asset.contentType.startsWith("video/") ? (
+                      <video
+                        src={asset.publicUrl}
+                        className="h-full w-full object-cover"
+                        muted
+                        preload="metadata"
+                      />
+                    ) : (
+                      <AssetTypeIcon
+                        contentType={asset.contentType}
+                        className="h-10 w-10 text-stone-400 dark:text-stone-500"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <div>
+                      <p className="line-clamp-1 text-sm font-medium text-stone-900 dark:text-stone-100">
+                        {asset.filename}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        {formatAssetSize(asset.size)} &middot; {asset.contentType}
+                      </p>
+                    </div>
+                    <p className="text-xs text-stone-400 dark:text-stone-500">
+                      Added {new Date(asset.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleSelection(asset.id)}
+                  aria-pressed={isSelected}
+                  aria-label={
+                    isSelected
+                      ? `Deselect ${asset.filename}`
+                      : `Select ${asset.filename}`
+                  }
+                  className={`absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
+                    isSelected
+                      ? "border-stone-900 bg-stone-900 text-white opacity-100 dark:border-stone-100 dark:bg-stone-100 dark:text-stone-900"
+                      : "border-stone-300 bg-white/90 text-transparent opacity-0 hover:bg-white group-hover/card:opacity-100 dark:border-stone-600 dark:bg-stone-800/90"
+                  }`}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
               </div>
-              <p className="text-xs text-stone-400 dark:text-stone-500">
-                Added {new Date(asset.createdAt).toLocaleDateString()}
-              </p>
-            </div>
-          </button>
-        ))}
-      </div>
+            );
+          })}
+        </div>
       </div>
 
       {selectedAsset ? (
