@@ -31,6 +31,14 @@ export const auth = betterAuth({
   }),
   secret: env.AUTH_SECRET,
   baseURL: env.APP_URL,
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+      strategy: "compact",
+    },
+    deferSessionRefresh: true,
+  },
   emailAndPassword: {
     enabled: true,
   },
