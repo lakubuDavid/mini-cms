@@ -26,6 +26,15 @@ When you sign in, the dashboard shows your workspace:
 
 The workspace ID (`w`) is used in the public content API and schema API requests.
 
+## Sidebar
+
+The sidebar holds navigation, the project selector, and workspace utilities:
+
+- **Project selector**: switches the active project. The selection is kept in the URL.
+- **Environment selector**: appears when a project has more than one environment. It scopes collection views to the selected environment.
+- **Collapse toggle**: collapses the sidebar to icons to give content more room. Hovering a collapsed icon shows its label.
+- **Docs**: opens this documentation from the sidebar footer.
+
 ## Create A Project
 
 1. Sign in to the dashboard.
@@ -40,7 +49,7 @@ Projects group related collections inside a workspace. Each project has its own:
 - Schema definitions
 - API key scope (optional)
 
-You can switch between projects using the dropdown selector in the Collections view.
+You can switch between projects using the selector at the top of the sidebar.
 
 ## Create A Collection
 
@@ -147,9 +156,17 @@ Assets are project-scoped, just like collections. Supported file types are commo
 The Assets page also lets you:
 
 - browse uploaded files in a visual grid
-- preview image assets
+- filter by type (`All`, `Images`, `Videos`, `Docs`)
+- search by filename, sort by name, type, size, or date, and page through results
+- toggle between `Fill` and `Fit` to crop or letterbox image previews
+- preview image assets and open a video to play it
 - copy the public URL for any asset
+- select multiple assets to copy their URLs or delete them in one action
 - delete files that are no longer needed
+
+Selections are per page and clear automatically when the files are removed or you change pages. Bulk deletion asks for confirmation and cannot be undone.
+
+When a project has no assets, the empty state offers an `Upload asset` button. If a search or filter returns nothing, the page shows a separate no-matches state with a `Clear filters` action.
 
 ### API Key Scopes
 
@@ -169,9 +186,6 @@ In demo environments, invites are also constrained by `DEMO_MAX_USERS_PER_WORKSP
 
 ## Environment
 
-The Environment section shows:
+The sidebar shows an environment dropdown when the active project defines more than one environment. Use it to switch between environments such as production or staging. The selected environment is added to the URL as `env` and scopes collection views to items created for that environment.
 
-- Current deployment URL
-- API version information
-
-This helps developers verify their integration is pointing at the correct instance.
+Production is the default and is not written to the URL. This helps developers verify that they are editing the same environment their integration is pointing at.

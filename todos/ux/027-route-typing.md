@@ -1,9 +1,9 @@
 ---
 id: "027"
 title: "Route typing"
-status: pending
+status: done
 created_at: 2026-10-24T11:14:59
-last_modified: 2026-10-24T11:14:59
+last_modified: 2026-10-24T11:55:25
 slice: ux
 ---
 
