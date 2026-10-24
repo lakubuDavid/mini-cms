@@ -148,21 +148,24 @@ function DashboardLayoutInner() {
   return (
     <SidebarProvider
       className="min-h-svh bg-background text-foreground"
-      style={{ "--sidebar-width": "300px" } as React.CSSProperties}
+      style={{ "--sidebar-width": "260px" } as React.CSSProperties}
     >
       <Sidebar
-        collapsible={isMobile ? "offcanvas" : "none"}
+        collapsible={isMobile ? "offcanvas" : "icon"}
         className="border-r border-sidebar-border h-svh"
       >
-        <SidebarHeader className="p-4">
-          <div className="flex items-center gap-2.5 px-2 py-1">
+        <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2">
+          <div className="flex items-center gap-2.5 px-2 py-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:px-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-900 text-white dark:bg-white dark:text-stone-900">
               <Layers className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold tracking-tight">Mini CMS</span>
+            <span className="truncate text-sm font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+              Mini CMS
+            </span>
+            <SidebarTrigger className="ml-auto text-stone-500 group-data-[collapsible=icon]:ml-0" />
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-3 group-data-[collapsible=icon]:hidden">
             <div className="rounded-xl border flex flex-col border-stone-200 bg-white p-2.5 dark:border-stone-800 dark:bg-stone-800">
               <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
                 Project
@@ -220,7 +223,7 @@ function DashboardLayoutInner() {
           <SidebarGroup className="pt-0">
             <SidebarMenu className="gap-0.5 text-sm">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild tooltip="Collections">
                   <Link
                     to="/dashboard"
                     search={{ projectId: undefined }}
@@ -228,24 +231,24 @@ function DashboardLayoutInner() {
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    Collections
+                    <span className="truncate group-data-[collapsible=icon]:hidden">Collections</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild tooltip="Assets">
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Link
                     to={"/dashboard/assets" as any}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    Assets
+                    <span className="truncate group-data-[collapsible=icon]:hidden">Assets</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild tooltip="Team">
                   <Link
                     to="/dashboard/team"
                     search={{
@@ -264,38 +267,38 @@ function DashboardLayoutInner() {
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    Team
+                    <span className="truncate group-data-[collapsible=icon]:hidden">Team</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild tooltip="API Keys">
                   <Link
                     to="/dashboard/api-keys"
                     search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
                     className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    API Keys
+                    <span className="truncate group-data-[collapsible=icon]:hidden">API Keys</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip="Analytics">
                     <Link
                       to="/dashboard/analytics"
                       search={{ projectId: undefined, range: "30d" }}
                       className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                     >
                       <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                      Analytics
+                      <span className="truncate group-data-[collapsible=icon]:hidden">Analytics</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ) : null}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
+                <SidebarMenuButton asChild tooltip="Docs">
                   <a
                     href={env.PUBLIC_DOCS_URL}
                     target="_blank"
@@ -303,7 +306,7 @@ function DashboardLayoutInner() {
                     className="text-stone-700 transition hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-stone-800"
                   >
                     <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-                    Docs
+                    <span className="truncate group-data-[collapsible=icon]:hidden">Docs</span>
                     <ExternalLink className="ml-auto h-3 w-3 text-stone-400" />
                   </a>
                 </SidebarMenuButton>
@@ -320,7 +323,7 @@ function DashboardLayoutInner() {
                   className="fixed inset-0 z-40"
                   onClick={() => setWorkspaceMenuOpen(false)}
                 />
-                <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-stone-700 dark:bg-stone-900">
                   <div className="mb-2 flex flex-col items-center justify-between px-1">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500 dark:text-stone-400">
                       Workspaces
@@ -376,10 +379,10 @@ function DashboardLayoutInner() {
             <button
               type="button"
               onClick={() => setWorkspaceMenuOpen((open) => !open)}
-              className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 dark:border-stone-800 dark:hover:bg-stone-800"
+              className="mb-3 flex w-full items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-left text-sm transition hover:bg-stone-100 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:px-0 dark:border-stone-800 dark:hover:bg-stone-800"
             >
               <Settings className="h-4 w-4 text-stone-500 dark:text-stone-400" />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                 <p className="truncate font-medium text-stone-900 dark:text-stone-100">
                   {organization?.name ?? "Create workspace"}
                 </p>
@@ -388,7 +391,7 @@ function DashboardLayoutInner() {
                 </p>
               </div>
               <ChevronDown
-                className={`h-4 w-4 shrink-0 text-stone-400 transition ${workspaceMenuOpen ? "rotate-180" : ""}`}
+                className={`h-4 w-4 shrink-0 text-stone-400 transition group-data-[collapsible=icon]:hidden ${workspaceMenuOpen ? "rotate-180" : ""}`}
               />
             </button>
           </div>
@@ -400,7 +403,7 @@ function DashboardLayoutInner() {
                   className="fixed inset-0 z-40"
                   onClick={() => setProfileOpen(false)}
                 />
-                <div className="absolute bottom-full left-0 z-50 mb-2 w-full rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
+                <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-xl border border-stone-200 bg-white p-3 shadow-lg dark:border-stone-700 dark:bg-stone-900">
                   <div className="mb-3 px-1">
                     <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
                       {user.name || "User"}
@@ -446,7 +449,7 @@ function DashboardLayoutInner() {
             <button
               type="button"
               onClick={() => setProfileOpen(!profileOpen)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition hover:bg-stone-100 dark:hover:bg-stone-800"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition hover:bg-stone-100 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:hover:bg-stone-800"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-stone-200 text-stone-600 dark:bg-stone-700 dark:text-stone-300">
                 {user.image ? (
@@ -459,7 +462,7 @@ function DashboardLayoutInner() {
                   <User className="h-4 w-4" />
                 )}
               </div>
-              <div className="min-w-0 flex-1 text-left">
+              <div className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-sm font-medium text-stone-900 dark:text-stone-100">
                   {user.name || "User"}
                 </p>
@@ -467,7 +470,7 @@ function DashboardLayoutInner() {
                   {user.email}
                 </p>
               </div>
-              <ChevronUp className="h-4 w-4 shrink-0 text-stone-400" />
+              <ChevronUp className="h-4 w-4 shrink-0 text-stone-400 group-data-[collapsible=icon]:hidden" />
             </button>
           </div>
         </SidebarFooter>
