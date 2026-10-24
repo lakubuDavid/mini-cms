@@ -147,7 +147,7 @@ function DashboardLayoutInner() {
 
   return (
     <SidebarProvider
-      className="min-h-svh bg-background text-foreground"
+      className="h-svh overflow-hidden bg-background text-foreground"
       style={{ "--sidebar-width": "260px" } as React.CSSProperties}
     >
       <Sidebar
@@ -472,7 +472,7 @@ function DashboardLayoutInner() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="dash-dark min-w-0 flex-1 bg-transparent h-svh">
+      <SidebarInset className="dash-dark min-w-0 flex-1 overflow-y-auto bg-transparent h-svh">
         {/* Mobile header with hamburger */}
         <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900 md:hidden">
           <SidebarTrigger className="h-8 w-8 text-stone-600 dark:text-stone-400" />

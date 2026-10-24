@@ -1,9 +1,9 @@
 ---
 id: "020"
 title: "Utility nav grouping"
-status: pending
+status: done
 created_at: 2026-10-24T11:14:59
-last_modified: 2026-10-24T11:14:59
+last_modified: 2026-10-24T11:29:53
 slice: ux
 ---
 
