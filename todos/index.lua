@@ -22,7 +22,7 @@ return {
     { id = "018", title = "Use secondary storage (Redis) for sessions", status = "done", created_at = "2026-10-24T02:21:05", last_modified = "2026-10-24T02:27:18", file = "optimize/018-use-secondary-storage-redis-for-sessions.md", slice = "optimize" },
     { id = "019", title = "Sidebar width and collapse", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:25:38", file = "ux/019-sidebar-width-and-collapse.md", slice = "ux" },
     { id = "020", title = "Utility nav grouping", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:29:53", file = "ux/020-utility-nav-grouping.md", slice = "ux" },
-    { id = "021", title = "Single scroll region", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/021-single-scroll-region.md", slice = "ux" },
+    { id = "021", title = "Single scroll region", status = "done", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:31:16", file = "ux/021-single-scroll-region.md", slice = "ux" },
     { id = "022", title = "Focus rings", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/022-focus-rings.md", slice = "ux" },
     { id = "023", title = "Assets bulk actions", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/023-assets-bulk-actions.md", slice = "ux" },
     { id = "024", title = "Assets empty and no-match states", status = "pending", created_at = "2026-10-24T11:14:59", last_modified = "2026-10-24T11:14:59", file = "ux/024-assets-empty-and-no-match-states.md", slice = "ux" },

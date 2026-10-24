@@ -228,7 +228,7 @@ function DashboardLayoutInner() {
                     to="/dashboard"
                     search={{ projectId: undefined }}
                     activeOptions={{ exact: true }}
-                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Collections</span>
@@ -240,7 +240,7 @@ function DashboardLayoutInner() {
                   {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                   <Link
                     to={"/dashboard/assets" as any}
-                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Assets</span>
@@ -264,7 +264,7 @@ function DashboardLayoutInner() {
                       invitesOrder: undefined,
                       projectId: currentProjectId || undefined,
                     }}
-                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Team</span>
@@ -276,7 +276,7 @@ function DashboardLayoutInner() {
                   <Link
                     to="/dashboard/api-keys"
                     search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
-                    className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                   >
                     <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">API Keys</span>
@@ -289,7 +289,7 @@ function DashboardLayoutInner() {
                     <Link
                       to="/dashboard/analytics"
                       search={{ projectId: undefined, range: "30d" }}
-                      className="text-stone-700 transition hover:bg-stone-100 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                      className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
                     >
                       <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
                       <span className="truncate group-data-[collapsible=icon]:hidden">Analytics</span>
@@ -306,7 +306,7 @@ function DashboardLayoutInner() {
             href={env.PUBLIC_DOCS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-stone-600 transition hover:bg-stone-100 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:text-stone-300 dark:hover:bg-stone-800"
+            className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-stone-600 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500"
           >
             <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
             <span className="group-data-[collapsible=icon]:hidden">Docs</span>

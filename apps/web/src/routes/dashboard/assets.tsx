@@ -141,14 +141,14 @@ function DashboardAssetsPage() {
               <button
                 key={chip.label}
                 type="button"
-                  onClick={() => {
-                    if (chip.key) {
-                      updateSearch({ type: chip.key as "images" | "videos" | "documents", page: 1 });
-                    } else {
-                      updateSearch({ type: undefined, page: 1 });
-                    }
-                  }}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                onClick={() => {
+                  if (chip.key) {
+                    updateSearch({ type: chip.key as "images" | "videos" | "documents", page: 1 });
+                  } else {
+                    updateSearch({ type: undefined, page: 1 });
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:focus-visible:ring-stone-500 ${
                   isActive
                     ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
                     : "bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
@@ -215,7 +215,7 @@ function DashboardAssetsPage() {
                   type="button"
                   disabled={page <= 1}
                   onClick={() => updateSearch({ page: page - 1 })}
-                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 disabled:opacity-50 dark:focus-visible:ring-stone-500"
                 >
                   Previous
                 </button>
@@ -223,7 +223,7 @@ function DashboardAssetsPage() {
                   type="button"
                   disabled={page >= pagination.totalPages}
                   onClick={() => updateSearch({ page: page + 1 })}
-                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-50"
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 disabled:opacity-50 dark:focus-visible:ring-stone-500"
                 >
                   Next
                 </button>
@@ -280,7 +280,7 @@ function AssetsGrid(props: {
             key={asset.id}
             type="button"
             onClick={() => setSelectedAsset(asset)}
-            className="group overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-stone-800 dark:bg-stone-900"
+            className="group overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:focus-visible:ring-stone-500"
           >
             <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
               {asset.contentType.startsWith("image/") ? (
