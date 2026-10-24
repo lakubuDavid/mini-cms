@@ -1,7 +1,6 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { environmentsQueryOptions } from "@/lib/queries";
-import { Check } from "lucide-react";
 
 const ENV_COLORS: Record<string, string> = {
   production: "bg-emerald-500",
@@ -22,7 +21,6 @@ function getEnvFromUrl(): string {
 export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
   const [currentEnvSlug, setCurrentEnvSlug] = useState(getEnvFromUrl);
 
-  // Sync with URL changes (from TanStack Router navigation)
   useEffect(() => {
     const handler = () => setCurrentEnvSlug(getEnvFromUrl());
     window.addEventListener("popstate", handler);
@@ -58,33 +56,22 @@ export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
       <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
         Environment
       </p>
-      <div className="flex flex-wrap gap-1.5">
-        {environments.map((env) => {
-          const isActive =
-            env.slug === currentEnvSlug ||
-            (!currentEnvSlug && env.isProduction && env.slug === "production");
-
-          return (
-            <button
-              key={env.id}
-              type="button"
-              onClick={() => handleChange(env.slug)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
-                isActive
-                  ? "bg-stone-900 text-white dark:bg-white dark:text-stone-900"
-                  : "bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-900 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700 dark:hover:text-white"
-              }`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${getEnvColor(env.slug)}`}
-              />
+      <div className="relative flex items-center gap-2">
+        <span
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${getEnvColor(currentEnvSlug)}`}
+          aria-hidden
+        />
+        <select
+          value={currentEnvSlug}
+          onChange={(event) => handleChange(event.target.value)}
+          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+        >
+          {environments.map((env) => (
+            <option key={env.id} value={env.slug}>
               {env.name}
-              {isActive ? (
-                <Check className="h-3 w-3" />
-              ) : null}
-            </button>
-          );
-        })}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
