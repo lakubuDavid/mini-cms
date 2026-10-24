@@ -94,7 +94,7 @@ export function DataTable<Row>({
         </p>
       ) : null}
 
-      <div className="relative overflow-hidden rounded-lg border border-stone-200">
+      <div className="relative max-h-[600px] overflow-auto rounded-lg border border-stone-200">
         {/* Progress bar */}
         {isLoading ? (
           <div className="absolute top-0 left-0 right-0 z-10 h-0.5 overflow-hidden bg-stone-200">

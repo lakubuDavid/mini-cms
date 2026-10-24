@@ -192,7 +192,7 @@ function DashboardHome() {
         filterPlaceholder="Filter collections…"
       />
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>
@@ -336,7 +336,7 @@ function DashboardHomeSkeleton() {
         <Skeleton className="h-9 w-36 rounded-lg" />
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>

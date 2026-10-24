@@ -572,7 +572,7 @@ function CollectionPageContent(props: {
         </div>
       )}
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
@@ -897,7 +897,7 @@ function CollectionPageSkeleton() {
         </div>
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
