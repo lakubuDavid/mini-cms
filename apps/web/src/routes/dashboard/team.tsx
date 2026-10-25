@@ -1,21 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createInvitationAction,
   cancelInvitationAction,
   resendInvitationAction,
+  setMemberProjectAccessServerFn,
   updateMemberRoleAction,
   removeMemberAction,
 } from "@/lib/auth-helpers";
 import {
   organizationQueryOptions,
+  queryKeys,
+  teamProjectAccessQueryOptions,
   teamQueryOptions,
   invitesQueryOptions,
 } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { formatDate } from "@/lib/format-date";
 import {
   UserPlus,
@@ -29,6 +33,7 @@ import {
   LoaderCircle,
   UserMinus,
   ChevronDown,
+  FolderKanban,
 } from "lucide-react";
 
 function intOrUndefined(v: unknown): number | undefined {
@@ -105,8 +110,31 @@ function TeamPage() {
     ...invitesQueryOptions(invitesTable.page, invitesTable.pageSize),
   });
 
+  const organization = orgQuery.data ?? null;
+  const currentMembership = organization?.members?.find(
+    (member) => member.user.id === currentUser.id,
+  );
+  const canManageTeam =
+    currentMembership?.role === "owner" || currentMembership?.role === "admin";
+
+  const teamProjectAccessQuery = useQuery({
+    ...teamProjectAccessQueryOptions(),
+    enabled: canManageTeam,
+  });
+  const accessByMember = new Map(
+    (teamProjectAccessQuery.data?.members ?? []).map((entry) => [
+      entry.memberId,
+      entry.projectIds,
+    ]),
+  );
+  const teamProjects = teamProjectAccessQuery.data?.projects ?? [];
+  const accessUnavailable = teamProjectAccessQuery.isError;
+
   const isLoading =
-    orgQuery.isLoading || usersQuery.isLoading || invitesQuery.isLoading;
+    orgQuery.isLoading ||
+    usersQuery.isLoading ||
+    invitesQuery.isLoading ||
+    (canManageTeam && teamProjectAccessQuery.isLoading);
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("admin");
@@ -117,16 +145,26 @@ function TeamPage() {
   } | null>(null);
 
   const [memberAction, setMemberAction] = useState<{
-    type: "role" | "remove";
+    type: "role" | "remove" | "access";
     memberId: string;
     status: "busy" | "done";
     message: string | null;
     error: string | null;
   } | null>(null);
 
+  const [accessMember, setAccessMember] = useState<TeamMember | null>(null);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [accessSaving, setAccessSaving] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["team"] });
     void queryClient.invalidateQueries({ queryKey: ["invites"] });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.teamProjectAccess(),
+    });
   }
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
@@ -185,18 +223,68 @@ function TeamPage() {
     setTimeout(() => setMemberAction(null), 4000);
   }
 
+  function openAccessDialog(member: TeamMember) {
+    setAccessMember(member);
+    setSelectedProjectIds(new Set(accessByMember.get(member.id) ?? []));
+    setAccessError(null);
+  }
+
+  function toggleProject(projectId: string) {
+    setSelectedProjectIds((previous) => {
+      const next = new Set(previous);
+
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+
+      return next;
+    });
+  }
+
+  async function handleSaveAccess() {
+    if (!accessMember) {
+      return;
+    }
+
+    setAccessSaving(true);
+    setAccessError(null);
+
+    try {
+      await setMemberProjectAccessServerFn({
+        data: {
+          memberId: accessMember.id,
+          projectIds: [...selectedProjectIds],
+        },
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.teamProjectAccess(),
+      });
+      setMemberAction({
+        type: "access",
+        memberId: accessMember.id,
+        status: "done",
+        message: "Project access updated.",
+        error: null,
+      });
+      setAccessMember(null);
+      setTimeout(() => setMemberAction(null), 4000);
+    } catch (err) {
+      setAccessError(
+        err instanceof Error ? err.message : "Failed to update project access.",
+      );
+    } finally {
+      setAccessSaving(false);
+    }
+  }
+
   if (isLoading) return <TeamPageSkeleton />;
 
-  const organization = orgQuery.data ?? null;
   const members: TeamMember[] = ((usersQuery.data as { items?: TeamMember[] } | undefined)?.items ?? []) as TeamMember[];
   const invites: InviteRow[] = ((invitesQuery.data as { items?: InviteRow[] } | undefined)?.items ?? []) as InviteRow[];
   const membersTotal = Number((usersQuery.data as { total?: number } | undefined)?.total ?? 0);
   const invitesTotal = Number((invitesQuery.data as { total?: number } | undefined)?.total ?? 0);
-  const currentMembership = organization?.members?.find(
-    (m) => m.user.id === currentUser.id,
-  );
-  const canManageTeam =
-    currentMembership?.role === "owner" || currentMembership?.role === "admin";
 
   const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersTable.pageSize));
   const invitesTotalPages = Math.max(1, Math.ceil(invitesTotal / invitesTable.pageSize));
@@ -240,8 +328,11 @@ function TeamPage() {
       accessor: (m) => m.role,
       cell: (m) => {
         const isSelf = m.user.id === currentUser.id;
-        const isBusy = memberAction?.memberId === m.id && memberAction?.status === "busy";
-        if (canManageTeam && !isSelf) {
+        const isBusy =
+          memberAction?.memberId === m.id &&
+          memberAction?.type === "role" &&
+          memberAction?.status === "busy";
+        if (canManageTeam && !isSelf && m.role !== "owner") {
           return (
             <div className="flex items-center gap-2">
               <div className="relative inline-block">
@@ -257,14 +348,16 @@ function TeamPage() {
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-stone-400" />
               </div>
-              {memberAction?.memberId === m.id && memberAction?.status === "done" && (
-                <span className={`inline-flex items-center gap-1 text-xs ${
-                  memberAction.message ? "text-green-600" : "text-red-600"
-                }`}>
-                  {memberAction.message ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                  {memberAction.message ?? memberAction.error}
-                </span>
-              )}
+              {memberAction?.memberId === m.id &&
+                memberAction?.type === "role" &&
+                memberAction?.status === "done" && (
+                  <span className={`inline-flex items-center gap-1 text-xs ${
+                    memberAction.message ? "text-green-600" : "text-red-600"
+                  }`}>
+                    {memberAction.message ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+                    {memberAction.message ?? memberAction.error}
+                  </span>
+                )}
             </div>
           );
         }
@@ -279,13 +372,84 @@ function TeamPage() {
     ...(canManageTeam
       ? [
           {
+            id: "projects" as const,
+            header: "Projects",
+            accessor: (m: TeamMember) => m.id,
+            sortable: false,
+            cell: (m: TeamMember) => {
+              const isFullAccess = m.role
+                .split(",")
+                .some((role) => role === "owner" || role === "admin");
+
+              if (isFullAccess) {
+                return (
+                  <span className="text-xs text-stone-400">All projects</span>
+                );
+              }
+
+              if (accessUnavailable) {
+                return (
+                  <span className="text-xs text-red-600">Unavailable</span>
+                );
+              }
+
+              const count = accessByMember.get(m.id)?.length ?? 0;
+
+              return (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs ${
+                      count === 0 ? "text-stone-400" : "text-stone-600"
+                    }`}
+                  >
+                    {count === 0
+                      ? "No projects"
+                      : `${count} project${count === 1 ? "" : "s"}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => openAccessDialog(m)}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-100 hover:text-stone-900"
+                    title="Manage project access"
+                  >
+                    <FolderKanban className="h-3 w-3" />
+                    Manage
+                  </button>
+                  {memberAction?.memberId === m.id &&
+                    memberAction?.type === "access" &&
+                    memberAction?.status === "done" && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs ${
+                          memberAction.message ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {memberAction.message ? (
+                          <CheckCircle className="h-3 w-3" />
+                        ) : (
+                          <AlertCircle className="h-3 w-3" />
+                        )}
+                        {memberAction.message ?? memberAction.error}
+                      </span>
+                    )}
+                </div>
+              );
+            },
+          } as DataTableColumn<TeamMember>,
+        ]
+      : []),
+    ...(canManageTeam
+      ? [
+          {
             id: "actions" as const,
             header: () => <span className="sr-only">Actions</span>,
             accessor: (m: TeamMember) => m.id,
             sortable: false,
             cell: (m: TeamMember) => {
               const isSelf = m.user.id === currentUser.id;
-              const isBusy = memberAction?.memberId === m.id && memberAction?.status === "busy";
+              const isBusy =
+                memberAction?.memberId === m.id &&
+                memberAction?.type === "remove" &&
+                memberAction?.status === "busy";
               if (isSelf || m.role === "owner") return null;
               return (
                 <div className="flex justify-end">
@@ -486,7 +650,160 @@ function TeamPage() {
           </div>
         </div>
       ) : canManageTeam ? null : null}
+
+      {accessMember && (
+        <ProjectAccessDialog
+          member={accessMember}
+          projects={teamProjects}
+          selectedProjectIds={selectedProjectIds}
+          onToggle={toggleProject}
+          onSelectAll={() =>
+            setSelectedProjectIds(
+              new Set(teamProjects.map((project) => project.id)),
+            )
+          }
+          onClear={() => setSelectedProjectIds(new Set())}
+          onClose={() => {
+            if (!accessSaving) {
+              setAccessMember(null);
+              setAccessError(null);
+            }
+          }}
+          onSave={() => void handleSaveAccess()}
+          saving={accessSaving}
+          error={accessError}
+        />
+      )}
     </section>
+  );
+}
+
+function ProjectAccessDialog({
+  member,
+  projects,
+  selectedProjectIds,
+  onToggle,
+  onSelectAll,
+  onClear,
+  onClose,
+  onSave,
+  saving,
+  error,
+}: {
+  member: TeamMember;
+  projects: { id: string; name: string }[];
+  selectedProjectIds: Set<string>;
+  onToggle: (projectId: string) => void;
+  onSelectAll: () => void;
+  onClear: () => void;
+  onClose: () => void;
+  onSave: () => void;
+  saving: boolean;
+  error: string | null;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(dialogRef, onClose, !saving);
+
+  const memberLabel = member.user.name ?? member.user.email ?? "This member";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Project access for ${memberLabel}`}
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+        className="w-full max-w-md rounded-xl border border-stone-200 bg-white p-6 shadow-xl outline-none"
+      >
+        <h3 className="text-lg font-semibold tracking-tight text-stone-900">
+          Project access
+        </h3>
+        <p className="mt-1 text-sm text-stone-500">
+          {memberLabel} only sees the projects you select. Owners and admins
+          always see every project.
+        </p>
+
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs font-medium uppercase tracking-wider text-stone-400">
+            Projects
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onSelectAll}
+              disabled={saving}
+              className="text-xs font-medium text-stone-600 transition hover:text-stone-900 disabled:opacity-50"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              disabled={saving}
+              className="text-xs font-medium text-stone-600 transition hover:text-stone-900 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2 max-h-72 space-y-1 overflow-y-auto rounded-lg border border-stone-200 p-2">
+          {projects.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-stone-500">
+              No projects in this workspace yet.
+            </p>
+          ) : (
+            projects.map((project) => (
+              <label
+                key={project.id}
+                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-stone-700 transition hover:bg-stone-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedProjectIds.has(project.id)}
+                  onChange={() => onToggle(project.id)}
+                  disabled={saving}
+                  className="h-4 w-4 rounded border-stone-300 accent-stone-900 disabled:opacity-50"
+                />
+                <span className="truncate">{project.name}</span>
+              </label>
+            ))
+          )}
+        </div>
+
+        {error && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -518,7 +835,7 @@ function InviteActionsCell({ invite, organizationId, onUpdate }: {
         data: {
           invitationId: invite.id,
           email: invite.email,
-          role: invite.role as "admin" | "reviewer",
+          role: invite.role as "admin" | "owner" | "member" | "reviewer",
           organizationId,
         },
       });

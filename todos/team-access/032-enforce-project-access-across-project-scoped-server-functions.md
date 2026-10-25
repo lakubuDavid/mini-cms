@@ -1,9 +1,9 @@
 ---
 id: "032"
 title: "Enforce project access across project-scoped server functions"
-status: in-progress
+status: done
 created_at: 2026-10-25T09:16:08
-last_modified: 2026-10-25T09:29:51
+last_modified: 2026-10-25T09:42:06
 slice: team-access
 ---
 

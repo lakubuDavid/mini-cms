@@ -223,6 +223,141 @@ export const listAdminUsers = createServerFn({ method: "GET" })
     });
   });
 
+export const getTeamProjectAccessServerFn = createServerFn({
+  method: "GET",
+}).handler(async (ctx) => {
+  const { getActiveProjectContext } = await import("./project-access");
+  const { access, organizationId } = await getActiveProjectContext(ctx);
+
+  if (!access.all) {
+    throw new Error("Forbidden: team management requires owner or admin");
+  }
+
+  const { db } = await import("@/db");
+  const { projectMembers } = await import("@/db/schema/project-members");
+  const { projects } = await import("@/db/schema/projects");
+  const { asc, eq } = await import("drizzle-orm");
+
+  const [projectRows, memberRows] = await Promise.all([
+    db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(eq(projects.organizationId, organizationId))
+      .orderBy(asc(projects.name)),
+    db
+      .select({
+        memberId: projectMembers.memberId,
+        projectId: projectMembers.projectId,
+      })
+      .from(projectMembers)
+      .where(eq(projectMembers.organizationId, organizationId)),
+  ]);
+
+  const byMember = new Map<string, string[]>();
+
+  for (const row of memberRows) {
+    const projectIds = byMember.get(row.memberId) ?? [];
+    projectIds.push(row.projectId);
+    byMember.set(row.memberId, projectIds);
+  }
+
+  return toPlainJson({
+    projects: projectRows,
+    members: Array.from(byMember, ([memberId, projectIds]) => ({
+      memberId,
+      projectIds,
+    })),
+  });
+});
+
+export const setMemberProjectAccessServerFn = createServerFn({
+  method: "POST",
+})
+  .validator((data: { memberId: string; projectIds: string[] }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    const { getActiveProjectContext } = await import("./project-access");
+    const { access, organizationId } = await getActiveProjectContext(ctx);
+
+    if (!access.all) {
+      throw new Error("Forbidden: team management requires owner or admin");
+    }
+
+    const { db } = await import("@/db");
+    const { members } = await import("@/db/schema/auth");
+    const { projectMembers } = await import("@/db/schema/project-members");
+    const { projects } = await import("@/db/schema/projects");
+    const { and, eq, inArray } = await import("drizzle-orm");
+    const { nanoid } = await import("nanoid");
+
+    const [member] = await db
+      .select({ id: members.id, role: members.role })
+      .from(members)
+      .where(
+        and(
+          eq(members.id, data.memberId),
+          eq(members.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!member) {
+      throw new Error("Member not found in this workspace.");
+    }
+
+    if (
+      member.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin")
+    ) {
+      throw new Error("Owner and admin access cannot be restricted.");
+    }
+
+    const projectIds = [...new Set(data.projectIds)];
+
+    if (projectIds.length > 0) {
+      const projectRows = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.organizationId, organizationId),
+            inArray(projects.id, projectIds),
+          ),
+        );
+
+      if (projectRows.length !== projectIds.length) {
+        throw new Error("One or more projects were not found in this workspace.");
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.organizationId, organizationId),
+            eq(projectMembers.memberId, data.memberId),
+          ),
+        );
+
+      if (projectIds.length > 0) {
+        await tx.insert(projectMembers).values(
+          projectIds.map((projectId) => ({
+            id: nanoid(),
+            organizationId,
+            projectId,
+            memberId: data.memberId,
+            createdAt: now,
+          })),
+        );
+      }
+    });
+
+    return { memberId: data.memberId, projectIds };
+  });
+
 export const createOrganizationAction = createServerFn({ method: "POST" })
   .validator((data: { name: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
@@ -488,15 +623,84 @@ export const updateMemberRoleAction = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { getActiveProjectContext } = await import("./project-access");
+      const { db } = await import("@/db");
+      const { members } = await import("@/db/schema/auth");
+      const { projectMembers } = await import("@/db/schema/project-members");
+      const { projects } = await import("@/db/schema/projects");
+      const { and, eq } = await import("drizzle-orm");
+      const { nanoid } = await import("nanoid");
       const headers = getHeaders(ctx);
+      const { organizationId, access } = await getActiveProjectContext(ctx);
 
-      return await auth.api.updateMemberRole({
+      if (!access.all) {
+        throw new Error("Forbidden: team management requires owner or admin");
+      }
+
+      const [existing] = await db
+        .select({ role: members.role })
+        .from(members)
+        .where(
+          and(
+            eq(members.id, data.memberId),
+            eq(members.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+
+      if (!existing) {
+        throw new Error("Member not found in this workspace.");
+      }
+
+      const result = await auth.api.updateMemberRole({
         headers,
         body: {
           memberId: data.memberId,
           role: data.role,
         },
       });
+
+      const wasFullAccess = existing.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin");
+      const isFullAccess = data.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin");
+
+      // A demoted owner/admin keeps workspace-wide access until an admin
+      // restricts them explicitly.
+      if (wasFullAccess && !isFullAccess) {
+        const projectRows = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.organizationId, organizationId));
+        const now = new Date().toISOString();
+
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(projectMembers)
+            .where(
+              and(
+                eq(projectMembers.organizationId, organizationId),
+                eq(projectMembers.memberId, data.memberId),
+              ),
+            );
+
+          if (projectRows.length > 0) {
+            await tx.insert(projectMembers).values(
+              projectRows.map((project) => ({
+                id: nanoid(),
+                organizationId,
+                projectId: project.id,
+                memberId: data.memberId,
+                createdAt: now,
+              })),
+            );
+          }
+        });
+      }
+
+      return result;
     } catch (error) {
       await captureServerError({
         error,

@@ -13,6 +13,7 @@ import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
 import { getCollectionSnippetsServerFn } from "./codegen-helpers";
 import {
   getActiveOrganization,
+  getTeamProjectAccessServerFn,
   listAdminUsers,
   listPendingInvitations,
   listApiKeysServerFn,
@@ -46,6 +47,7 @@ export const queryKeys = {
   collectionItemCounts: (collectionIds: string[]) =>
     ["collection-item-counts", collectionIds] as const,
   team: () => ["team"] as const,
+  teamProjectAccess: () => ["team-project-access"] as const,
   invites: () => ["invites"] as const,
   apiKeys: () => ["api-keys"] as const,
   analytics: (projectId: string, range: DateRange) =>
@@ -151,6 +153,14 @@ export function teamQueryOptions(page = 1, limit = 25) {
     queryKey: [...queryKeys.team(), { page, limit }] as const,
     queryFn: () => listAdminUsers({ data: { page, limit } }),
     staleTime: STALE_LONG,
+  });
+}
+
+export function teamProjectAccessQueryOptions() {
+  return queryOptions({
+    queryKey: queryKeys.teamProjectAccess(),
+    queryFn: () => getTeamProjectAccessServerFn(),
+    staleTime: STALE_MEDIUM,
   });
 }
 
