@@ -2,17 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { environmentsQueryOptions } from "@/lib/queries";
 
-const ENV_COLORS: Record<string, string> = {
-  production: "bg-emerald-500",
-  staging: "bg-amber-500",
-  development: "bg-blue-500",
-  preview: "bg-violet-500",
-};
-
-function getEnvColor(slug: string): string {
-  return ENV_COLORS[slug] ?? "bg-stone-400";
-}
-
 function getEnvFromUrl(): string {
   if (typeof window === "undefined") return "production";
   return new URLSearchParams(window.location.search).get("env") ?? "production";
@@ -56,23 +45,17 @@ export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
       <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
         Environment
       </p>
-      <div className="relative flex items-center gap-2">
-        <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${getEnvColor(currentEnvSlug)}`}
-          aria-hidden
-        />
-        <select
-          value={currentEnvSlug}
-          onChange={(event) => handleChange(event.target.value)}
-          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
-        >
-          {environments.map((env) => (
-            <option key={env.id} value={env.slug}>
-              {env.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <select
+        value={currentEnvSlug}
+        onChange={(event) => handleChange(event.target.value)}
+        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+      >
+        {environments.map((env) => (
+          <option key={env.id} value={env.slug}>
+            {env.name}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
