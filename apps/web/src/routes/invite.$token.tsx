@@ -1,18 +1,50 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { acceptInvitationAction, getInvitationById } from "@/lib/auth-helpers";
-import { AlertCircle, LogIn, LogOut, UserPlus } from "lucide-react";
+import { AlertCircle, LogIn, LogOut, UserPlus, Home } from "lucide-react";
 
 export const Route = createFileRoute("/invite/$token")({
-  loader: ({ params }) => getInvitationById({ data: { id: params.token } }),
+  loader: async ({ params }) => {
+    try {
+      return await getInvitationById({ data: { id: params.token } });
+    } catch {
+      return {
+        id: params.token,
+        error: "Unable to look up this invitation. The link may be invalid.",
+        organizationId: null,
+        organizationName: null,
+        role: null,
+        status: null,
+        expiresAt: null,
+        hasSession: false,
+        currentUserEmail: null,
+        emailMatchesSession: false,
+        invitedEmail: null,
+      };
+    }
+  },
   component: InvitePage,
 });
 
+type InviteLoaderData = {
+  id: string;
+  organizationId: string | null;
+  organizationName: string | null;
+  role: string | null;
+  status: string | null;
+  expiresAt: number | null;
+  hasSession: boolean;
+  currentUserEmail: string | null;
+  emailMatchesSession: boolean;
+  invitedEmail: string | null;
+  error?: string;
+};
+
 function InvitePage() {
   const { token } = Route.useParams();
-  const invitation = Route.useLoaderData();
+  const invitation = Route.useLoaderData() as InviteLoaderData;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -20,8 +52,10 @@ function InvitePage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
   const hasSession = invitation?.hasSession === true;
   const emailMatchesSession = invitation?.emailMatchesSession === true;
+  const isInvalid = invitation?.error != null;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,6 +116,38 @@ function InvitePage() {
     }
   }
 
+  // ── Error state: invite not found, expired, or already used ────────────
+  if (isInvalid) {
+    return (
+      <div className="flex min-h-svh items-center justify-center bg-stone-50 px-4 py-10 dark:bg-stone-950">
+        <div className="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-8 shadow-sm dark:border-stone-800 dark:bg-stone-900">
+          <p className="text-xs uppercase tracking-[0.24em] text-stone-500 dark:text-stone-400">
+            Invite
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight dark:text-stone-100">
+            Unable to join
+          </h1>
+          <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{invitation.error}</p>
+            </div>
+          </div>
+          <div className="mt-6">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-stone-700 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
+            >
+              <Home className="h-4 w-4" />
+              Go home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal state ───────────────────────────────────────────────────────
   return (
     <div className="flex min-h-svh items-center justify-center bg-stone-50 px-4 py-10 dark:bg-stone-950">
       <div className="w-full max-w-lg rounded-3xl border border-stone-200 bg-white p-8 shadow-sm dark:border-stone-800 dark:bg-stone-900">
@@ -92,17 +158,18 @@ function InvitePage() {
           Accept your invitation
         </h1>
         <p className="mt-3 text-sm text-stone-600 dark:text-stone-400">
-          Join {invitation?.organizationName ?? "the invited organization"} as{" "}
-          {invitation?.role ?? "a member"}.
+          Join {invitation?.organizationName ?? "the invited organization"}
+          {invitation?.role ? ` as ${invitation.role}` : ""}.
         </p>
 
         {hasSession && !emailMatchesSession ? (
+          // ── Signed in, but wrong email ────────────────────────────────
           <div className="mt-8 space-y-4">
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
               <div className="flex items-start gap-2">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
-                  This signed-in account cannot accept the invite. Sign out and continue with the invited account.
+                  You're signed in as <strong>{invitation?.currentUserEmail}</strong>, but this invite was sent to a different email. Sign out and use the invited account instead.
                 </p>
               </div>
             </div>
@@ -137,6 +204,7 @@ function InvitePage() {
             </div>
           </div>
         ) : emailMatchesSession ? (
+          // ── Signed in with the correct email ───────────────────────────
           <div className="mt-8 space-y-4">
             <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-800/60 dark:text-stone-300">
               Signed in as {invitation?.currentUserEmail}. You can join this workspace now.
@@ -152,9 +220,11 @@ function InvitePage() {
             </button>
           </div>
         ) : (
+          // ── Not signed in ──────────────────────────────────────────────
           <>
             <div className="mt-8 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-800/60 dark:text-stone-300">
-              Sign in with your invited account, or create it first, to join this workspace.
+              Sign in with your invited account, or create one, to join{" "}
+              {invitation?.organizationName ?? "the workspace"}.
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <button

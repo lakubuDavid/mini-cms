@@ -332,6 +332,7 @@ describe("cli helpers", () => {
       "ws_123",
       "proj_123",
       "mcms_test",
+      "mcms_test",
       "col_123",
       "content/mini.collections.json",
       "types/mini.types.ts",
@@ -345,6 +346,7 @@ describe("cli helpers", () => {
       baseUrl: "https://cms.example.com",
       workspaceId: "ws_123",
       projectId: "proj_123",
+      environmentId: "mcms_test",
       apiKey: "mcms_test",
       collectionId: "col_123",
       collectionsPath: "content/mini.collections.json",
@@ -504,8 +506,8 @@ describe("cli helpers", () => {
     const output = await installSkill(tempDir);
     const contents = await readFile(output.skillPath, "utf8");
 
-    expect(output.directoryPath).toBe(join(tempDir, ".opencode/skills/mini-cms-cli"));
-    expect(output.skillPath).toBe(join(tempDir, ".opencode/skills/mini-cms-cli/SKILL.md"));
+    expect(output.directoryPath).toBe(join(tempDir, ".agents/skills/mini-cms-cli"));
+    expect(output.skillPath).toBe(join(tempDir, ".agents/skills/mini-cms-cli/SKILL.md"));
     expect(contents).toContain("name: mini-cms-cli");
     expect(contents).toContain("mini-cms add-skill");
   });

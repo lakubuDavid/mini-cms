@@ -14,12 +14,13 @@
 | 8     | 08-server-functions.md | Server functions (RPC)     |
 | 9     | 09-api-routes.md       | Public API routes          |
 | 10    | 10-dashboard.md        | Dashboard UI               |
-| 11    | 11-assets.md          | Asset management           |
-| 12    | 12-cleanup.md         | Cleanup & final steps     |
+| 11    | 11-assets.md           | Asset management           |
+| 12    | 12-cleanup.md          | Cleanup & final steps      |
 | 13    | 13-environment-feature.md | Environment feature — content versioning for projects |
+| 14    | 14-invite-fix.md         | Invite flow fix — allow unauthenticated users to view & accept invites |
 
 ## Order
 
-Execute phases in numerical order (1-13)
+Execute phases in numerical order (1-14)
 
 > **Phase 13** (environment feature) builds on top of all previous phases. Start it only after phases 1–12 are complete.
