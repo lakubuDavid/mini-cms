@@ -138,7 +138,11 @@ function TeamPage() {
     setSending(true);
     setMessage(null);
     const result = await createInvitationAction({
-      data: { email, role: role as "admin" | "reviewer", organizationId: orgQuery.data.id },
+      data: {
+        email,
+        role: role as "admin" | "member" | "reviewer",
+        organizationId: orgQuery.data.id,
+      },
     });
     setSending(false);
     if (!result) {
@@ -188,7 +192,11 @@ function TeamPage() {
   const invites: InviteRow[] = ((invitesQuery.data as { items?: InviteRow[] } | undefined)?.items ?? []) as InviteRow[];
   const membersTotal = Number((usersQuery.data as { total?: number } | undefined)?.total ?? 0);
   const invitesTotal = Number((invitesQuery.data as { total?: number } | undefined)?.total ?? 0);
-  const isAdmin = members.some((m) => m.user.id === currentUser.id && m.role === "admin");
+  const currentMembership = organization?.members?.find(
+    (m) => m.user.id === currentUser.id,
+  );
+  const canManageTeam =
+    currentMembership?.role === "owner" || currentMembership?.role === "admin";
 
   const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersTable.pageSize));
   const invitesTotalPages = Math.max(1, Math.ceil(invitesTotal / invitesTable.pageSize));
@@ -233,7 +241,7 @@ function TeamPage() {
       cell: (m) => {
         const isSelf = m.user.id === currentUser.id;
         const isBusy = memberAction?.memberId === m.id && memberAction?.status === "busy";
-        if (isAdmin && !isSelf) {
+        if (canManageTeam && !isSelf) {
           return (
             <div className="flex items-center gap-2">
               <div className="relative inline-block">
@@ -268,7 +276,7 @@ function TeamPage() {
         );
       },
     },
-    ...(isAdmin
+    ...(canManageTeam
       ? [
           {
             id: "actions" as const,
@@ -383,7 +391,7 @@ function TeamPage() {
       </div>
 
       {/* Invite form */}
-      {isAdmin && (
+      {canManageTeam && (
         <div>
           <h3 className="text-sm font-medium text-stone-900">Invite a teammate</h3>
           <p className="mt-1 text-sm text-stone-500">
@@ -415,6 +423,7 @@ function TeamPage() {
                 className="rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none transition focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
               >
                 <option value="admin">Admin</option>
+                <option value="member">Member</option>
                 <option value="reviewer">Reviewer</option>
               </select>
             </label>
@@ -439,7 +448,7 @@ function TeamPage() {
       )}
 
       {/* Pending invites */}
-      {isAdmin && invites.length > 0 ? (
+      {canManageTeam && invites.length > 0 ? (
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-medium text-stone-900">
             <Clock className="h-3.5 w-3.5 text-stone-400" />
@@ -476,7 +485,7 @@ function TeamPage() {
             />
           </div>
         </div>
-      ) : isAdmin ? null : null}
+      ) : canManageTeam ? null : null}
     </section>
   );
 }
