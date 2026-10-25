@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,7 +6,12 @@ import {
   updateProjectServerFn,
   deleteProjectServerFn,
 } from "@/lib/projects-helpers";
-import { projectsQueryOptions, collectionsQueryOptions } from "@/lib/queries";
+import { useDashboard } from "@/lib/dashboard-context";
+import {
+  projectsQueryOptions,
+  collectionsQueryOptions,
+  queryKeys,
+} from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
 import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
@@ -51,11 +56,20 @@ function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
 
 function ProjectsPage() {
   const queryClient = useQueryClient();
+  const { user } = useRouteContext({ from: "/dashboard" });
+  const { organization } = useDashboard();
   const table = useDataTableRouterState({
     defaults: { page: 1, pageSize: 25, defaultSort: null },
   });
   const projectsQuery = useQuery(projectsQueryOptions());
   const collectionsQuery = useQuery(collectionsQueryOptions(1, 200));
+  const currentMembership = organization?.members?.find(
+    (member) => member.user.id === user.id,
+  );
+  const canManageProjects =
+    currentMembership?.role
+      .split(",")
+      .some((role) => role === "owner" || role === "admin") ?? false;
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,6 +82,9 @@ function ProjectsPage() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["projects"] });
     void queryClient.invalidateQueries({ queryKey: ["collections"] });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.dashboardBootstrap(),
+    });
   }
 
   if (projectsQuery.isLoading || collectionsQuery.isLoading) {
@@ -108,14 +125,16 @@ function ProjectsPage() {
             workspace starts with a Default project.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
-        >
-          <Plus className="h-4 w-4" />
-          New project
-        </button>
+        {canManageProjects ? (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+          >
+            <Plus className="h-4 w-4" />
+            New project
+          </button>
+        ) : null}
       </div>
 
       {message ? (
@@ -218,52 +237,56 @@ function ProjectsPage() {
                       <Settings className="h-3 w-3" />
                       Settings
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => setEditingId(p.id)}
-                      className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </button>
-                    {confirmDeleteId === p.id ? (
+                    {canManageProjects ? (
                       <>
                         <button
                           type="button"
-                          onClick={() => void handleDelete(p.id)}
-                          className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                          onClick={() => setEditingId(p.id)}
+                          className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
                         >
-                          Confirm
+                          <Pencil className="h-3 w-3" />
+                          Edit
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="inline-flex items-center rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
-                        >
-                          Cancel
-                        </button>
+                        {confirmDeleteId === p.id ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(p.id)}
+                              className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="inline-flex items-center rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isDefault
+                                ? setMessage({
+                                    type: "error",
+                                    text: "The default project cannot be deleted.",
+                                  })
+                                : setConfirmDeleteId(p.id)
+                            }
+                            className={`inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition ${
+                              isDefault
+                                ? "cursor-not-allowed text-stone-300"
+                                : "text-stone-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                            }`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </button>
+                        )}
                       </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          isDefault
-                            ? setMessage({
-                                type: "error",
-                                text: "The default project cannot be deleted.",
-                              })
-                            : setConfirmDeleteId(p.id)
-                        }
-                        className={`inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition ${
-                          isDefault
-                            ? "cursor-not-allowed text-stone-300"
-                            : "text-stone-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                        }`}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Delete
-                      </button>
-                    )}
+                    ) : null}
                   </div>
                 );
               },
@@ -288,7 +311,11 @@ function ProjectsPage() {
           onRefresh: () => void projectsQuery.refetch(),
           isRefreshing: projectsQuery.isFetching,
         }}
-        emptyState="No projects yet. Create one to get started."
+        emptyState={
+          canManageProjects
+            ? "No projects yet. Create one to get started."
+            : "No projects assigned to you yet."
+        }
         caption="Projects"
       />
 

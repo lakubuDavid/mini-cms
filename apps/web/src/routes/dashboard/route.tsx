@@ -89,6 +89,13 @@ function DashboardLayoutInner() {
   const currentPath = location.pathname;
   const hasWorkspace = Boolean(organization);
   const currentProjectId = currentProject?.id ?? "";
+  const currentMembership = organization?.members?.find(
+    (member) => member.user.id === user.id,
+  );
+  const canManageWorkspace =
+    currentMembership?.role
+      .split(",")
+      .some((role) => role === "owner" || role === "admin") ?? false;
 
   // Redirect to workspace page if no workspace exists
   useEffect(() => {
@@ -131,6 +138,38 @@ function DashboardLayoutInner() {
       window.dispatchEvent(new PopStateEvent("popstate"));
     }
   }, [workspaceLoading, currentProject, organization, currentPath, location.search]);
+
+  // Replace a projectId the member cannot access with the active project.
+  useEffect(() => {
+    if (workspaceLoading || !organization) return;
+
+    const urlParams = new URLSearchParams(location.search as string);
+    const urlProjectId = urlParams.get("projectId");
+
+    if (!urlProjectId) return;
+    if (projects.some((project) => project.id === urlProjectId)) return;
+
+    if (currentProject) {
+      urlParams.set("projectId", currentProject.id);
+    } else {
+      urlParams.delete("projectId");
+    }
+
+    const query = urlParams.toString();
+    window.history.replaceState(
+      {},
+      "",
+      `${currentPath}${query ? `?${query}` : ""}`,
+    );
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, [
+    workspaceLoading,
+    organization,
+    projects,
+    currentProject,
+    currentPath,
+    location.search,
+  ]);
 
   function handleProjectChange(projectId: string) {
     setCurrentProject(projectId);
@@ -198,7 +237,7 @@ function DashboardLayoutInner() {
                   className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-200 hover:text-stone-900 dark:text-stone-300 dark:hover:bg-stone-800 dark:hover:text-white"
                 >
                   <Settings className="h-3.5 w-3.5" />
-                  Manage projects
+                  {canManageWorkspace ? "Manage projects" : "Projects"}
                 </Link>
               ) : null}
               {hasWorkspace && currentProjectId ? (
@@ -249,46 +288,50 @@ function DashboardLayoutInner() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Team">
-                  <Link
-                    to="/dashboard/team"
-                    activeOptions={{ includeSearch: false }}
-                    activeProps={{ className: "active" }}
-                    search={{
-                      membersPage: 1,
-                      membersPageSize: 25,
-                      membersQ: undefined,
-                      membersSort: undefined,
-                      membersOrder: undefined,
-                      invitesPage: 1,
-                      invitesPageSize: 25,
-                      invitesQ: undefined,
-                      invitesSort: undefined,
-                      invitesOrder: undefined,
-                      projectId: currentProjectId || undefined,
-                    }}
-                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-sidebar-accent [&.active]:font-semibold [&.active]:text-sidebar-accent-foreground [&.active]:hover:bg-sidebar-accent"
-                  >
-                    <Users className="h-4 w-4" />
-                    <span className="truncate group-data-[collapsible=icon]:hidden">Team</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="API Keys">
-                  <Link
-                    to="/dashboard/api-keys"
-                    activeOptions={{ includeSearch: false }}
-                    activeProps={{ className: "active" }}
-                    search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
-                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-sidebar-accent [&.active]:font-semibold [&.active]:text-sidebar-accent-foreground [&.active]:hover:bg-sidebar-accent"
-                  >
-                    <KeyRound className="h-4 w-4" />
-                    <span className="truncate group-data-[collapsible=icon]:hidden">API Keys</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {canManageWorkspace ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Team">
+                    <Link
+                      to="/dashboard/team"
+                      activeOptions={{ includeSearch: false }}
+                      activeProps={{ className: "active" }}
+                      search={{
+                        membersPage: 1,
+                        membersPageSize: 25,
+                        membersQ: undefined,
+                        membersSort: undefined,
+                        membersOrder: undefined,
+                        invitesPage: 1,
+                        invitesPageSize: 25,
+                        invitesQ: undefined,
+                        invitesSort: undefined,
+                        invitesOrder: undefined,
+                        projectId: currentProjectId || undefined,
+                      }}
+                      className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-sidebar-accent [&.active]:font-semibold [&.active]:text-sidebar-accent-foreground [&.active]:hover:bg-sidebar-accent"
+                    >
+                      <Users className="h-4 w-4" />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">Team</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
+              {canManageWorkspace ? (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="API Keys">
+                    <Link
+                      to="/dashboard/api-keys"
+                      activeOptions={{ includeSearch: false }}
+                      activeProps={{ className: "active" }}
+                      search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
+                      className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-sidebar-accent [&.active]:font-semibold [&.active]:text-sidebar-accent-foreground [&.active]:hover:bg-sidebar-accent"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">API Keys</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ) : null}
               {env.PUBLIC_ENABLE_WEB_ANALYTICS ? (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Analytics">

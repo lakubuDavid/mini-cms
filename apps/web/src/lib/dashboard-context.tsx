@@ -31,6 +31,16 @@ type Organization = {
   id: string;
   name: string;
   slug: string;
+  members?: Array<{
+    id: string;
+    role: string;
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    };
+  }>;
 };
 
 type Project = {

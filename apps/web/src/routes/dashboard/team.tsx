@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createInvitationAction,
   cancelInvitationAction,
+  getActiveOrganization,
   resendInvitationAction,
   setMemberProjectAccessServerFn,
   updateMemberRoleAction,
@@ -49,6 +50,17 @@ function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
 }
 
 export const Route = createFileRoute("/dashboard/team")({
+  beforeLoad: async ({ context }) => {
+    const organization = await getActiveOrganization();
+    const membership = organization?.members?.find(
+      (member) => member.user.id === context.user.id,
+    );
+    const roles = membership?.role.split(",") ?? [];
+
+    if (!roles.some((role) => role === "owner" || role === "admin")) {
+      throw redirect({ to: "/dashboard", search: { projectId: undefined } });
+    }
+  },
   validateSearch: (search: Record<string, unknown>) => ({
     membersPage: intOrUndefined(search.membersPage),
     membersPageSize: intOrUndefined(search.membersPageSize),
@@ -164,6 +176,9 @@ function TeamPage() {
     void queryClient.invalidateQueries({ queryKey: ["invites"] });
     void queryClient.invalidateQueries({
       queryKey: queryKeys.teamProjectAccess(),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.dashboardBootstrap(),
     });
   }
 

@@ -1,9 +1,9 @@
 ---
 id: "033"
 title: "Add Team page project access UI"
-status: in-progress
+status: done
 created_at: 2026-10-25T09:16:08
-last_modified: 2026-10-25T09:56:43
+last_modified: 2026-10-25T09:56:50
 slice: team-access
 ---
 

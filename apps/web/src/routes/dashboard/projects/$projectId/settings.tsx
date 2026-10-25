@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { updateProjectServerFn } from "@/lib/projects-helpers";
+import { useDashboard } from "@/lib/dashboard-context";
 import { projectQueryOptions, environmentsQueryOptions } from "@/lib/queries";
 import { formatDate } from "@/lib/format-date";
 import {
@@ -30,8 +31,17 @@ export const Route = createFileRoute("/dashboard/projects/$projectId/settings")(
 
 function ProjectSettingsPage() {
   const { projectId } = Route.useParams();
+  const { user } = useRouteContext({ from: "/dashboard" });
+  const { organization } = useDashboard();
   const queryClient = useQueryClient();
   const projectQuery = useQuery(projectQueryOptions(projectId));
+  const currentMembership = organization?.members?.find(
+    (member) => member.user.id === user.id,
+  );
+  const canManageProject =
+    currentMembership?.role
+      .split(",")
+      .some((role) => role === "owner" || role === "admin") ?? false;
 
   const isLoading = projectQuery.isLoading;
 
@@ -64,17 +74,21 @@ function ProjectSettingsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Project Settings</h2>
         <p className="mt-1 text-sm text-stone-500">
-          Manage settings for "{project.name}". API access controls who can access collection content via public endpoints.
+          {canManageProject
+            ? `Manage settings for "${project.name}". API access controls who can access collection content via public endpoints.`
+            : `Manage environments for "${project.name}".`}
         </p>
       </div>
 
       <EnvironmentsSection projectId={project.id} onUpdated={invalidate} />
 
-      <ApiAccessSection
-        projectId={project.id}
-        currentApiAccess={project.apiAccess ?? { type: "public" }}
-        onUpdated={invalidate}
-      />
+      {canManageProject ? (
+        <ApiAccessSection
+          projectId={project.id}
+          currentApiAccess={project.apiAccess ?? { type: "public" }}
+          onUpdated={invalidate}
+        />
+      ) : null}
 
       <InfoSection
         id={project.id}

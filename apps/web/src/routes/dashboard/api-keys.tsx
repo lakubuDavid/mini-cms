@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createApiKeyServerFn,
   deleteApiKeyServerFn,
+  getActiveOrganization,
   updateApiKeyServerFn,
   rotateApiKeyServerFn,
 } from "@/lib/auth-helpers";
@@ -29,6 +30,17 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard/api-keys")({
+  beforeLoad: async ({ context }) => {
+    const organization = await getActiveOrganization();
+    const membership = organization?.members?.find(
+      (member) => member.user.id === context.user.id,
+    );
+    const roles = membership?.role.split(",") ?? [];
+
+    if (!roles.some((role) => role === "owner" || role === "admin")) {
+      throw redirect({ to: "/dashboard", search: { projectId: undefined } });
+    }
+  },
   validateSearch: (search: Record<string, unknown>) => {
     const page =
       typeof search.page === "string" && /^\d+$/.test(search.page)

@@ -21,7 +21,7 @@ describe("public collection items api", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "w, p, and collection_id query parameters are required.",
+      error: "w, p, and collection_id (or collection_slug) query parameters are required.",
     });
   });
 
