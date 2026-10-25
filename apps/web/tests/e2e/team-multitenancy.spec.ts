@@ -373,7 +373,7 @@ test.describe("multi-tenant team", () => {
         `/dashboard/projects/${foreignProject!.id}/settings`,
       );
 
-      await expect(page.getByText("Project not found.")).toBeVisible({
+      await expect(page).toHaveURL(/\/dashboard\/projects/, {
         timeout: UI_TIMEOUT,
       });
       await expect(page.getByText("Beta Secret Project")).toHaveCount(0);

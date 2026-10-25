@@ -1,9 +1,9 @@
 ---
 id: "034"
 title: "Filter sidebar projects and guard project routes"
-status: in-progress
+status: done
 created_at: 2026-10-25T09:16:08
-last_modified: 2026-10-25T10:08:44
+last_modified: 2026-10-25T10:09:54
 slice: team-access
 ---
 

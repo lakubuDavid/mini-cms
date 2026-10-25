@@ -56,11 +56,8 @@ const ENVIRONMENT_HELPERS = "/src/lib/environment-helpers.ts";
  * Tenant isolation must hold for every server function that mutates
  * collection data.
  *
- * The `test.fail` cases are the ones that currently fail. The mutation
- * helpers in `src/server/functions` and `src/db/queries` resolve rows by
- * primary key alone and never compare the row's `organizationId` with the
- * caller's active workspace, so a caller can write to another tenant's data.
- * Remove the `test.fail` marker once the scoping is implemented.
+ * Each test replays a mutation against another workspace's row. The access
+ * guards must reject the call and the row must remain unchanged.
  */
 test.describe("tenant isolation", () => {
   test("a collection in another workspace cannot be updated", async ({
@@ -119,7 +116,7 @@ test.describe("tenant isolation", () => {
           "updateCollectionServerFn_createServerFn_handler",
           { id: victimCollection!.id, name: "PWNED" },
         );
-        expect(result.status).toBe(200);
+        expect(result.status).not.toBe(200);
 
         const { db } = await import("../../src/db");
         const { collections } = await import("../../src/db/schema");
@@ -203,7 +200,7 @@ test.describe("tenant isolation", () => {
             values: JSON.stringify({ title: "PWNED" }),
           },
         );
-        expect(result.status).toBe(200);
+        expect(result.status).not.toBe(200);
 
         const { db } = await import("../../src/db");
         const { collectionItems } = await import("../../src/db/schema");
@@ -279,7 +276,7 @@ test.describe("tenant isolation", () => {
           "deleteCollectionServerFn_createServerFn_handler",
           { id: victimCollection!.id, slug: "victim-secret" },
         );
-        expect(result.status).toBe(200);
+        expect(result.status).not.toBe(200);
 
         const { db } = await import("../../src/db");
         const { collections } = await import("../../src/db/schema");
@@ -348,7 +345,7 @@ test.describe("tenant isolation", () => {
           "updateEnvironmentServerFn_createServerFn_handler",
           { id: environments[0].id, name: "PWNED" },
         );
-        expect(result.status).toBe(200);
+        expect(result.status).not.toBe(200);
 
         const { getEnvironmentById } = await import(
           "../../src/db/queries/environments"

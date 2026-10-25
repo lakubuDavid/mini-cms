@@ -35,7 +35,7 @@ return {
     { id = "031", title = "Add project access resolver and scope project queries", status = "done", created_at = "2026-10-25T09:16:08", last_modified = "2026-10-25T09:28:13", file = "team-access/031-add-project-access-resolver-and-scope-project-queries.md", slice = "team-access" },
     { id = "032", title = "Enforce project access across project-scoped server functions", status = "done", created_at = "2026-10-25T09:16:08", last_modified = "2026-10-25T09:42:06", file = "team-access/032-enforce-project-access-across-project-scoped-server-functions.md", slice = "team-access" },
     { id = "033", title = "Add Team page project access UI", status = "done", created_at = "2026-10-25T09:16:08", last_modified = "2026-10-25T09:56:50", file = "team-access/033-add-team-page-project-access-ui.md", slice = "team-access" },
-    { id = "034", title = "Filter sidebar projects and guard project routes", status = "in-progress", created_at = "2026-10-25T09:16:08", last_modified = "2026-10-25T10:08:44", file = "team-access/034-filter-sidebar-projects-and-guard-project-routes.md", slice = "team-access" },
-    { id = "035", title = "Add tests and docs for scoped project access", status = "pending", created_at = "2026-10-25T09:16:09", last_modified = "2026-10-25T09:16:09", file = "team-access/035-add-tests-and-docs-for-scoped-project-access.md", slice = "team-access" },
+    { id = "034", title = "Filter sidebar projects and guard project routes", status = "done", created_at = "2026-10-25T09:16:08", last_modified = "2026-10-25T10:09:54", file = "team-access/034-filter-sidebar-projects-and-guard-project-routes.md", slice = "team-access" },
+    { id = "035", title = "Add tests and docs for scoped project access", status = "done", created_at = "2026-10-25T09:16:09", last_modified = "2026-10-25T10:20:20", file = "team-access/035-add-tests-and-docs-for-scoped-project-access.md", slice = "team-access" },
   },
 }
