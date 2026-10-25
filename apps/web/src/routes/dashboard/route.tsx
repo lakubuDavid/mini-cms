@@ -471,15 +471,15 @@ function DashboardLayoutInner() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="dash-dark min-w-0 flex-1 overflow-y-auto bg-transparent h-svh">
+      <SidebarInset className="dash-dark flex h-svh min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
         {/* Mobile header with hamburger */}
-        <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900 md:hidden">
+        <div className="z-20 flex shrink-0 items-center gap-2 border-b border-stone-200 bg-white p-3 dark:border-stone-800 dark:bg-stone-900 md:hidden">
           <SidebarTrigger className="h-8 w-8 text-stone-600 dark:text-stone-400" />
           <span className="text-sm font-semibold tracking-tight text-stone-900 dark:text-stone-100">
             Mini CMS
           </span>
         </div>
-        <div className="p-3 md:p-6">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 md:p-6">
           <Outlet />
         </div>
       </SidebarInset>

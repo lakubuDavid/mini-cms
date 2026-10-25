@@ -125,7 +125,7 @@ function DashboardAssetsPage() {
   }, [imageFit]);
 
   return (
-    <section className="space-y-6">
+    <section className="flex min-h-0 flex-1 flex-col gap-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -284,7 +284,7 @@ function DashboardAssetsPage() {
             onChanged={invalidate}
           />
           {pagination && pagination.totalPages > 1 ? (
-            <div className="mt-4 flex items-center justify-between text-sm text-stone-500">
+            <div className="flex items-center justify-between text-sm text-stone-500">
               <span>
                 Page {pagination.page} of {pagination.totalPages} ({pagination.total} assets)
               </span>
@@ -460,7 +460,7 @@ function AssetsGrid(props: {
   return (
     <>
       {selectedIds.size > 0 ? (
-        <div className="sticky top-0 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-stone-700 dark:bg-stone-900/95">
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-stone-700 dark:bg-stone-900/95">
           <span className="text-sm font-medium tabular-nums text-stone-900 dark:text-stone-100">
             {selectedIds.size} selected
           </span>
@@ -536,12 +536,12 @@ function AssetsGrid(props: {
       ) : null}
 
       {bulkError ? (
-        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {bulkError}
         </p>
       ) : null}
 
-      <div className="max-h-[640px] overflow-y-auto rounded-xl">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-xl">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {props.assets.map((asset) => {
             const isSelected = selectedIds.has(asset.id);
