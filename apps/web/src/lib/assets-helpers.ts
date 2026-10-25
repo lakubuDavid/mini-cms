@@ -16,12 +16,22 @@ export const listAssetsServerFn = createServerFn({ method: "GET" })
       | undefined) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const { listAssetsAction } = await import("../server/functions/assets");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+
+    if (
+      data?.projectId &&
+      !access.all &&
+      !access.projectIds.includes(data.projectId)
+    ) {
+      throw new Error("Forbidden: no access to this project");
+    }
 
     return listAssetsAction({
-      organizationId: await requireActiveOrganizationId(ctx),
+      organizationId,
       ...data,
+      projectIds: access.all ? undefined : access.projectIds,
     });
   });
 
@@ -35,16 +45,20 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId, requireSessionUserId } = await import(
-      "./auth-helpers"
-    );
+    const { getActiveProjectContext } = await import("./project-access");
     const { requestAssetUploadAction } = await import(
       "../server/functions/assets"
     );
+    const { organizationId, userId, access } =
+      await getActiveProjectContext(ctx);
+
+    if (!access.all && !access.projectIds.includes(data.projectId)) {
+      throw new Error("Forbidden: no access to this project");
+    }
 
     return requestAssetUploadAction({
-      organizationId: await requireActiveOrganizationId(ctx),
-      uploadedById: await requireSessionUserId(ctx),
+      organizationId,
+      uploadedById: userId,
       ...data,
     });
   });
@@ -52,49 +66,60 @@ export const requestAssetUploadServerFn = createServerFn({ method: "POST" })
 export const confirmAssetUploadServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireAssetAccess } = await import("./project-access");
     const { confirmAssetUploadAction } = await import(
       "../server/functions/assets"
     );
+    const { organizationId } = await requireAssetAccess(ctx, data.id);
 
     return confirmAssetUploadAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(ctx),
+      organizationId,
     });
   });
 
 export const deleteAssetServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireAssetAccess } = await import("./project-access");
     const { deleteAssetAction } = await import("../server/functions/assets");
+    const { organizationId } = await requireAssetAccess(ctx, data.id);
 
     return deleteAssetAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(ctx),
+      organizationId,
     });
   });
 
 export const deleteAssetsServerFn = createServerFn({ method: "POST" })
   .validator((data: { ids: string[] }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { filterAccessibleAssetIds, getActiveProjectContext } = await import(
+      "./project-access"
+    );
     const { deleteAssetsAction } = await import("../server/functions/assets");
-
-    return deleteAssetsAction({
-      ids: data.ids,
-      organizationId: await requireActiveOrganizationId(ctx),
+    const { organizationId } = await getActiveProjectContext(ctx);
+    const accessibleIds = await filterAccessibleAssetIds(ctx, data.ids);
+    const result = await deleteAssetsAction({
+      ids: accessibleIds,
+      organizationId,
     });
+
+    return {
+      deleted: result.deleted,
+      failed: data.ids.length - result.deleted,
+    };
   });
 
 export const getAssetInfoServerFn = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireAssetAccess } = await import("./project-access");
     const { getAssetInfoAction } = await import("../server/functions/assets");
+    const { organizationId } = await requireAssetAccess(ctx, data.id);
 
     return getAssetInfoAction({
       id: data.id,
-      organizationId: await requireActiveOrganizationId(ctx),
+      organizationId,
     });
   });

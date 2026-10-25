@@ -12,12 +12,34 @@ export const createCollectionServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
+    const { getDefaultProject, getProjectById } =
+      await import("../db/queries/projects");
     const { createCollectionAction } =
       await import("../server/functions/collections");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+    let projectId = data.projectId;
+
+    if (projectId) {
+      const project = await getProjectById(projectId, organizationId);
+
+      if (!project) {
+        throw new Error("Project not found in this workspace.");
+      }
+
+      if (!access.all && !access.projectIds.includes(projectId)) {
+        throw new Error("Forbidden: no access to this project");
+      }
+    } else if (!access.all) {
+      projectId = (await getDefaultProject(organizationId, access))?.id;
+      if (!projectId) {
+        throw new Error("No project found for workspace.");
+      }
+    }
+
     return createCollectionAction({
-      organizationId: await requireActiveOrganizationId(ctx),
-      projectId: data.projectId,
+      organizationId,
+      projectId,
       name: data.name,
       slug: data.slug,
       description: data.description,
@@ -36,9 +58,10 @@ export const updateCollectionServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireCollectionAccess } = await import("./project-access");
     const { updateCollectionAction } =
       await import("../server/functions/collections");
+    const { organizationId } = await requireCollectionAccess(ctx, data.id);
     return updateCollectionAction(
       data.id,
       {
@@ -47,7 +70,7 @@ export const updateCollectionServerFn = createServerFn({ method: "POST" })
         description: data.description,
         schema: data.schema,
       },
-      await requireActiveOrganizationId(ctx),
+      organizationId,
     );
   });
 
@@ -57,23 +80,45 @@ export const listCollectionsServerFn = createServerFn({ method: "GET" })
       data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const { listCollections } = await import("../db/queries/collections");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+
+    if (
+      data?.projectId &&
+      !access.all &&
+      !access.projectIds.includes(data.projectId)
+    ) {
+      throw new Error("Forbidden: no access to this project");
+    }
+
     return listCollections({
       ...data,
-      organizationId: await requireActiveOrganizationId(ctx),
+      organizationId,
+      projectIds: access.all ? undefined : access.projectIds,
     });
   });
 
 export const getCollectionSchemaServerFn = createServerFn({ method: "GET" })
   .validator((data: { slug: string; projectId?: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const { getCollectionBySlug } = await import("../db/queries/collections");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+
+    if (
+      data.projectId &&
+      !access.all &&
+      !access.projectIds.includes(data.projectId)
+    ) {
+      throw new Error("Forbidden: no access to this project");
+    }
+
     const collection = await getCollectionBySlug(
       data.slug,
-      await requireActiveOrganizationId(ctx),
+      organizationId,
       data.projectId,
+      access.all ? undefined : access.projectIds,
     );
 
     if (!collection) {
@@ -94,18 +139,27 @@ export const getCollectionPageServerFn = createServerFn({ method: "GET" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const [{ getCollectionBySlug }, { listItems }] = await Promise.all([
       import("../db/queries/collections"),
       import("../db/queries/items"),
-      import("../db/queries/environments"),
     ]);
 
-    const organizationId = await requireActiveOrganizationId(ctx);
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+
+    if (
+      data.projectId &&
+      !access.all &&
+      !access.projectIds.includes(data.projectId)
+    ) {
+      throw new Error("Forbidden: no access to this project");
+    }
+
     const collection = await getCollectionBySlug(
       data.slug,
       organizationId,
       data.projectId,
+      access.all ? undefined : access.projectIds,
     );
 
     if (!collection) {
@@ -144,14 +198,18 @@ export const createItemServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireCollectionAccess } = await import("./project-access");
     const { createItemAction } = await import("../server/functions/items");
+    const { organizationId } = await requireCollectionAccess(
+      ctx,
+      data.collectionId,
+    );
     return createItemAction(
       data.collectionId,
       data.slug,
       data.values,
       data.order,
-      await requireActiveOrganizationId(ctx),
+      organizationId,
     );
   });
 
@@ -164,26 +222,24 @@ export const updateItemServerFn = createServerFn({ method: "POST" })
     }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireItemAccess } = await import("./project-access");
     const { updateItemAction } = await import("../server/functions/items");
+    const { organizationId } = await requireItemAccess(ctx, data.id);
     return updateItemAction(
       data.id,
       data.slug,
       data.values,
-      await requireActiveOrganizationId(ctx),
+      organizationId,
     );
   });
 
 export const deleteItemServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; slug: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireItemAccess } = await import("./project-access");
     const { deleteItemAction } = await import("../server/functions/items");
-    await deleteItemAction(
-      data.id,
-      data.slug,
-      await requireActiveOrganizationId(ctx),
-    );
+    const { organizationId } = await requireItemAccess(ctx, data.id);
+    await deleteItemAction(data.id, data.slug, organizationId);
     return { success: true };
   });
 
@@ -195,8 +251,17 @@ export const promoteItemsServerFn = createServerFn({ method: "POST" })
       collectionSlug: string;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireEnvironmentAccess, requireItemsInProject } = await import(
+      "./project-access"
+    );
     const { promoteItemsAction } = await import("../server/functions/items");
+    const { environment } = await requireEnvironmentAccess(
+      ctx,
+      data.productionEnvironmentId,
+    );
+    await requireItemsInProject(ctx, data.itemIds, environment.projectId);
+
     return promoteItemsAction(
       data.itemIds,
       data.productionEnvironmentId,
@@ -213,8 +278,26 @@ export const duplicateItemsServerFn = createServerFn({ method: "POST" })
       collectionSlug: string;
     }) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
+    const { requireEnvironmentAccess, requireItemsInProject } = await import(
+      "./project-access"
+    );
     const { duplicateItemsAction } = await import("../server/functions/items");
+    const { environment: source } = await requireEnvironmentAccess(
+      ctx,
+      data.sourceEnvironmentId,
+    );
+    const { environment: target } = await requireEnvironmentAccess(
+      ctx,
+      data.targetEnvironmentId,
+    );
+
+    if (source.projectId !== target.projectId) {
+      throw new Error("Environments must belong to the same project");
+    }
+
+    await requireItemsInProject(ctx, data.itemIds, source.projectId);
+
     return duplicateItemsAction(
       data.itemIds,
       data.sourceEnvironmentId,
@@ -226,23 +309,30 @@ export const duplicateItemsServerFn = createServerFn({ method: "POST" })
 export const deleteCollectionServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string; slug?: string }) => data)
   .handler(async ({ data, ...ctx }) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { requireCollectionAccess } = await import("./project-access");
     const { deleteCollectionAction } =
       await import("../server/functions/collections");
-    return deleteCollectionAction(
-      data.id,
-      data.slug,
-      await requireActiveOrganizationId(ctx),
-    );
+    const { organizationId } = await requireCollectionAccess(ctx, data.id);
+    return deleteCollectionAction(data.id, data.slug, organizationId);
   });
 
 export const getCollectionItemCountsServerFn = createServerFn({ method: "GET" })
   .validator(
     (data: { collectionIds: string[] } | undefined) => data,
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, ...ctx }) => {
     if (!data?.collectionIds?.length) return {};
+    const { filterAccessibleCollectionIds } = await import("./project-access");
     const { countItemsByCollectionIds } = await import("../db/queries/items");
-    const counts = await countItemsByCollectionIds(data.collectionIds);
+    const accessibleIds = await filterAccessibleCollectionIds(
+      ctx,
+      data.collectionIds,
+    );
+
+    if (accessibleIds.length === 0) {
+      return {};
+    }
+
+    const counts = await countItemsByCollectionIds(accessibleIds);
     return Object.fromEntries(counts);
   });

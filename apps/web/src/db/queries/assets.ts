@@ -1,4 +1,4 @@
-import { and, count, desc, eq, like } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { assets } from "@/db/schema";
@@ -29,6 +29,7 @@ export type AssetListTypeFilter = "images" | "videos" | "documents";
 export type ListAssetsInput = PaginationInput & {
   organizationId: string;
   projectId?: string;
+  projectIds?: string[];
   status?: AssetStatus;
   q?: string;
   type?: AssetListTypeFilter;
@@ -38,10 +39,19 @@ export type ListAssetsInput = PaginationInput & {
 
 export async function listAssets(input: ListAssetsInput) {
   const { page, limit, offset } = normalizePagination(input);
+
+  if (input.projectIds && input.projectIds.length === 0) {
+    return { items: [], pagination: buildPagination(page, limit, 0) };
+  }
+
   const order = input.order === "asc" ? "asc" : "desc";
   const where = and(
     eq(assets.organizationId, input.organizationId),
-    input.projectId ? eq(assets.projectId, input.projectId) : undefined,
+    input.projectId
+      ? eq(assets.projectId, input.projectId)
+      : input.projectIds
+        ? inArray(assets.projectId, input.projectIds)
+        : undefined,
     input.status ? eq(assets.status, input.status) : eq(assets.status, "active"),
     input.q ? like(assets.filename, `%${input.q}%`) : undefined,
     input.type === "images"
@@ -91,10 +101,19 @@ export type AssetTypeCounts = {
 export async function countAssetsByType(input: {
   organizationId: string;
   projectId?: string;
+  projectIds?: string[];
 }): Promise<AssetTypeCounts> {
+  if (input.projectIds && input.projectIds.length === 0) {
+    return { all: 0, images: 0, videos: 0, documents: 0 };
+  }
+
   const where = and(
     eq(assets.organizationId, input.organizationId),
-    input.projectId ? eq(assets.projectId, input.projectId) : undefined,
+    input.projectId
+      ? eq(assets.projectId, input.projectId)
+      : input.projectIds
+        ? inArray(assets.projectId, input.projectIds)
+        : undefined,
     eq(assets.status, "active"),
   );
 

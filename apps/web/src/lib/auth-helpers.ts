@@ -684,28 +684,58 @@ export const listApiKeysServerFn = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
+    const { getActiveProjectContext } = await import("./project-access");
     const headers = getHeaders(ctx);
-    const organizationId = await requireActiveOrganizationId(ctx);
+    const { organizationId, access } = await getActiveProjectContext(ctx);
 
     const { page = 1, limit = 25 } = data ?? {};
-    const offset = (page - 1) * limit;
 
-    const result = await auth.api.listApiKeys({
-      headers,
-      query: {
-        organizationId,
-        limit,
-        offset,
-      },
-    });
+    const allKeys = [];
+    let offset = 0;
+    const batchSize = 100;
+
+    while (true) {
+      const result = await auth.api.listApiKeys({
+        headers,
+        query: {
+          organizationId,
+          limit: batchSize,
+          offset,
+        },
+      });
+      const batch = result.apiKeys ?? [];
+      allKeys.push(...batch);
+      const total = Number(result.total ?? 0);
+      offset += batch.length;
+
+      if (batch.length === 0 || batch.length < batchSize || allKeys.length >= total) {
+        break;
+      }
+    }
+
+    const filtered = access.all
+      ? allKeys
+      : allKeys.filter((apiKey) => {
+          const metadata = apiKey.metadata;
+          const projectId =
+            metadata &&
+            typeof metadata === "object" &&
+            typeof metadata.projectId === "string"
+              ? metadata.projectId
+              : null;
+          return projectId !== null && access.projectIds.includes(projectId);
+        });
+
+    const pageOffset = (page - 1) * limit;
+    const pageKeys = filtered.slice(pageOffset, pageOffset + limit);
 
     return toPlainJson({
-      total: Number(result.total ?? 0),
-      limit: Number(result.limit ?? limit),
-      offset: Number(result.offset ?? offset),
+      total: filtered.length,
+      limit,
+      offset: pageOffset,
       page,
       pageSize: limit,
-      apiKeys: result.apiKeys.map((apiKey) => ({
+      apiKeys: pageKeys.map((apiKey) => ({
         id: String(apiKey.id),
         name: apiKey.name ? String(apiKey.name) : null,
         start: apiKey.start ? String(apiKey.start) : null,
@@ -733,8 +763,26 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
+      const { getActiveProjectContext } = await import("./project-access");
+      const { getProjectById } = await import("../db/queries/projects");
       const headers = getHeaders(ctx);
-      organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId: activeOrganizationId, access } =
+        await getActiveProjectContext(ctx);
+      organizationId = activeOrganizationId;
+
+      if (data.projectId) {
+        const project = await getProjectById(data.projectId, organizationId);
+
+        if (!project) {
+          throw new Error("Project not found in this workspace.");
+        }
+
+        if (!access.all && !access.projectIds.includes(data.projectId)) {
+          throw new Error("Forbidden: no access to this project");
+        }
+      } else if (!access.all) {
+        throw new Error("Forbidden: workspace API keys require owner or admin");
+      }
 
       const result = await auth.api.createApiKey({
         headers,
@@ -801,7 +849,9 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
       const headers = getHeaders(ctx);
+      await requireApiKeyAccess(ctx, data.keyId);
 
       const result = await auth.api.deleteApiKey({
         headers,
@@ -839,7 +889,9 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
       const headers = getHeaders(ctx);
+      await requireApiKeyAccess(ctx, data.keyId);
 
       const result = await auth.api.updateApiKey({
         headers,
@@ -889,8 +941,26 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
+      const { getProjectById } = await import("../db/queries/projects");
       const headers = getHeaders(ctx);
-      organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId: activeOrganizationId, access } =
+        await requireApiKeyAccess(ctx, data.keyId);
+      organizationId = activeOrganizationId;
+
+      if (data.projectId) {
+        const project = await getProjectById(data.projectId, organizationId);
+
+        if (!project) {
+          throw new Error("Project not found in this workspace.");
+        }
+
+        if (!access.all && !access.projectIds.includes(data.projectId)) {
+          throw new Error("Forbidden: no access to this project");
+        }
+      } else if (!access.all) {
+        throw new Error("Forbidden: workspace API keys require owner or admin");
+      }
 
       // Delete old key
       await auth.api.deleteApiKey({

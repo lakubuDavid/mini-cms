@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { collectionItems, collections } from "@/db/schema";
@@ -25,19 +25,28 @@ export type CreateCollectionInput = {
 };
 
 export async function listCollections(
-  input?: PaginationInput & { organizationId?: string; projectId?: string },
+  input?: PaginationInput & {
+    organizationId?: string;
+    projectId?: string;
+    projectIds?: string[];
+  },
 ): Promise<PaginatedResult<typeof collections.$inferSelect>> {
   const { limit, offset, page } = normalizePagination(input);
-  const where = input?.organizationId
-    ? input.projectId
-      ? and(
-          eq(collections.organizationId, input.organizationId),
-          eq(collections.projectId, input.projectId),
-        )
-      : eq(collections.organizationId, input.organizationId)
-    : input?.projectId
+
+  if (input?.projectIds && input.projectIds.length === 0) {
+    return { items: [], pagination: buildPagination(page, limit, 0) };
+  }
+
+  const where = and(
+    input?.organizationId
+      ? eq(collections.organizationId, input.organizationId)
+      : undefined,
+    input?.projectId
       ? eq(collections.projectId, input.projectId)
-      : undefined;
+      : input?.projectIds
+        ? inArray(collections.projectId, input.projectIds)
+        : undefined,
+  );
 
   const [items, totalResult] = await Promise.all([
     db
@@ -62,22 +71,24 @@ export async function getCollectionBySlug(
   slug: string,
   organizationId?: string,
   projectId?: string,
+  projectIds?: string[],
 ) {
+  if (projectIds && projectIds.length === 0) {
+    return null;
+  }
+
   return db.query.collections.findFirst({
-    where: organizationId
-      ? projectId
-        ? and(
-            eq(collections.slug, slug),
-            eq(collections.organizationId, organizationId),
-            eq(collections.projectId, projectId),
-          )
-        : and(
-            eq(collections.slug, slug),
-            eq(collections.organizationId, organizationId),
-          )
-      : projectId
-        ? and(eq(collections.slug, slug), eq(collections.projectId, projectId))
-        : eq(collections.slug, slug),
+    where: and(
+      eq(collections.slug, slug),
+      organizationId
+        ? eq(collections.organizationId, organizationId)
+        : undefined,
+      projectId
+        ? eq(collections.projectId, projectId)
+        : projectIds
+          ? inArray(collections.projectId, projectIds)
+          : undefined,
+    ),
   });
 }
 
@@ -85,22 +96,24 @@ export async function getCollectionById(
   id: string,
   organizationId?: string,
   projectId?: string,
+  projectIds?: string[],
 ) {
+  if (projectIds && projectIds.length === 0) {
+    return null;
+  }
+
   return db.query.collections.findFirst({
-    where: organizationId
-      ? projectId
-        ? and(
-            eq(collections.id, id),
-            eq(collections.organizationId, organizationId),
-            eq(collections.projectId, projectId),
-          )
-        : and(
-            eq(collections.id, id),
-            eq(collections.organizationId, organizationId),
-          )
-      : projectId
-        ? and(eq(collections.id, id), eq(collections.projectId, projectId))
-        : eq(collections.id, id),
+    where: and(
+      eq(collections.id, id),
+      organizationId
+        ? eq(collections.organizationId, organizationId)
+        : undefined,
+      projectId
+        ? eq(collections.projectId, projectId)
+        : projectIds
+          ? inArray(collections.projectId, projectIds)
+          : undefined,
+    ),
   });
 }
 

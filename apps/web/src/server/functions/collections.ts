@@ -20,6 +20,7 @@ export async function listCollectionsAction(input?: {
   limit?: number;
   organizationId?: string;
   projectId?: string;
+  projectIds?: string[];
 }) {
   return listCollections(input);
 }

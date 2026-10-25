@@ -146,6 +146,7 @@ export async function listAssetsAction(input: {
   page?: number;
   limit?: number;
   projectId?: string;
+  projectIds?: string[];
   status?: "pending" | "active";
   q?: string;
   type?: "images" | "videos" | "documents";
@@ -155,7 +156,11 @@ export async function listAssetsAction(input: {
   const { countAssetsByType } = await import("@/db/queries/assets");
   const [result, counts] = await Promise.all([
     listAssets(input),
-    countAssetsByType({ organizationId: input.organizationId, projectId: input.projectId }),
+    countAssetsByType({
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      projectIds: input.projectIds,
+    }),
   ]);
   return { ...result, counts };
 }

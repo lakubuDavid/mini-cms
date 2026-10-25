@@ -9,12 +9,16 @@ export const listEnvironmentsServerFn = createServerFn({ method: "GET" })
   .validator((data: { projectId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { listEnvironments } = await import("../db/queries/environments");
       const { getProjectById } = await import("../db/queries/projects");
-      const organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId, access } = await getActiveProjectContext(ctx);
+      const project = await getProjectById(
+        data.projectId,
+        organizationId,
+        access,
+      );
 
-      const project = await getProjectById(data.projectId, organizationId);
       if (!project) {
         throw new Error("Project not found in this workspace.");
       }
@@ -34,10 +38,9 @@ export const getEnvironmentServerFn = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
-      const { getEnvironmentById } = await import("../db/queries/environments");
-      const organizationId = await requireActiveOrganizationId(ctx);
-      return getEnvironmentById(data.id, organizationId);
+      const { requireEnvironmentAccess } = await import("./project-access");
+      const { environment } = await requireEnvironmentAccess(ctx, data.id);
+      return environment;
     } catch (error) {
       await captureServerError({
         error,
@@ -52,13 +55,17 @@ export const getEnvironmentBySlugServerFn = createServerFn({ method: "GET" })
   .validator((data: { slug: string; projectId: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { getEnvironmentBySlug } = await import("../db/queries/environments");
       const { getProductionEnvironment } = await import("../db/queries/environments");
       const { getProjectById } = await import("../db/queries/projects");
-      const organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId, access } = await getActiveProjectContext(ctx);
+      const project = await getProjectById(
+        data.projectId,
+        organizationId,
+        access,
+      );
 
-      const project = await getProjectById(data.projectId, organizationId);
       if (!project) {
         throw new Error("Project not found in this workspace.");
       }
@@ -90,9 +97,19 @@ export const createEnvironmentServerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { createEnvironment } = await import("../db/queries/environments");
-      await requireActiveOrganizationId(ctx);
+      const { getProjectById } = await import("../db/queries/projects");
+      const { organizationId, access } = await getActiveProjectContext(ctx);
+      const project = await getProjectById(
+        data.projectId,
+        organizationId,
+        access,
+      );
+
+      if (!project) {
+        throw new Error("Project not found in this workspace.");
+      }
 
       const env = await createEnvironment(data);
 
@@ -128,9 +145,9 @@ export const updateEnvironmentServerFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { requireEnvironmentAccess } = await import("./project-access");
       const { updateEnvironment } = await import("../db/queries/environments");
-      const organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId } = await requireEnvironmentAccess(ctx, data.id);
 
       const env = await updateEnvironment(
         data.id,
@@ -166,14 +183,15 @@ export const deleteEnvironmentServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { requireEnvironmentAccess } = await import("./project-access");
       const { deleteEnvironment } = await import("../db/queries/environments");
-      const { getEnvironmentById } = await import("../db/queries/environments");
-      const organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId, environment } = await requireEnvironmentAccess(
+        ctx,
+        data.id,
+      );
 
       // Don't allow deleting the production environment
-      const env = await getEnvironmentById(data.id);
-      if (env?.isProduction) {
+      if (environment.isProduction) {
         throw new Error("Cannot delete the production environment. Change the production flag to another environment first.");
       }
 
@@ -184,7 +202,7 @@ export const deleteEnvironmentServerFn = createServerFn({ method: "POST" })
         identity: createAnonymousServerIdentity({}),
         properties: {
           env_id: data.id,
-          env_slug: env?.slug,
+          env_slug: environment.slug,
         },
       });
 

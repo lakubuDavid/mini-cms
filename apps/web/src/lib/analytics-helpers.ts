@@ -6,8 +6,18 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
     (data: { projectId: string; range: DateRange }) => data,
   )
   .handler(async ({ data, ...ctx }) => {
+    const { getActiveProjectContext } = await import("./project-access");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
+
+    if (!access.all && !access.projectIds.includes(data.projectId)) {
+      throw new Error("Forbidden: no access to this project");
+    }
+
     const { redis } = await import("./cache");
-    const cacheKey = `mini-cms:analytics:${data.projectId}:${data.range}`;
+    const accessKey = access.all
+      ? "all"
+      : [...access.projectIds].sort().join(",");
+    const cacheKey = `mini-cms:analytics:${organizationId}:${data.projectId}:${data.range}:${accessKey}`;
 
     const cached = await redis.get(cacheKey);
     if (cached) {
@@ -27,7 +37,6 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
       };
     }
 
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
     const {
       getTotalRequests,
       getRequestsByDay,
@@ -36,15 +45,13 @@ export const getAnalyticsOverviewServerFn = createServerFn({ method: "GET" })
       getWorkspaceStats,
     } = await import("../db/queries/analytics");
 
-    const organizationId = await requireActiveOrganizationId(ctx);
-
     const [totalRequests, requestsByDay, topOrigins, requestsByCollection, stats] =
       await Promise.all([
         getTotalRequests(data.projectId, data.range),
         getRequestsByDay(data.projectId, data.range),
         getTopOrigins(data.projectId, data.range),
         getRequestsByCollection(data.projectId, data.range),
-        getWorkspaceStats(organizationId),
+        getWorkspaceStats(organizationId, access),
       ]);
 
     const result = {

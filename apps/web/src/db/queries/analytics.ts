@@ -1,4 +1,4 @@
-import { and, count, eq, gte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   requestLogs,
@@ -7,6 +7,7 @@ import {
   projects,
   members,
 } from "@/db/schema";
+import type { ProjectAccess } from "./shared";
 
 export type DateRange = "7d" | "30d" | "90d";
 
@@ -110,34 +111,68 @@ export async function getRequestsByCollection(
 }
 
 /** Aggregate stats for the workspace (org) */
-export async function getWorkspaceStats(organizationId: string): Promise<{
+export async function getWorkspaceStats(
+  organizationId: string,
+  access?: ProjectAccess,
+): Promise<{
   totalCollections: number;
   totalItems: number;
   totalUsers: number;
   totalProjects: number;
 }> {
+  const filterByProjects = access !== undefined && !access.all;
+  const projectIds = filterByProjects ? access.projectIds : [];
+  const noProjects = filterByProjects && projectIds.length === 0;
+
   const [collectionsCount, itemsCount, usersCount, projectsCount] =
     await Promise.all([
-      db
-        .select({ value: count() })
-        .from(collections)
-        .where(eq(collections.organizationId, organizationId)),
-      db
-        .select({ value: count() })
-        .from(collectionItems)
-        .innerJoin(
-          collections,
-          eq(collectionItems.collectionId, collections.id),
-        )
-        .where(eq(collections.organizationId, organizationId)),
+      noProjects
+        ? Promise.resolve([{ value: 0 }])
+        : db
+            .select({ value: count() })
+            .from(collections)
+            .where(
+              and(
+                eq(collections.organizationId, organizationId),
+                filterByProjects
+                  ? inArray(collections.projectId, projectIds)
+                  : undefined,
+              ),
+            ),
+      noProjects
+        ? Promise.resolve([{ value: 0 }])
+        : db
+            .select({ value: count() })
+            .from(collectionItems)
+            .innerJoin(
+              collections,
+              eq(collectionItems.collectionId, collections.id),
+            )
+            .where(
+              and(
+                eq(collections.organizationId, organizationId),
+                filterByProjects
+                  ? inArray(collections.projectId, projectIds)
+                  : undefined,
+              ),
+            ),
       db
         .select({ value: count() })
         .from(members)
         .where(eq(members.organizationId, organizationId)),
-      db
-        .select({ value: count() })
-        .from(projects)
-        .where(eq(projects.organizationId, organizationId)),
+      noProjects
+        ? Promise.resolve([{ value: 0 }])
+        : db
+            .select({ value: count() })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.organizationId, organizationId),
+                filterByProjects
+                  ? inArray(projects.id, projectIds)
+                  : undefined,
+              ),
+            ),
     ]);
 
   return {

@@ -41,13 +41,17 @@ export type CollectionSnippets = {
 export const getCollectionSnippetsServerFn = createServerFn({ method: "GET" })
   .validator((data: { slug: string; projectId: string }) => data)
   .handler(async ({ data, ...ctx }): Promise<CollectionSnippets> => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const { getCollectionBySlug } = await import("../db/queries/collections");
     const { getProjectById } = await import("../db/queries/projects");
 
-    const organizationId = await requireActiveOrganizationId(ctx);
+    const { organizationId, access } = await getActiveProjectContext(ctx);
 
-    const project = await getProjectById(data.projectId, organizationId);
+    if (!access.all && !access.projectIds.includes(data.projectId)) {
+      throw new Error("Project not found in this workspace.");
+    }
+
+    const project = await getProjectById(data.projectId, organizationId, access);
     if (!project) {
       throw new Error("Project not found in this workspace.");
     }
