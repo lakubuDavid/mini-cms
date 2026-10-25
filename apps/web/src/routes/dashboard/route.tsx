@@ -228,9 +228,9 @@ function DashboardLayoutInner() {
                     to="/dashboard"
                     search={{ projectId: undefined }}
                     activeOptions={{ exact: true }}
-                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-transparent [&.active]:font-semibold [&.active]:text-primary"
                   >
-                    <Layers className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    <Layers className="h-4 w-4" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Collections</span>
                   </Link>
                 </SidebarMenuButton>
@@ -239,9 +239,9 @@ function DashboardLayoutInner() {
                 <SidebarMenuButton asChild tooltip="Assets">
                   <Link
                     to="/dashboard/assets"
-                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-transparent [&.active]:font-semibold [&.active]:text-primary"
                   >
-                    <Image className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    <Image className="h-4 w-4" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Assets</span>
                   </Link>
                 </SidebarMenuButton>
@@ -263,9 +263,9 @@ function DashboardLayoutInner() {
                       invitesOrder: undefined,
                       projectId: currentProjectId || undefined,
                     }}
-                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-transparent [&.active]:font-semibold [&.active]:text-primary"
                   >
-                    <Users className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    <Users className="h-4 w-4" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">Team</span>
                   </Link>
                 </SidebarMenuButton>
@@ -275,9 +275,9 @@ function DashboardLayoutInner() {
                   <Link
                     to="/dashboard/api-keys"
                     search={{ page: 1, pageSize: 25, q: undefined, sort: undefined, order: undefined, projectId: currentProjectId || undefined }}
-                    className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                    className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-transparent [&.active]:font-semibold [&.active]:text-primary"
                   >
-                    <KeyRound className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                    <KeyRound className="h-4 w-4" />
                     <span className="truncate group-data-[collapsible=icon]:hidden">API Keys</span>
                   </Link>
                 </SidebarMenuButton>
@@ -288,9 +288,9 @@ function DashboardLayoutInner() {
                     <Link
                       to="/dashboard/analytics"
                       search={{ projectId: undefined, range: "30d" }}
-                      className="text-stone-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500 [&.active]:bg-stone-100 [&.active]:font-medium [&.active]:text-stone-900 dark:[&.active]:bg-stone-800 dark:[&.active]:text-white"
+                      className="text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500 [&.active]:bg-transparent [&.active]:font-semibold [&.active]:text-primary"
                     >
-                      <BarChart3 className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+                      <BarChart3 className="h-4 w-4" />
                       <span className="truncate group-data-[collapsible=icon]:hidden">Analytics</span>
                     </Link>
                   </SidebarMenuButton>
@@ -305,9 +305,9 @@ function DashboardLayoutInner() {
             href={env.PUBLIC_DOCS_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-stone-600 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:text-stone-300 dark:hover:bg-stone-800 dark:focus-visible:ring-stone-500"
+            className="mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-stone-500 transition hover:bg-transparent hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 dark:text-stone-400 dark:hover:bg-transparent dark:hover:text-stone-100 dark:focus-visible:ring-stone-500"
           >
-            <BookOpen className="h-4 w-4 text-stone-500 dark:text-stone-400" />
+            <BookOpen className="h-4 w-4" />
             <span className="group-data-[collapsible=icon]:hidden">Docs</span>
             <ExternalLink className="ml-auto h-3 w-3 text-stone-400 group-data-[collapsible=icon]:hidden" />
           </a>
