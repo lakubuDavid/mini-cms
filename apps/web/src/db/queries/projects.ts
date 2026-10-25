@@ -1,8 +1,9 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import { projects, type ApiAccessType } from "@/db/schema/projects";
 import { createEnvironment } from "./environments";
+import type { ProjectAccess } from "./shared";
 
 export type CreateProjectInput = {
   organizationId: string;
@@ -11,14 +12,39 @@ export type CreateProjectInput = {
   isDefault?: boolean;
 };
 
-export async function listProjects(organizationId: string) {
+export async function listProjects(
+  organizationId: string,
+  access?: ProjectAccess,
+) {
+  if (access && !access.all) {
+    if (access.projectIds.length === 0) {
+      return [];
+    }
+
+    return db.query.projects.findMany({
+      where: and(
+        eq(projects.organizationId, organizationId),
+        inArray(projects.id, access.projectIds),
+      ),
+      orderBy: [asc(projects.createdAt)],
+    });
+  }
+
   return db.query.projects.findMany({
     where: eq(projects.organizationId, organizationId),
     orderBy: [asc(projects.createdAt)],
   });
 }
 
-export async function getProjectById(id: string, organizationId?: string) {
+export async function getProjectById(
+  id: string,
+  organizationId?: string,
+  access?: ProjectAccess,
+) {
+  if (access && !access.all && !access.projectIds.includes(id)) {
+    return null;
+  }
+
   return db.query.projects.findFirst({
     where: organizationId
       ? and(eq(projects.id, id), eq(projects.organizationId, organizationId))
@@ -26,8 +52,11 @@ export async function getProjectById(id: string, organizationId?: string) {
   });
 }
 
-export async function getDefaultProject(organizationId: string) {
-  const items = await listProjects(organizationId);
+export async function getDefaultProject(
+  organizationId: string,
+  access?: ProjectAccess,
+) {
+  const items = await listProjects(organizationId, access);
   return items.find((project) => project.metadata?.isDefault) ?? items[0] ?? null;
 }
 

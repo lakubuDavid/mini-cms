@@ -28,7 +28,7 @@ function toPlainJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-async function ensureActiveOrganization(ctx?: unknown) {
+export async function ensureActiveOrganization(ctx?: unknown) {
   const { auth } = await import("./auth");
   const headers = getHeaders(ctx);
   const session = await auth.api.getSession({ headers });
@@ -42,6 +42,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
       auth,
       headers,
       organizationId: session.session.activeOrganizationId,
+      userId: session.user.id,
     };
   }
 
@@ -53,6 +54,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
       auth,
       headers,
       organizationId: null,
+      userId: session.user.id,
     };
   }
 
@@ -67,6 +69,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
     auth,
     headers,
     organizationId: fallbackOrganization.id,
+    userId: session.user.id,
   };
 }
 
@@ -97,18 +100,22 @@ export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
 
 export const getDashboardBootstrapServerFn = createServerFn({ method: "GET" }).handler(
   async (ctx) => {
-    const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
+    const { auth, headers, organizationId, userId } = await ensureActiveOrganization(ctx);
+    const { resolveProjectAccess } = await import("./project-access");
 
-    const [organizations, fullOrganization] = await Promise.all([
+    const [organizations, fullOrganization, access] = await Promise.all([
       auth.api.listOrganizations({ headers }),
       organizationId
         ? auth.api.getFullOrganization({ headers, query: { organizationId } })
         : Promise.resolve(null),
+      organizationId
+        ? resolveProjectAccess(organizationId, userId)
+        : Promise.resolve(undefined),
     ]);
 
     const { listProjects } = await import("../db/queries/projects");
     const projects = organizationId
-      ? await listProjects(organizationId)
+      ? await listProjects(organizationId, access)
       : [];
 
     return {
