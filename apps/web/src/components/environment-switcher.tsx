@@ -41,14 +41,14 @@ export function EnvironmentSwitcher({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="mt-3 space-y-2">
-      <p className="px-1 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
+    <div className="space-y-1.5">
+      <p className="px-2 text-[11px] font-medium uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">
         Environment
       </p>
       <select
         value={currentEnvSlug}
         onChange={(event) => handleChange(event.target.value)}
-        className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium outline-none transition focus:border-stone-900 dark:border-stone-700 dark:bg-stone-800 dark:text-stone-100"
+        className="w-full rounded-lg border border-stone-200 bg-stone-50 px-2 py-1.5 text-sm font-medium text-stone-700 outline-none transition focus:border-stone-400 focus:ring-2 focus:ring-stone-200 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:focus:border-stone-500 dark:focus:ring-stone-800"
       >
         {environments.map((env) => (
           <option key={env.id} value={env.slug}>
