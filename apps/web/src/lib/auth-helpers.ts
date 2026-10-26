@@ -132,7 +132,7 @@ type MemberRecord = PaginatedItems;
 type InviteRecord = PaginatedItems;
 
 export const listPendingInvitations = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { page?: number; limit?: number } = {}) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -181,7 +181,7 @@ export const listPendingInvitations = createServerFn({ method: "GET" })
   });
 
 export const listAdminUsers = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { page?: number; limit?: number } = {}) => data,
   )
   .handler(async ({ data, ...ctx }) => {
@@ -951,7 +951,7 @@ export async function requireSessionUserId(ctx?: unknown) {
 }
 
 export const listApiKeysServerFn = createServerFn({ method: "GET" })
-  .inputValidator(
+  .validator(
     (data: { page?: number; limit?: number } = {}) => data,
   )
   .handler(async ({ data, ...ctx }) => {
