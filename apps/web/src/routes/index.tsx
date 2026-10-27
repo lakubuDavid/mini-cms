@@ -1,6 +1,13 @@
+import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Layers, Globe, UserPlus, BookOpen } from "lucide-react";
+import { Layers, Globe, UserPlus, BookOpen, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@workspace/ui/components/sheet";
+import { Button } from "@workspace/ui/components/button";
 import { getSession } from "@/lib/auth-helpers";
 import { env } from "@/lib/env";
 
@@ -18,6 +25,7 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { isLoggedIn } = Route.useLoaderData();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <main className="min-h-svh bg-[radial-gradient(circle_at_top_left,_rgba(24,24,27,0.08),_transparent_32%),linear-gradient(180deg,_#f7f4ee_0%,_#f3efe8_100%)] text-stone-900 dark:bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.04),_transparent_32%),linear-gradient(180deg,_#0a0a0a_0%,_#111_100%)] dark:text-stone-100">
@@ -36,40 +44,100 @@ function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <a
-              href={env.PUBLIC_DOCS_URL}
-              target="_blank"
-              className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:border-stone-900 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:text-white"
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              Docs
-            </a>
-            {isLoggedIn ? (
-              <Link
-                to="/dashboard"
-                search={{ projectId: undefined }}
-                className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-stone-700 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
+            {/* Desktop actions */}
+            <div className="hidden items-center gap-3 md:flex">
+              <a
+                href={env.PUBLIC_DOCS_URL}
+                target="_blank"
+                className="flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:border-stone-900 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:text-white"
               >
-                Dashboard
-              </Link>
-            ) : (
-              <>
+                <BookOpen className="h-3.5 w-3.5" />
+                Docs
+              </a>
+              {isLoggedIn ? (
                 <Link
-                  to="/login"
-                  search={{ redirect: undefined }}
-                  className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:border-stone-900 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:text-white"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  to="/signup"
-                  search={{ redirect: undefined }}
+                  to="/dashboard"
+                  search={{ projectId: undefined }}
                   className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-stone-700 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
                 >
-                  Create account
+                  Dashboard
                 </Link>
-              </>
-            )}
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    search={{ redirect: undefined }}
+                    className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-medium shadow-sm transition hover:border-stone-900 hover:text-stone-900 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:border-stone-400 dark:hover:text-white"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/signup"
+                    search={{ redirect: undefined }}
+                    className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-stone-700 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
+                  >
+                    Create account
+                  </Link>
+                </>
+              )}
+            </div>
+            {/* Mobile hamburger */}
+            <div className="md:hidden">
+              <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Open menu"
+                    className="rounded-full"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-72">
+                  <nav className="flex flex-col gap-3 pt-12">
+                    <a
+                      href={env.PUBLIC_DOCS_URL}
+                      target="_blank"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-stone-100 dark:hover:bg-stone-800"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      Docs
+                    </a>
+                    {isLoggedIn ? (
+                      <Link
+                        to="/dashboard"
+                        search={{ projectId: undefined }}
+                        onClick={() => setMobileOpen(false)}
+                        className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700 dark:bg-white dark:text-stone-900"
+                      >
+                        Dashboard
+                      </Link>
+                    ) : (
+                      <>
+                        <Link
+                          to="/login"
+                          search={{ redirect: undefined }}
+                          onClick={() => setMobileOpen(false)}
+                          className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium hover:border-stone-900 dark:border-stone-700"
+                        >
+                          Sign in
+                        </Link>
+                        <Link
+                          to="/signup"
+                          search={{ redirect: undefined }}
+                          onClick={() => setMobileOpen(false)}
+                          className="rounded-lg bg-stone-900 px-3 py-2 text-sm font-medium text-white hover:bg-stone-700 dark:bg-white dark:text-stone-900"
+                        >
+                          Create account
+                        </Link>
+                      </>
+                    )}
+                  </nav>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </header>
 
