@@ -9,41 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
-import { Route as InviteTokenRouteImport } from './routes/invite.$token'
-import { Route as DashboardWorkspaceRouteImport } from './routes/dashboard/workspace'
-import { Route as DashboardTeamRouteImport } from './routes/dashboard/team'
-import { Route as DashboardProjectsRouteImport } from './routes/dashboard/projects'
-import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
-import { Route as DashboardAssetsRouteImport } from './routes/dashboard/assets'
-import { Route as DashboardApiKeysRouteImport } from './routes/dashboard/api-keys'
 import { Route as DashboardAnalyticsRouteImport } from './routes/dashboard/analytics'
-import { Route as ApiSchemaPushRouteImport } from './routes/api/schema/push'
-import { Route as ApiSchemaPullRouteImport } from './routes/api/schema/pull'
-import { Route as ApiSchemaProjectsRouteImport } from './routes/api/schema/projects'
-import { Route as ApiSchemaItemsRouteImport } from './routes/api/schema/items'
-import { Route as ApiSchemaCollectionsRouteImport } from './routes/api/schema/collections'
-import { Route as ApiSchemaCollectionItemsRouteImport } from './routes/api/schema/collection-items'
-import { Route as ApiSchemaAssetsRouteImport } from './routes/api/schema/assets'
-import { Route as ApiCollectionsItemsRouteImport } from './routes/api/collections/items'
+import { Route as DashboardApiKeysRouteImport } from './routes/dashboard/api-keys'
+import { Route as DashboardAssetsRouteImport } from './routes/dashboard/assets'
+import { Route as DashboardProfileRouteImport } from './routes/dashboard/profile'
+import { Route as DashboardTeamRouteImport } from './routes/dashboard/team'
+import { Route as DashboardWorkspaceRouteImport } from './routes/dashboard/workspace'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCollectionsItemsRouteImport } from './routes/api/collections/items'
+import { Route as ApiSchemaAssetsRouteImport } from './routes/api/schema/assets'
+import { Route as ApiSchemaCollectionItemsRouteImport } from './routes/api/schema/collection-items'
+import { Route as ApiSchemaCollectionsRouteImport } from './routes/api/schema/collections'
+import { Route as ApiSchemaItemsRouteImport } from './routes/api/schema/items'
+import { Route as ApiSchemaProjectsRouteImport } from './routes/api/schema/projects'
+import { Route as ApiSchemaPullRouteImport } from './routes/api/schema/pull'
+import { Route as ApiSchemaPushRouteImport } from './routes/api/schema/push'
 import { Route as DashboardCollectionsNameRouteRouteImport } from './routes/dashboard/collections/$name/route'
+import { Route as DashboardProjectsIndexRouteImport } from './routes/dashboard/projects.index'
+import { Route as DashboardProjectsProjectIdRouteRouteImport } from './routes/dashboard/projects/$projectId/route'
 import { Route as DashboardCollectionsNameIndexRouteImport } from './routes/dashboard/collections/$name/index'
-import { Route as DashboardProjectsProjectIdSettingsRouteImport } from './routes/dashboard/projects/$projectId/settings'
+import { Route as DashboardCollectionsNameCodeRouteImport } from './routes/dashboard/collections/$name/code'
 import { Route as DashboardCollectionsNameSchemaRouteImport } from './routes/dashboard/collections/$name/schema'
+import { Route as DashboardProjectsProjectIdSettingsRouteImport } from './routes/dashboard/projects/$projectId/settings'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRouteRoute = DashboardRouteRouteImport.update({
@@ -51,9 +48,14 @@ const DashboardRouteRoute = DashboardRouteRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -61,34 +63,9 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const InviteTokenRoute = InviteTokenRouteImport.update({
-  id: '/invite/$token',
-  path: '/invite/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardWorkspaceRoute = DashboardWorkspaceRouteImport.update({
-  id: '/workspace',
-  path: '/workspace',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardTeamRoute = DashboardTeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardProjectsRoute = DashboardProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardProfileRoute = DashboardProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => DashboardRouteRoute,
-} as any)
-const DashboardAssetsRoute = DashboardAssetsRouteImport.update({
-  id: '/assets',
-  path: '/assets',
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardApiKeysRoute = DashboardApiKeysRouteImport.update({
@@ -96,34 +73,44 @@ const DashboardApiKeysRoute = DashboardApiKeysRouteImport.update({
   path: '/api-keys',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
+const DashboardAssetsRoute = DashboardAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
-const ApiSchemaPushRoute = ApiSchemaPushRouteImport.update({
-  id: '/api/schema/push',
-  path: '/api/schema/push',
+const DashboardProfileRoute = DashboardProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardTeamRoute = DashboardTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardWorkspaceRoute = DashboardWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSchemaPullRoute = ApiSchemaPullRouteImport.update({
-  id: '/api/schema/pull',
-  path: '/api/schema/pull',
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSchemaProjectsRoute = ApiSchemaProjectsRouteImport.update({
-  id: '/api/schema/projects',
-  path: '/api/schema/projects',
+const ApiCollectionsItemsRoute = ApiCollectionsItemsRouteImport.update({
+  id: '/api/collections/items',
+  path: '/api/collections/items',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSchemaItemsRoute = ApiSchemaItemsRouteImport.update({
-  id: '/api/schema/items',
-  path: '/api/schema/items',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSchemaCollectionsRoute = ApiSchemaCollectionsRouteImport.update({
-  id: '/api/schema/collections',
-  path: '/api/schema/collections',
+const ApiSchemaAssetsRoute = ApiSchemaAssetsRouteImport.update({
+  id: '/api/schema/assets',
+  path: '/api/schema/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSchemaCollectionItemsRoute =
@@ -132,19 +119,29 @@ const ApiSchemaCollectionItemsRoute =
     path: '/api/schema/collection-items',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiSchemaAssetsRoute = ApiSchemaAssetsRouteImport.update({
-  id: '/api/schema/assets',
-  path: '/api/schema/assets',
+const ApiSchemaCollectionsRoute = ApiSchemaCollectionsRouteImport.update({
+  id: '/api/schema/collections',
+  path: '/api/schema/collections',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCollectionsItemsRoute = ApiCollectionsItemsRouteImport.update({
-  id: '/api/collections/items',
-  path: '/api/collections/items',
+const ApiSchemaItemsRoute = ApiSchemaItemsRouteImport.update({
+  id: '/api/schema/items',
+  path: '/api/schema/items',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
+const ApiSchemaProjectsRoute = ApiSchemaProjectsRouteImport.update({
+  id: '/api/schema/projects',
+  path: '/api/schema/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSchemaPullRoute = ApiSchemaPullRouteImport.update({
+  id: '/api/schema/pull',
+  path: '/api/schema/pull',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSchemaPushRoute = ApiSchemaPushRouteImport.update({
+  id: '/api/schema/push',
+  path: '/api/schema/push',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardCollectionsNameRouteRoute =
@@ -153,23 +150,40 @@ const DashboardCollectionsNameRouteRoute =
     path: '/collections/$name',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardProjectsIndexRoute = DashboardProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+const DashboardProjectsProjectIdRouteRoute =
+  DashboardProjectsProjectIdRouteRouteImport.update({
+    id: '/projects/$projectId',
+    path: '/projects/$projectId',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
 const DashboardCollectionsNameIndexRoute =
   DashboardCollectionsNameIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => DashboardCollectionsNameRouteRoute,
   } as any)
-const DashboardProjectsProjectIdSettingsRoute =
-  DashboardProjectsProjectIdSettingsRouteImport.update({
-    id: '/$projectId/settings',
-    path: '/$projectId/settings',
-    getParentRoute: () => DashboardProjectsRoute,
+const DashboardCollectionsNameCodeRoute =
+  DashboardCollectionsNameCodeRouteImport.update({
+    id: '/code',
+    path: '/code',
+    getParentRoute: () => DashboardCollectionsNameRouteRoute,
   } as any)
 const DashboardCollectionsNameSchemaRoute =
   DashboardCollectionsNameSchemaRouteImport.update({
     id: '/schema',
     path: '/schema',
     getParentRoute: () => DashboardCollectionsNameRouteRoute,
+  } as any)
+const DashboardProjectsProjectIdSettingsRoute =
+  DashboardProjectsProjectIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => DashboardProjectsProjectIdRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -181,12 +195,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/projects': typeof DashboardProjectsRouteWithChildren
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
   '/api/schema/assets': typeof ApiSchemaAssetsRoute
@@ -196,6 +210,8 @@ export interface FileRoutesByFullPath {
   '/api/schema/projects': typeof ApiSchemaProjectsRoute
   '/api/schema/pull': typeof ApiSchemaPullRoute
   '/api/schema/push': typeof ApiSchemaPushRoute
+  '/dashboard/projects/': typeof DashboardProjectsIndexRoute
+  '/dashboard/collections/$name/code': typeof DashboardCollectionsNameCodeRoute
   '/dashboard/collections/$name/schema': typeof DashboardCollectionsNameSchemaRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/collections/$name/': typeof DashboardCollectionsNameIndexRoute
@@ -208,11 +224,11 @@ export interface FileRoutesByTo {
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/projects': typeof DashboardProjectsRouteWithChildren
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
   '/api/schema/assets': typeof ApiSchemaAssetsRoute
@@ -222,6 +238,8 @@ export interface FileRoutesByTo {
   '/api/schema/projects': typeof ApiSchemaProjectsRoute
   '/api/schema/pull': typeof ApiSchemaPullRoute
   '/api/schema/push': typeof ApiSchemaPushRoute
+  '/dashboard/projects': typeof DashboardProjectsIndexRoute
+  '/dashboard/collections/$name/code': typeof DashboardCollectionsNameCodeRoute
   '/dashboard/collections/$name/schema': typeof DashboardCollectionsNameSchemaRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/collections/$name': typeof DashboardCollectionsNameIndexRoute
@@ -236,12 +254,12 @@ export interface FileRoutesById {
   '/dashboard/api-keys': typeof DashboardApiKeysRoute
   '/dashboard/assets': typeof DashboardAssetsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
-  '/dashboard/projects': typeof DashboardProjectsRouteWithChildren
   '/dashboard/team': typeof DashboardTeamRoute
   '/dashboard/workspace': typeof DashboardWorkspaceRoute
   '/invite/$token': typeof InviteTokenRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dashboard/collections/$name': typeof DashboardCollectionsNameRouteRouteWithChildren
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collections/items': typeof ApiCollectionsItemsRoute
   '/api/schema/assets': typeof ApiSchemaAssetsRoute
@@ -251,6 +269,8 @@ export interface FileRoutesById {
   '/api/schema/projects': typeof ApiSchemaProjectsRoute
   '/api/schema/pull': typeof ApiSchemaPullRoute
   '/api/schema/push': typeof ApiSchemaPushRoute
+  '/dashboard/projects/': typeof DashboardProjectsIndexRoute
+  '/dashboard/collections/$name/code': typeof DashboardCollectionsNameCodeRoute
   '/dashboard/collections/$name/schema': typeof DashboardCollectionsNameSchemaRoute
   '/dashboard/projects/$projectId/settings': typeof DashboardProjectsProjectIdSettingsRoute
   '/dashboard/collections/$name/': typeof DashboardCollectionsNameIndexRoute
@@ -266,12 +286,12 @@ export interface FileRouteTypes {
     | '/dashboard/api-keys'
     | '/dashboard/assets'
     | '/dashboard/profile'
-    | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
     | '/invite/$token'
     | '/dashboard/'
     | '/dashboard/collections/$name'
+    | '/dashboard/projects/$projectId'
     | '/api/auth/$'
     | '/api/collections/items'
     | '/api/schema/assets'
@@ -281,6 +301,8 @@ export interface FileRouteTypes {
     | '/api/schema/projects'
     | '/api/schema/pull'
     | '/api/schema/push'
+    | '/dashboard/projects/'
+    | '/dashboard/collections/$name/code'
     | '/dashboard/collections/$name/schema'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/collections/$name/'
@@ -293,11 +315,11 @@ export interface FileRouteTypes {
     | '/dashboard/api-keys'
     | '/dashboard/assets'
     | '/dashboard/profile'
-    | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
     | '/invite/$token'
     | '/dashboard'
+    | '/dashboard/projects/$projectId'
     | '/api/auth/$'
     | '/api/collections/items'
     | '/api/schema/assets'
@@ -307,6 +329,8 @@ export interface FileRouteTypes {
     | '/api/schema/projects'
     | '/api/schema/pull'
     | '/api/schema/push'
+    | '/dashboard/projects'
+    | '/dashboard/collections/$name/code'
     | '/dashboard/collections/$name/schema'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/collections/$name'
@@ -320,12 +344,12 @@ export interface FileRouteTypes {
     | '/dashboard/api-keys'
     | '/dashboard/assets'
     | '/dashboard/profile'
-    | '/dashboard/projects'
     | '/dashboard/team'
     | '/dashboard/workspace'
     | '/invite/$token'
     | '/dashboard/'
     | '/dashboard/collections/$name'
+    | '/dashboard/projects/$projectId'
     | '/api/auth/$'
     | '/api/collections/items'
     | '/api/schema/assets'
@@ -335,6 +359,8 @@ export interface FileRouteTypes {
     | '/api/schema/projects'
     | '/api/schema/pull'
     | '/api/schema/push'
+    | '/dashboard/projects/'
+    | '/dashboard/collections/$name/code'
     | '/dashboard/collections/$name/schema'
     | '/dashboard/projects/$projectId/settings'
     | '/dashboard/collections/$name/'
@@ -359,18 +385,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -380,11 +399,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/': {
@@ -394,46 +420,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/invite/$token': {
-      id: '/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard/workspace': {
-      id: '/dashboard/workspace'
-      path: '/workspace'
-      fullPath: '/dashboard/workspace'
-      preLoaderRoute: typeof DashboardWorkspaceRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/team': {
-      id: '/dashboard/team'
-      path: '/team'
-      fullPath: '/dashboard/team'
-      preLoaderRoute: typeof DashboardTeamRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/projects': {
-      id: '/dashboard/projects'
-      path: '/projects'
-      fullPath: '/dashboard/projects'
-      preLoaderRoute: typeof DashboardProjectsRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/profile': {
-      id: '/dashboard/profile'
-      path: '/profile'
-      fullPath: '/dashboard/profile'
-      preLoaderRoute: typeof DashboardProfileRouteImport
-      parentRoute: typeof DashboardRouteRoute
-    }
-    '/dashboard/assets': {
-      id: '/dashboard/assets'
-      path: '/assets'
-      fullPath: '/dashboard/assets'
-      preLoaderRoute: typeof DashboardAssetsRouteImport
+    '/dashboard/analytics': {
+      id: '/dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/api-keys': {
@@ -443,67 +434,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardApiKeysRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/dashboard/analytics': {
-      id: '/dashboard/analytics'
-      path: '/analytics'
-      fullPath: '/dashboard/analytics'
-      preLoaderRoute: typeof DashboardAnalyticsRouteImport
+    '/dashboard/assets': {
+      id: '/dashboard/assets'
+      path: '/assets'
+      fullPath: '/dashboard/assets'
+      preLoaderRoute: typeof DashboardAssetsRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
-    '/api/schema/push': {
-      id: '/api/schema/push'
-      path: '/api/schema/push'
-      fullPath: '/api/schema/push'
-      preLoaderRoute: typeof ApiSchemaPushRouteImport
-      parentRoute: typeof rootRouteImport
+    '/dashboard/profile': {
+      id: '/dashboard/profile'
+      path: '/profile'
+      fullPath: '/dashboard/profile'
+      preLoaderRoute: typeof DashboardProfileRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/api/schema/pull': {
-      id: '/api/schema/pull'
-      path: '/api/schema/pull'
-      fullPath: '/api/schema/pull'
-      preLoaderRoute: typeof ApiSchemaPullRouteImport
-      parentRoute: typeof rootRouteImport
+    '/dashboard/team': {
+      id: '/dashboard/team'
+      path: '/team'
+      fullPath: '/dashboard/team'
+      preLoaderRoute: typeof DashboardTeamRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/api/schema/projects': {
-      id: '/api/schema/projects'
-      path: '/api/schema/projects'
-      fullPath: '/api/schema/projects'
-      preLoaderRoute: typeof ApiSchemaProjectsRouteImport
-      parentRoute: typeof rootRouteImport
+    '/dashboard/workspace': {
+      id: '/dashboard/workspace'
+      path: '/workspace'
+      fullPath: '/dashboard/workspace'
+      preLoaderRoute: typeof DashboardWorkspaceRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
-    '/api/schema/items': {
-      id: '/api/schema/items'
-      path: '/api/schema/items'
-      fullPath: '/api/schema/items'
-      preLoaderRoute: typeof ApiSchemaItemsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/schema/collections': {
-      id: '/api/schema/collections'
-      path: '/api/schema/collections'
-      fullPath: '/api/schema/collections'
-      preLoaderRoute: typeof ApiSchemaCollectionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/schema/collection-items': {
-      id: '/api/schema/collection-items'
-      path: '/api/schema/collection-items'
-      fullPath: '/api/schema/collection-items'
-      preLoaderRoute: typeof ApiSchemaCollectionItemsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/schema/assets': {
-      id: '/api/schema/assets'
-      path: '/api/schema/assets'
-      fullPath: '/api/schema/assets'
-      preLoaderRoute: typeof ApiSchemaAssetsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/collections/items': {
-      id: '/api/collections/items'
-      path: '/api/collections/items'
-      fullPath: '/api/collections/items'
-      preLoaderRoute: typeof ApiCollectionsItemsRouteImport
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -513,11 +476,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/collections/items': {
+      id: '/api/collections/items'
+      path: '/api/collections/items'
+      fullPath: '/api/collections/items'
+      preLoaderRoute: typeof ApiCollectionsItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/assets': {
+      id: '/api/schema/assets'
+      path: '/api/schema/assets'
+      fullPath: '/api/schema/assets'
+      preLoaderRoute: typeof ApiSchemaAssetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/collection-items': {
+      id: '/api/schema/collection-items'
+      path: '/api/schema/collection-items'
+      fullPath: '/api/schema/collection-items'
+      preLoaderRoute: typeof ApiSchemaCollectionItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/collections': {
+      id: '/api/schema/collections'
+      path: '/api/schema/collections'
+      fullPath: '/api/schema/collections'
+      preLoaderRoute: typeof ApiSchemaCollectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/items': {
+      id: '/api/schema/items'
+      path: '/api/schema/items'
+      fullPath: '/api/schema/items'
+      preLoaderRoute: typeof ApiSchemaItemsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/projects': {
+      id: '/api/schema/projects'
+      path: '/api/schema/projects'
+      fullPath: '/api/schema/projects'
+      preLoaderRoute: typeof ApiSchemaProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/pull': {
+      id: '/api/schema/pull'
+      path: '/api/schema/pull'
+      fullPath: '/api/schema/pull'
+      preLoaderRoute: typeof ApiSchemaPullRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/schema/push': {
+      id: '/api/schema/push'
+      path: '/api/schema/push'
+      fullPath: '/api/schema/push'
+      preLoaderRoute: typeof ApiSchemaPushRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/collections/$name': {
       id: '/dashboard/collections/$name'
       path: '/collections/$name'
       fullPath: '/dashboard/collections/$name'
       preLoaderRoute: typeof DashboardCollectionsNameRouteRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/projects/': {
+      id: '/dashboard/projects/'
+      path: '/projects'
+      fullPath: '/dashboard/projects/'
+      preLoaderRoute: typeof DashboardProjectsIndexRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/projects/$projectId': {
+      id: '/dashboard/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/dashboard/projects/$projectId'
+      preLoaderRoute: typeof DashboardProjectsProjectIdRouteRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/collections/$name/': {
@@ -527,12 +560,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCollectionsNameIndexRouteImport
       parentRoute: typeof DashboardCollectionsNameRouteRoute
     }
-    '/dashboard/projects/$projectId/settings': {
-      id: '/dashboard/projects/$projectId/settings'
-      path: '/$projectId/settings'
-      fullPath: '/dashboard/projects/$projectId/settings'
-      preLoaderRoute: typeof DashboardProjectsProjectIdSettingsRouteImport
-      parentRoute: typeof DashboardProjectsRoute
+    '/dashboard/collections/$name/code': {
+      id: '/dashboard/collections/$name/code'
+      path: '/code'
+      fullPath: '/dashboard/collections/$name/code'
+      preLoaderRoute: typeof DashboardCollectionsNameCodeRouteImport
+      parentRoute: typeof DashboardCollectionsNameRouteRoute
     }
     '/dashboard/collections/$name/schema': {
       id: '/dashboard/collections/$name/schema'
@@ -541,28 +574,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCollectionsNameSchemaRouteImport
       parentRoute: typeof DashboardCollectionsNameRouteRoute
     }
+    '/dashboard/projects/$projectId/settings': {
+      id: '/dashboard/projects/$projectId/settings'
+      path: '/settings'
+      fullPath: '/dashboard/projects/$projectId/settings'
+      preLoaderRoute: typeof DashboardProjectsProjectIdSettingsRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRouteRoute
+    }
   }
 }
 
-interface DashboardProjectsRouteChildren {
-  DashboardProjectsProjectIdSettingsRoute: typeof DashboardProjectsProjectIdSettingsRoute
-}
-
-const DashboardProjectsRouteChildren: DashboardProjectsRouteChildren = {
-  DashboardProjectsProjectIdSettingsRoute:
-    DashboardProjectsProjectIdSettingsRoute,
-}
-
-const DashboardProjectsRouteWithChildren =
-  DashboardProjectsRoute._addFileChildren(DashboardProjectsRouteChildren)
-
 interface DashboardCollectionsNameRouteRouteChildren {
+  DashboardCollectionsNameCodeRoute: typeof DashboardCollectionsNameCodeRoute
   DashboardCollectionsNameSchemaRoute: typeof DashboardCollectionsNameSchemaRoute
   DashboardCollectionsNameIndexRoute: typeof DashboardCollectionsNameIndexRoute
 }
 
 const DashboardCollectionsNameRouteRouteChildren: DashboardCollectionsNameRouteRouteChildren =
   {
+    DashboardCollectionsNameCodeRoute: DashboardCollectionsNameCodeRoute,
     DashboardCollectionsNameSchemaRoute: DashboardCollectionsNameSchemaRoute,
     DashboardCollectionsNameIndexRoute: DashboardCollectionsNameIndexRoute,
   }
@@ -572,16 +602,32 @@ const DashboardCollectionsNameRouteRouteWithChildren =
     DashboardCollectionsNameRouteRouteChildren,
   )
 
+interface DashboardProjectsProjectIdRouteRouteChildren {
+  DashboardProjectsProjectIdSettingsRoute: typeof DashboardProjectsProjectIdSettingsRoute
+}
+
+const DashboardProjectsProjectIdRouteRouteChildren: DashboardProjectsProjectIdRouteRouteChildren =
+  {
+    DashboardProjectsProjectIdSettingsRoute:
+      DashboardProjectsProjectIdSettingsRoute,
+  }
+
+const DashboardProjectsProjectIdRouteRouteWithChildren =
+  DashboardProjectsProjectIdRouteRoute._addFileChildren(
+    DashboardProjectsProjectIdRouteRouteChildren,
+  )
+
 interface DashboardRouteRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardApiKeysRoute: typeof DashboardApiKeysRoute
   DashboardAssetsRoute: typeof DashboardAssetsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
-  DashboardProjectsRoute: typeof DashboardProjectsRouteWithChildren
   DashboardTeamRoute: typeof DashboardTeamRoute
   DashboardWorkspaceRoute: typeof DashboardWorkspaceRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardCollectionsNameRouteRoute: typeof DashboardCollectionsNameRouteRouteWithChildren
+  DashboardProjectsProjectIdRouteRoute: typeof DashboardProjectsProjectIdRouteRouteWithChildren
+  DashboardProjectsIndexRoute: typeof DashboardProjectsIndexRoute
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
@@ -589,12 +635,14 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
   DashboardApiKeysRoute: DashboardApiKeysRoute,
   DashboardAssetsRoute: DashboardAssetsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
-  DashboardProjectsRoute: DashboardProjectsRouteWithChildren,
   DashboardTeamRoute: DashboardTeamRoute,
   DashboardWorkspaceRoute: DashboardWorkspaceRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardCollectionsNameRouteRoute:
     DashboardCollectionsNameRouteRouteWithChildren,
+  DashboardProjectsProjectIdRouteRoute:
+    DashboardProjectsProjectIdRouteRouteWithChildren,
+  DashboardProjectsIndexRoute: DashboardProjectsIndexRoute,
 }
 
 const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(

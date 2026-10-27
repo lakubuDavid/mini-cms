@@ -1,7 +1,27 @@
-import { and, asc, count, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, exists, inArray, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
-import { collectionItems } from "@/db/schema";
+import { collectionItems, collections } from "@/db/schema";
+
+/**
+ * Restricts a collection item to a workspace.
+ *
+ * Drizzle cannot join another table inside an UPDATE or DELETE, so the
+ * ownership check is expressed as a subquery over the collection's workspace.
+ */
+function ownedByWorkspace(organizationId: string) {
+  return exists(
+    db
+      .select({ id: collections.id })
+      .from(collections)
+      .where(
+        and(
+          eq(collections.id, collectionItems.collectionId),
+          eq(collections.organizationId, organizationId),
+        ),
+      ),
+  );
+}
 import {
   toStoredItemValues,
   withSystemItemValues,
@@ -30,10 +50,16 @@ export async function listItems(
     filters?: Record<string, string>;
     query?: string;
     schema?: CollectionItemFilterField[];
+    environmentId?: string;
   },
 ): Promise<PaginatedResult<typeof collectionItems.$inferSelect>> {
   const { limit, offset, page } = normalizePagination(input);
   const conditions = [eq(collectionItems.collectionId, collectionId)];
+
+  // Filter by environment if specified; otherwise return items from all environments
+  if (input?.environmentId) {
+    conditions.push(eq(collectionItems.environmentId, input.environmentId));
+  }
 
   if (input?.publishedOnly) {
     conditions.push(
@@ -143,9 +169,11 @@ function parseBooleanFilter(value: string) {
   return null;
 }
 
-export async function getItemById(id: string) {
+export async function getItemById(id: string, organizationId?: string) {
   const item = await db.query.collectionItems.findFirst({
-    where: eq(collectionItems.id, id),
+    where: organizationId
+      ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+      : eq(collectionItems.id, id),
   });
 
   return item ? withSystemItemValues(item) : null;
@@ -154,26 +182,48 @@ export async function getItemById(id: string) {
 export async function createItem(
   collectionId: string,
   data: CollectionItemData,
-  order = 0,
+  options?: {
+    order?: number;
+    environmentId?: string;
+    organizationId?: string;
+  },
 ) {
   const id = nanoid();
   const now = new Date().toISOString();
 
+  if (options?.organizationId) {
+    const { getCollectionById } = await import("./collections");
+    const collection = await getCollectionById(
+      collectionId,
+      options.organizationId,
+    );
+    if (!collection) {
+      throw new Error("Collection not found in this workspace.");
+    }
+  }
+
   await db.insert(collectionItems).values({
     id,
     collectionId,
+    environmentId: options?.environmentId ?? null,
     data: toStoredItemValues(data),
-    order,
+    order: options?.order ?? 0,
     createdAt: now,
     updatedAt: now,
   });
 
-  return getItemById(id);
+  return getItemById(id, options?.organizationId);
 }
 
-export async function updateItem(id: string, data: CollectionItemData) {
+export async function updateItem(
+  id: string,
+  data: CollectionItemData,
+  organizationId?: string,
+) {
   const existing = await db.query.collectionItems.findFirst({
-    where: eq(collectionItems.id, id),
+    where: organizationId
+      ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+      : eq(collectionItems.id, id),
   });
 
   if (!existing) {
@@ -186,17 +236,37 @@ export async function updateItem(id: string, data: CollectionItemData) {
       data: toStoredItemValues(data, existing.data._published === true),
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(collectionItems.id, id));
+    .where(
+      organizationId
+        ? and(eq(collectionItems.id, id), ownedByWorkspace(organizationId))
+        : eq(collectionItems.id, id),
+    );
 
-  return getItemById(id);
+  return getItemById(id, organizationId);
 }
 
-export async function deleteItem(id: string) {
+export async function deleteItem(id: string, organizationId?: string) {
+  if (organizationId) {
+    await db
+      .delete(collectionItems)
+      .where(and(eq(collectionItems.id, id), ownedByWorkspace(organizationId)));
+    return;
+  }
+
   await db.delete(collectionItems).where(eq(collectionItems.id, id));
 }
 
-export async function countItemsByCollectionIds(collectionIds: string[]) {
+export async function countItemsByCollectionIds(
+  collectionIds: string[],
+  environmentId?: string,
+) {
   if (collectionIds.length === 0) return new Map<string, number>();
+
+  const conditions = [inArray(collectionItems.collectionId, collectionIds)];
+
+  if (environmentId) {
+    conditions.push(eq(collectionItems.environmentId, environmentId));
+  }
 
   const results = await db
     .select({
@@ -204,7 +274,7 @@ export async function countItemsByCollectionIds(collectionIds: string[]) {
       count: count(),
     })
     .from(collectionItems)
-    .where(inArray(collectionItems.collectionId, collectionIds))
+    .where(and(...conditions))
     .groupBy(collectionItems.collectionId);
 
   return new Map(results.map((r) => [r.collectionId, r.count]));
@@ -220,12 +290,92 @@ export async function reorderItems(collectionId: string, itemIds: string[]) {
     .map((item) => item.id)
     .filter((id) => itemIds.includes(id));
 
-  await Promise.all(
-    validIds.map((id, index) =>
-      db
-        .update(collectionItems)
-        .set({ order: index, updatedAt: new Date().toISOString() })
-        .where(inArray(collectionItems.id, [id])),
-    ),
-  );
+  if (validIds.length === 0) return;
+
+  const now = new Date().toISOString();
+  const cases = validIds
+    .map((id, index) => sql`WHEN ${id} THEN ${index}`)
+    .reduce((acc, c, i) => (i === 0 ? c : sql`${acc} ${c}`), sql``);
+
+  await db
+    .update(collectionItems)
+    .set({
+      order: sql`CASE ${collectionItems.id} ${cases} ELSE ${collectionItems.order} END`,
+      updatedAt: now,
+    })
+    .where(inArray(collectionItems.id, validIds));
+}
+
+/**
+ * Promote items to the production environment.
+ * Moves items from their current environment to the production environment.
+ */
+export async function promoteItemsToProduction(
+  itemIds: string[],
+  productionEnvironmentId: string,
+) {
+  if (itemIds.length === 0) return;
+
+  const now = new Date().toISOString();
+
+  // Batch update in chunks of 50
+  const chunkSize = 50;
+  for (let i = 0; i < itemIds.length; i += chunkSize) {
+    const chunk = itemIds.slice(i, i + chunkSize);
+    await db
+      .update(collectionItems)
+      .set({
+        environmentId: productionEnvironmentId,
+        updatedAt: now,
+      })
+      .where(inArray(collectionItems.id, chunk));
+  }
+}
+
+/**
+ * Duplicate items to another environment.
+ * Creates copies of the specified items in the target environment.
+ * The original items remain unchanged.
+ */
+export async function duplicateItemsToEnvironment(
+  itemIds: string[],
+  sourceEnvironmentId: string,
+  targetEnvironmentId: string,
+) {
+  if (itemIds.length === 0) return;
+
+  const now = new Date().toISOString();
+
+  // Fetch the original items
+  const originals = await db
+    .select()
+    .from(collectionItems)
+    .where(
+      and(
+        inArray(collectionItems.id, itemIds),
+        eq(collectionItems.environmentId, sourceEnvironmentId),
+      ),
+    );
+
+  if (originals.length === 0) return;
+
+  // Insert copies with new IDs in the target environment
+  const copies = originals.map((original) => ({
+    id: nanoid(),
+    collectionId: original.collectionId,
+    environmentId: targetEnvironmentId,
+    data: original.data,
+    order: original.order,
+    createdAt: now,
+    updatedAt: now,
+  }));
+
+  // Insert in chunks of 50
+  const chunkSize = 50;
+  for (let i = 0; i < copies.length; i += chunkSize) {
+    const chunk = copies.slice(i, i + chunkSize);
+    await db.insert(collectionItems).values(chunk);
+  }
+
+  return copies.map((c) => c.id);
 }

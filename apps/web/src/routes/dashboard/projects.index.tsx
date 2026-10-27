@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,8 +6,16 @@ import {
   updateProjectServerFn,
   deleteProjectServerFn,
 } from "@/lib/projects-helpers";
-import { projectsQueryOptions, collectionsQueryOptions } from "@/lib/queries";
+import { useDashboard } from "@/lib/dashboard-context";
+import {
+  projectsQueryOptions,
+  collectionsQueryOptions,
+  queryKeys,
+} from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import { DataTable, type DataTableColumn } from "@workspace/ui/components/data-table";
+import { useDataTableRouterState } from "@/lib/data-table/use-data-table-router-state";
+import { formatDate } from "@/lib/format-date";
 import {
   Plus,
   FolderTree,
@@ -20,17 +28,48 @@ import {
   AlertCircle,
   Layers,
   Star,
+  Settings,
 } from "lucide-react";
 
-export const Route = createFileRoute("/dashboard/projects")({
+export const Route = createFileRoute("/dashboard/projects/")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    page: intOrUndefined(search.page),
+    pageSize: intOrUndefined(search.pageSize),
+    q: strOrUndefined(search.q),
+    sort: strOrUndefined(search.sort),
+    order: orderOrUndefined(search.order),
+  }),
   component: ProjectsPage,
 });
 
+function intOrUndefined(v: unknown): number | undefined {
+  if (typeof v === "string" && /^\d+$/.test(v)) return parseInt(v, 10);
+  if (typeof v === "number" && Number.isFinite(v)) return Math.floor(v);
+  return undefined;
+}
+function strOrUndefined(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function orderOrUndefined(v: unknown): "asc" | "desc" | undefined {
+  return v === "asc" || v === "desc" ? v : undefined;
+}
+
 function ProjectsPage() {
   const queryClient = useQueryClient();
-  const { projects: ssrProjects } = Route.useRouteContext();
-  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
+  const { user } = useRouteContext({ from: "/dashboard" });
+  const { organization } = useDashboard();
+  const table = useDataTableRouterState({
+    defaults: { page: 1, pageSize: 25, defaultSort: null },
+  });
+  const projectsQuery = useQuery(projectsQueryOptions());
   const collectionsQuery = useQuery(collectionsQueryOptions(1, 200));
+  const currentMembership = organization?.members?.find(
+    (member) => member.user.id === user.id,
+  );
+  const canManageProjects =
+    currentMembership?.role
+      .split(",")
+      .some((role) => role === "owner" || role === "admin") ?? false;
 
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,6 +82,9 @@ function ProjectsPage() {
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["projects"] });
     void queryClient.invalidateQueries({ queryKey: ["collections"] });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.dashboardBootstrap(),
+    });
   }
 
   if (projectsQuery.isLoading || collectionsQuery.isLoading) {
@@ -83,14 +125,16 @@ function ProjectsPage() {
             workspace starts with a Default project.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
-        >
-          <Plus className="h-4 w-4" />
-          New project
-        </button>
+        {canManageProjects ? (
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-stone-800"
+          >
+            <Plus className="h-4 w-4" />
+            New project
+          </button>
+        ) : null}
       </div>
 
       {message ? (
@@ -117,83 +161,97 @@ function ProjectsPage() {
         </div>
       ) : null}
 
-      <div className="overflow-hidden rounded-lg border border-stone-200">
-        <table className="min-w-full divide-y divide-stone-200 text-sm">
-          <thead className="bg-stone-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">
-                Name
-              </th>
-              <th className="px-4 py-3 text-left font-medium text-stone-600">
-                Slug
-              </th>
-              <th className="hidden px-4 py-3 text-left font-medium text-stone-600 sm:table-cell">
-                Collections
-              </th>
-              <th className="hidden px-4 py-3 text-left font-medium text-stone-600 md:table-cell">
-                Created
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-stone-600">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100 bg-white">
-            {projects.map(
-              (project: (typeof projects)[number]) => {
-                const isDefault = project.metadata?.isDefault === true;
-                const count = collectionsCountForProject(project.id);
-
+      <DataTable
+        data={projects}
+        rowKey={(p) => p.id}
+        columns={
+          [
+            {
+              id: "name",
+              header: "Name",
+              accessor: (p) => p.name,
+              cell: (p) => {
+                const isDefault = p.metadata?.isDefault === true;
                 return (
-                  <tr key={project.id} className="hover:bg-stone-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <FolderTree className="h-4 w-4 shrink-0 text-stone-400" />
-                        <span className="font-medium text-stone-900">
-                          {project.name}
-                        </span>
-                        {isDefault ? (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-stone-500">
-                            <Star className="h-2.5 w-2.5" />
-                            Default
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">
-                      {project.slug}
-                    </td>
-                    <td className="hidden px-4 py-3 sm:table-cell">
-                      <span className="inline-flex items-center gap-1 text-stone-600">
-                        <Layers className="h-3.5 w-3.5 text-stone-400" />
-                        {count}
+                  <div className="flex items-center gap-2.5">
+                    <FolderTree className="h-4 w-4 shrink-0 text-stone-400" />
+                    <span className="font-medium text-stone-900">{p.name}</span>
+                    {isDefault ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-stone-500">
+                        <Star className="h-2.5 w-2.5" />
+                        Default
                       </span>
-                    </td>
-                    <td className="hidden px-4 py-3 text-stone-500 md:table-cell">
-                      {new Date(project.createdAt).toLocaleDateString(
-                        "en-US",
-                        {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        },
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1.5">
+                    ) : null}
+                  </div>
+                );
+              },
+            },
+            {
+              id: "slug",
+              header: "Slug",
+              accessor: (p) => p.slug,
+              cell: (p) => <span className="font-mono text-xs text-stone-500">{p.slug}</span>,
+            },
+            {
+              id: "collections",
+              header: "Collections",
+              accessor: (p) => collectionsCountForProject(p.id),
+              cell: (p) => {
+                const count = collectionsCountForProject(p.id);
+                return (
+                  <span className="inline-flex items-center gap-1 text-stone-600">
+                    <Layers className="h-3.5 w-3.5 text-stone-400" />
+                    {count}
+                  </span>
+                );
+              },
+              className: "hidden sm:table-cell",
+              hiddenOn: ["sm"],
+            },
+            {
+              id: "createdAt",
+              header: "Created",
+              accessor: (p) => new Date(p.createdAt).toISOString(),
+              cell: (p) => (
+                <span className="text-stone-500">
+                  {formatDate(p.createdAt)}
+                </span>
+              ),
+              className: "hidden md:table-cell",
+              hiddenOn: ["md"],
+            },
+            {
+              id: "actions",
+              header: () => <span className="sr-only">Actions</span>,
+              accessor: (p) => p.id,
+              sortable: false,
+              cell: (p) => {
+                const isDefault = p.metadata?.isDefault === true;
+                return (
+                  <div className="flex justify-end gap-1.5">
+                    <Link
+                      to="/dashboard/projects/$projectId/settings"
+                      params={{ projectId: p.id }}
+                      className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
+                    >
+                      <Settings className="h-3 w-3" />
+                      Settings
+                    </Link>
+                    {canManageProjects ? (
+                      <>
                         <button
                           type="button"
-                          onClick={() => setEditingId(project.id)}
+                          onClick={() => setEditingId(p.id)}
                           className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50"
                         >
                           <Pencil className="h-3 w-3" />
                           Edit
                         </button>
-                        {confirmDeleteId === project.id ? (
+                        {confirmDeleteId === p.id ? (
                           <>
                             <button
                               type="button"
-                              onClick={() => void handleDelete(project.id)}
+                              onClick={() => void handleDelete(p.id)}
                               className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700"
                             >
                               Confirm
@@ -215,7 +273,7 @@ function ProjectsPage() {
                                     type: "error",
                                     text: "The default project cannot be deleted.",
                                   })
-                                : setConfirmDeleteId(project.id)
+                                : setConfirmDeleteId(p.id)
                             }
                             className={`inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium transition ${
                               isDefault
@@ -227,25 +285,39 @@ function ProjectsPage() {
                             Delete
                           </button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </>
+                    ) : null}
+                  </div>
                 );
               },
-            )}
-            {!projects.length ? (
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-4 py-10 text-center text-stone-500"
-                >
-                  No projects yet. Create one to get started.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+            },
+          ] satisfies DataTableColumn<(typeof projects)[number]>[]
+        }
+        searchFields={["name", "slug"]}
+        defaultQuery={table.q}
+        onQueryChange={table.setQ}
+        defaultSort={table.sort}
+        sort={table.sort}
+        onSortChange={table.setSort}
+        pagination={{
+          page: table.page,
+          totalPages: Math.max(1, Math.ceil(projects.length / table.pageSize)),
+          total: projects.length,
+          pageSize: table.pageSize,
+          onPageChange: table.setPage,
+          onPageSizeChange: table.setPageSize,
+        }}
+        refresh={{
+          onRefresh: () => void projectsQuery.refetch(),
+          isRefreshing: projectsQuery.isFetching,
+        }}
+        emptyState={
+          canManageProjects
+            ? "No projects yet. Create one to get started."
+            : "No projects assigned to you yet."
+        }
+        caption="Projects"
+      />
 
       <p className="text-xs text-stone-400">
         {projects.length} {projects.length === 1 ? "project" : "projects"}.

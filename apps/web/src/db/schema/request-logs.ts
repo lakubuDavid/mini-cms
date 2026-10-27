@@ -17,6 +17,7 @@ export const requestLogs = sqliteTable(
   (table) => [
     index("request_logs_project_id_idx").on(table.projectId),
     index("request_logs_timestamp_idx").on(table.timestamp),
+    index("request_logs_project_timestamp_idx").on(table.projectId, table.timestamp),
     index("request_logs_origin_domain_idx").on(table.originDomain),
     index("request_logs_collection_slug_idx").on(table.collectionSlug),
   ],

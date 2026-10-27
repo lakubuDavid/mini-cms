@@ -20,6 +20,7 @@ export async function listCollectionsAction(input?: {
   limit?: number;
   organizationId?: string;
   projectId?: string;
+  projectIds?: string[];
 }) {
   return listCollections(input);
 }
@@ -78,13 +79,14 @@ export async function createCollectionAction(
 export async function updateCollectionAction(
   id: string,
   input: Partial<CreateCollectionInput> & { slug?: string },
+  organizationId?: string,
 ) {
   try {
     if (input.schema) {
       validateCollectionFieldKeys(input.schema);
     }
 
-    const collection = await updateCollection(id, input);
+    const collection = await updateCollection(id, input, organizationId);
 
     if (collection?.slug) {
       await invalidateCollectionCache(collection.slug);
@@ -118,9 +120,13 @@ export async function updateCollectionAction(
   }
 }
 
-export async function deleteCollectionAction(id: string, slug?: string) {
+export async function deleteCollectionAction(
+  id: string,
+  slug?: string,
+  organizationId?: string,
+) {
   try {
-    await deleteCollection(id);
+    await deleteCollection(id, organizationId);
 
     if (slug) {
       await invalidateCollectionCache(slug);

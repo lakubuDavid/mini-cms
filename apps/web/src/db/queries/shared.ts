@@ -1,3 +1,8 @@
+export type ProjectAccess = {
+  all: boolean;
+  projectIds: string[];
+};
+
 export type PaginationInput = {
   page?: number;
   limit?: number;

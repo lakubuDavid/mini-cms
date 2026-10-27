@@ -7,8 +7,10 @@ import {
   createItemServerFn,
   deleteItemServerFn,
   updateItemServerFn,
+  promoteItemsServerFn,
+  duplicateItemsServerFn,
 } from "@/lib/collections-helpers";
-import { collectionPageQueryOptions } from "@/lib/queries";
+import { collectionPageQueryOptions, environmentsQueryOptions } from "@/lib/queries";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   ArrowLeft,
@@ -21,18 +23,22 @@ import {
   ExternalLink,
   CheckCircle,
   AlertCircle,
+  Code2,
   Calendar,
   Image as ImageIcon,
   Upload,
   Search,
   LoaderCircle,
   ChevronDown,
+  Send,
+  Copy,
 } from "lucide-react";
 import { Switch } from "@workspace/ui/components/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@workspace/ui/components/tooltip";
 import { Checkbox } from "@workspace/ui/components/checkbox";
 import { Button } from "@workspace/ui/components/button";
 import { Separator } from "@workspace/ui/components/separator";
+import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
 import { SYSTEM_COLLECTION_FIELDS as SYSTEM_FIELDS } from "@/lib/collections-system-fields";
 import {
   requestAssetUploadServerFn,
@@ -50,6 +56,7 @@ type CollectionField = {
 type ItemRecord = {
   id: string;
   data: Record<string, string | number | boolean | null>;
+  environmentId?: string | null;
 };
 
 export const Route = createFileRoute("/dashboard/collections/$name/")({
@@ -58,6 +65,10 @@ export const Route = createFileRoute("/dashboard/collections/$name/")({
     projectId:
       typeof search.projectId === "string" && search.projectId.length > 0
         ? search.projectId
+        : undefined,
+    env:
+      typeof search.env === "string" && search.env.length > 0
+        ? search.env
         : undefined,
   }),
   component: CollectionPage,
@@ -68,8 +79,9 @@ function CollectionPage() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
 
+  // Always fetch all items (no env filter) — we filter client-side for optimistic UX
   const pageQuery = useQuery(
-    collectionPageQueryOptions(name, search.page, 10, search.projectId),
+    collectionPageQueryOptions(name, search.page, 100, search.projectId),
   );
 
   const [showModal, setShowModal] = useState(false);
@@ -213,7 +225,7 @@ function CollectionPageContent(props: {
       hasMore: boolean;
     };
   };
-  search: { page: number; projectId?: string };
+  search: { page: number; projectId?: string; env?: string };
   editingItemId: string | null;
   setEditingItemId: (id: string | null) => void;
   showModal: boolean;
@@ -260,6 +272,30 @@ function CollectionPageContent(props: {
     bulkActionLoading,
     allSelected,
   } = props;
+
+  // ── Environments ────────────────────────────────────────────
+  const environmentsQuery = useQuery({
+    ...environmentsQueryOptions(search.projectId ?? ""),
+    enabled: !!search.projectId,
+  });
+  const allEnvironments = environmentsQuery.data ?? [];
+  const productionEnv = allEnvironments.find((e) => e.isProduction) ?? allEnvironments[0] ?? null;
+  const currentEnv = search.env
+    ? allEnvironments.find((e) => e.slug === search.env) ?? productionEnv
+    : productionEnv;
+
+  // Client-side environment filtering (optimistic — instant switch)
+  const filteredItems = useMemo(() => {
+    if (!currentEnv) return items.items;
+    if (currentEnv.isProduction) {
+      return items.items.filter(
+        (item: ItemRecord) => !item.environmentId || item.environmentId === currentEnv.id,
+      );
+    }
+    return items.items.filter(
+      (item: ItemRecord) => item.environmentId === currentEnv.id,
+    );
+  }, [items.items, currentEnv]);
   const tableFields: Array<
     | (typeof SYSTEM_FIELDS)[number]
     | CollectionField
@@ -270,7 +306,7 @@ function CollectionPageContent(props: {
       items.items.find(
         (item: ItemRecord) => item.id === editingItemId,
       ) ?? null,
-    [editingItemId, items.items],
+    [editingItemId, filteredItems],
   );
 
   async function handleDeleteItem(id: string) {
@@ -288,6 +324,63 @@ function CollectionPageContent(props: {
       onInvalidate();
     } else {
       setMessage({ type: "error", text: "Unable to delete item." });
+    }
+  }
+
+
+
+  // ── Promote / Duplicate handlers ───────────────────────────
+  const [duplicateTargetId, setDuplicateTargetId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  async function handlePromoteItems(itemIds: string[]) {
+    if (!productionEnv || !currentEnv) return;
+    if (currentEnv.id === productionEnv.id) {
+      setMessage({ type: "error", text: "Items are already in the production environment." });
+      return;
+    }
+    setActionLoading("promote");
+    try {
+      await promoteItemsServerFn({
+        data: {
+          itemIds,
+          productionEnvironmentId: productionEnv.id,
+          collectionSlug: collection.slug,
+        },
+      });
+      setSelectedItems(new Set());
+      setMessage({ type: "success", text: `${itemIds.length} item(s) promoted to ${productionEnv.name}.` });
+      onInvalidate();
+    } catch (error) {
+      console.error("Promote failed:", error);
+      setMessage({ type: "error", text: "Failed to promote items." });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleDuplicateItems(itemIds: string[], targetEnvId: string) {
+    if (!currentEnv) return;
+    setActionLoading("duplicate");
+    try {
+      await duplicateItemsServerFn({
+        data: {
+          itemIds,
+          sourceEnvironmentId: currentEnv.id,
+          targetEnvironmentId: targetEnvId,
+          collectionSlug: collection.slug,
+        },
+      });
+      setSelectedItems(new Set());
+      setDuplicateTargetId(null);
+      const targetEnv = allEnvironments.find((e) => e.id === targetEnvId);
+      setMessage({ type: "success", text: `${itemIds.length} item(s) duplicated to ${targetEnv?.name ?? "other"}.` });
+      onInvalidate();
+    } catch (error) {
+      console.error("Duplicate failed:", error);
+      setMessage({ type: "error", text: "Failed to duplicate items." });
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -310,8 +403,19 @@ function CollectionPageContent(props: {
             {collection.name}
           </h2>
           <p className="mt-1 text-sm text-stone-500">
-            {collection.description ?? "Manage items for this collection."} --{" "}
-            {items.pagination.total} items
+            {collection.description ?? "Manage items for this collection."}
+            {currentEnv ? (
+              <>
+                {" — "}
+                <span className="font-medium text-stone-700">{filteredItems.length}</span>
+                {" of "}
+                {items.pagination.total}
+                {" items in "}
+                <span className="font-medium text-stone-700">{currentEnv.name}</span>
+              </>
+            ) : (
+              <> -- {items.pagination.total} items</>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -323,6 +427,15 @@ function CollectionPageContent(props: {
           >
             <Settings className="h-4 w-4" />
             Edit schema
+          </Link>
+          <Link
+            to="/dashboard/collections/$name/code"
+            params={{ name: collection.slug }}
+            search={{ projectId: search.projectId }}
+            className="inline-flex items-center gap-2 rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium transition hover:bg-stone-50"
+          >
+            <Code2 className="h-4 w-4" />
+            Code
           </Link>
           <button
             type="button"
@@ -337,6 +450,11 @@ function CollectionPageContent(props: {
           </button>
         </div>
       </div>
+
+      {/* Toolbar */}
+      <CollectionToolbar
+        onRefresh={onInvalidate}
+      />
 
       {message ? (
         <div
@@ -389,6 +507,54 @@ function CollectionPageContent(props: {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => void handlePromoteItems(Array.from(selectedItems))}
+            disabled={actionLoading === "promote" || !currentEnv || currentEnv.id === productionEnv?.id || selectedItems.size === 0}
+          >
+            <Send className="mr-1.5 h-3.5 w-3.5" />
+            Promote {selectedItems.size > 1 ? `(${selectedItems.size})` : ""}
+          </Button>
+          {duplicateTargetId === "bulk" ? (
+            <div className="flex items-center gap-1.5">
+              <select
+                className="rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    void handleDuplicateItems(Array.from(selectedItems), e.target.value);
+                  }
+                }}
+                defaultValue=""
+              >
+                <option value="" disabled>Target env…</option>
+                {allEnvironments
+                  .filter((e) => e.id !== currentEnv?.id)
+                  .map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setDuplicateTargetId(null)}
+                className="rounded-md px-2 py-1.5 text-xs text-stone-500 hover:text-stone-900"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDuplicateTargetId("bulk")}
+              disabled={actionLoading === "duplicate" || selectedItems.size === 0}
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Duplicate
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleBulkDelete}
             disabled={bulkActionLoading}
             className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
@@ -406,7 +572,7 @@ function CollectionPageContent(props: {
         </div>
       )}
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
@@ -431,7 +597,7 @@ function CollectionPageContent(props: {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100 bg-white">
-              {items.items.map((item: ItemRecord) => (
+              {filteredItems.map((item: ItemRecord) => (
                 <tr key={item.id} className="hover:bg-stone-50">
                   <td className="px-3 py-3 align-top">
                     <Checkbox
@@ -454,6 +620,58 @@ function CollectionPageContent(props: {
                     ))}
                   <td className="px-4 py-3 text-right align-top">
                     <div className="flex justify-end gap-1.5">
+                      {/* Promote button — only show if not already in production */}
+                      {productionEnv && currentEnv && currentEnv.id !== productionEnv.id ? (
+                        <button
+                          type="button"
+                          onClick={() => void handlePromoteItems([item.id])}
+                          className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50 hover:border-emerald-200"
+                        >
+                          <Send className="h-3 w-3" />
+                          Promote
+                        </button>
+                      ) : null}
+                      {/* Duplicate button */}
+                      {allEnvironments.length > 1 ? (
+                        duplicateTargetId === item.id ? (
+                          <div className="flex items-center gap-1">
+                            <select
+                              className="rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  void handleDuplicateItems([item.id], e.target.value);
+                                }
+                              }}
+                              defaultValue=""
+                            >
+                              <option value="" disabled>Target…</option>
+                              {allEnvironments
+                                .filter((e) => e.id !== currentEnv?.id)
+                                .map((e) => (
+                                  <option key={e.id} value={e.id}>
+                                    {e.name}
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setDuplicateTargetId(null)}
+                              className="rounded-md px-2 py-1.5 text-xs text-stone-500 hover:text-stone-900"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDuplicateTargetId(item.id)}
+                            className="inline-flex items-center gap-1 rounded-md border border-stone-200 px-2.5 py-1.5 text-xs font-medium text-violet-600 transition hover:bg-violet-50 hover:border-violet-200"
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copy
+                          </button>
+                        )
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => {
@@ -517,7 +735,7 @@ function CollectionPageContent(props: {
       {/* Mobile cards */}
       <div className="space-y-3 md:hidden">
         {items.items.length ? (
-          items.items.map((item: ItemRecord) => (
+          filteredItems.map((item: ItemRecord) => (
             <div
               key={item.id}
               className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
@@ -606,6 +824,7 @@ function CollectionPageContent(props: {
             search={{
               page: Math.max(1, search.page - 1),
               projectId: search.projectId,
+              env: search.env,
             }}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${search.page <= 1 ? "pointer-events-none border-stone-200 text-stone-300" : "border-stone-300 hover:bg-stone-50"}`}
           >
@@ -618,6 +837,7 @@ function CollectionPageContent(props: {
             search={{
               page: Math.min(items.pagination.totalPages, search.page + 1),
               projectId: search.projectId,
+              env: search.env,
             }}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${!items.pagination.hasMore ? "pointer-events-none border-stone-200 text-stone-300" : "border-stone-300 hover:bg-stone-50"}`}
           >
@@ -677,7 +897,7 @@ function CollectionPageSkeleton() {
         </div>
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-stone-200 text-sm">
             <thead className="bg-stone-50">
@@ -1629,6 +1849,35 @@ function AssetUploadInlineDialog(props: {
         </form>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Collection toolbar (filter + sort + refresh)
+// ---------------------------------------------------------------------------
+
+function CollectionToolbar({ onRefresh }: {
+  onRefresh: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  return (
+    <DataToolbar
+      query={query}
+      onQueryChange={setQuery}
+      refresh={{
+        onRefresh,
+        isRefreshing: false,
+      }}
+      sortColumns={[
+        { id: "name", label: "Name" },
+        { id: "createdAt", label: "Created" },
+      ]}
+      sort={sort}
+      onSortChange={setSort}
+      filterPlaceholder="Filter items…"
+    />
   );
 }
 

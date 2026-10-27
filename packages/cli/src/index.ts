@@ -157,6 +157,7 @@ type MiniConfig = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
   collectionId?: string;
   collectionsPath?: string;
@@ -170,6 +171,7 @@ type ResolvedConfig = {
   baseUrl: string;
   workspaceId: string;
   projectId?: string;
+  environmentId?: string;
   apiKey: string;
   collectionId?: string;
   collectionsPath: string;
@@ -183,6 +185,7 @@ type CommandOptions = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
   collectionId?: string;
   collections?: string;
@@ -200,6 +203,7 @@ type CliEnv = {
   baseUrl?: string;
   workspaceId?: string;
   projectId?: string;
+  environmentId?: string;
   apiKey?: string;
 };
 
@@ -209,6 +213,7 @@ const CLI_ENV_KEYS = {
   baseUrl: "MINI_CMS_BASE_URL",
   workspaceId: "MINI_CMS_WORKSPACE_ID",
   projectId: "MINI_CMS_PROJECT_ID",
+  environmentId: "MINI_CMS_ENVIRONMENT_ID",
   apiKey: "MINI_CMS_API_KEY",
 } as const;
 
@@ -230,6 +235,10 @@ const sharedArgs = {
   projectId: {
     type: "string",
     description: "Project ID",
+  },
+  environmentId: {
+    type: "string",
+    description: "Environment ID",
   },
   apiKey: {
     type: "string",
@@ -1116,7 +1125,8 @@ export async function run(argv = process.argv): Promise<void> {
       throw new Error(incompleteCommandError);
     }
 
-    return await runCommand(miniCmsCommand, { rawArgs });
+    await runCommand(miniCmsCommand, { rawArgs });
+    return;
   } catch (error) {
     throw formatCliError(error, argv);
   }
@@ -1307,6 +1317,7 @@ function toCommandOptions(args: Record<string, unknown>): CommandOptions {
     baseUrl: getStringArg(args.baseUrl),
     workspaceId: getStringArg(args.workspaceId),
     projectId: getStringArg(args.projectId),
+    environmentId: getStringArg(args.environmentId),
     apiKey: getStringArg(args.apiKey),
     collectionId: getStringArg(args.collectionId),
     collections: getStringArg(args.collections),
@@ -1475,6 +1486,8 @@ async function resolveConfig(
     options.workspaceId ?? fileConfig?.workspaceId ?? envConfig.workspaceId ?? "";
   const projectId =
     options.projectId ?? fileConfig?.projectId ?? envConfig.projectId;
+  const environmentId =
+    options.environmentId ?? fileConfig?.environmentId ?? envConfig.environmentId;
   const apiKey = options.apiKey ?? fileConfig?.apiKey ?? envConfig.apiKey ?? "";
   const collectionId = options.collectionId ?? fileConfig?.collectionId;
   const collectionsPath = resolve(
@@ -1513,6 +1526,7 @@ async function resolveConfig(
     baseUrl,
     workspaceId,
     projectId,
+    environmentId,
     apiKey,
     collectionId,
     collectionsPath,
@@ -1527,6 +1541,7 @@ function readCliEnv(): CliEnv {
     baseUrl: readEnvValue(CLI_ENV_KEYS.baseUrl),
     workspaceId: readEnvValue(CLI_ENV_KEYS.workspaceId),
     projectId: readEnvValue(CLI_ENV_KEYS.projectId),
+    environmentId: readEnvValue(CLI_ENV_KEYS.environmentId),
     apiKey: readEnvValue(CLI_ENV_KEYS.apiKey),
   };
 }
@@ -1546,6 +1561,10 @@ async function pullSchemas(config: ResolvedConfig): Promise<PullResponse> {
   const url = new URL("/api/schema/pull", normalizeBaseUrl(config.baseUrl));
   url.searchParams.set("workspaceId", config.workspaceId);
   url.searchParams.set("projectId", config.projectId ?? "");
+
+  if (config.environmentId) {
+    url.searchParams.set("environmentId", config.environmentId);
+  }
 
   if (config.collectionId) {
     url.searchParams.set("collectionId", config.collectionId);
@@ -1579,6 +1598,7 @@ async function pushSchemas(
       body: JSON.stringify({
         workspaceId: config.workspaceId,
         projectId: config.projectId,
+        environmentId: config.environmentId,
         collectionId: config.collectionId,
         collections,
       }),
@@ -2064,6 +2084,11 @@ async function promptForMiniConfig(
     "Default project ID",
     existingConfig.projectId,
   );
+  const environmentId = await promptValue(
+    ask,
+    "Default environment ID",
+    existingConfig.environmentId,
+  );
   const apiKey = await promptValue(ask, "API key", existingConfig.apiKey);
   const collectionId = await promptValue(
     ask,
@@ -2099,6 +2124,7 @@ async function promptForMiniConfig(
     baseUrl,
     workspaceId,
     ...(projectId ? { projectId } : {}),
+    ...(environmentId ? { environmentId } : {}),
     ...(apiKey ? { apiKey } : {}),
     ...(collectionId ? { collectionId } : {}),
     collectionsPath,

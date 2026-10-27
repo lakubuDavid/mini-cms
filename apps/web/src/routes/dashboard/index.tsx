@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCollectionServerFn,
@@ -9,7 +9,10 @@ import { createProjectServerFn } from "@/lib/projects-helpers";
 import {
   collectionsQueryOptions,
   collectionItemCountsQueryOptions,
+  organizationQueryOptions,
+  projectsQueryOptions,
 } from "@/lib/queries";
+import { DataToolbar, type SortState } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   Plus,
@@ -39,11 +42,14 @@ export const Route = createFileRoute("/dashboard/")({
 function DashboardHome() {
   const search = Route.useSearch();
   const queryClient = useQueryClient();
-  const { organization, projects } = Route.useRouteContext();
+  const orgQuery = useQuery(organizationQueryOptions());
+  const projectsQuery = useQuery(projectsQueryOptions());
+  const organization = orgQuery.data ?? null;
+  const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const collectionsQuery = useQuery({
     ...collectionsQueryOptions(1, 24, selectedProjectId || undefined),
-    enabled: !!organization && !!selectedProjectId,
+    enabled: Boolean(organization) && !!selectedProjectId,
   });
 
   const collectionIds = collectionsQuery.data?.items.map((c) => c.id) ?? [];
@@ -65,6 +71,31 @@ function DashboardHome() {
     pagination: { page: 1, limit: 24, total: 0, totalPages: 1, hasMore: false },
   };
   const itemCounts = itemCountsQuery.data ?? {};
+
+  // Client-side filter/sort state for the collections list
+  const [filterQ, setFilterQ] = useState("");
+  const [filterSort, setFilterSort] = useState<SortState | null>(null);
+
+  const filteredCollections = useMemo(() => {
+    let list = collections.items;
+    if (filterQ) {
+      const q = filterQ.toLowerCase();
+      list = list.filter(
+        (c: any) =>
+          c.name?.toLowerCase().includes(q) ||
+          c.slug?.toLowerCase().includes(q),
+      );
+    }
+    if (filterSort) {
+      list = [...list].sort((a: any, b: any) => {
+        const aVal = a[filterSort.by] ?? "";
+        const bVal = b[filterSort.by] ?? "";
+        const cmp = String(aVal).localeCompare(String(bVal));
+        return filterSort.order === "desc" ? -cmp : cmp;
+      });
+    }
+    return list;
+  }, [collections.items, filterQ, filterSort]);
 
   if (isLoading) {
     return <DashboardHomeSkeleton />;
@@ -123,7 +154,7 @@ function DashboardHome() {
           <h3 className="text-lg font-semibold tracking-tight">Collections</h3>
           <p className="mt-1 text-sm text-stone-500">
             {selectedProjectId
-              ? `${collections.items.length} collection${collections.items.length === 1 ? "" : "s"}`
+              ? `${filteredCollections.length} collection${filteredCollections.length === 1 ? "" : "s"}`
               : "Choose a project to see its collections."}
           </p>
         </div>
@@ -145,8 +176,23 @@ function DashboardHome() {
         </div>
       ) : (
       <>
+      <DataToolbar
+        query={filterQ}
+        onQueryChange={setFilterQ}
+        refresh={{
+          onRefresh: invalidate,
+          isRefreshing: collectionsQuery.isFetching,
+        }}
+        sortColumns={[
+          { id: "name", label: "Name" },
+          { id: "createdAt", label: "Created" },
+        ]}
+        sort={filterSort}
+        onSortChange={setFilterSort}
+        filterPlaceholder="Filter collections…"
+      />
       {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>
@@ -168,14 +214,14 @@ function DashboardHome() {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100 bg-white">
-            {collections.items.map(
-              (collection: (typeof collections.items)[number]) => (
+            {filteredCollections.map(
+              (collection: (typeof filteredCollections)[number]) => (
                 <tr key={collection.id} className="hover:bg-stone-50">
                   <td className="px-4 py-3">
                     <Link
                       to="/dashboard/collections/$name"
                       params={{ name: collection.slug }}
-                      search={{ page: 1, projectId: selectedProjectId || undefined }}
+                      search={{ page: 1, projectId: selectedProjectId || undefined, env: undefined }}
                       className="flex items-center gap-2.5 group"
                     >
                       <Folder className="h-4 w-4 shrink-0 text-stone-400" />
@@ -205,7 +251,7 @@ function DashboardHome() {
                 </tr>
               ),
             )}
-            {!collections.items.length ? (
+            {!filteredCollections.length ? (
               <tr>
                 <td
                   colSpan={5}
@@ -221,8 +267,8 @@ function DashboardHome() {
 
       {/* Mobile cards */}
       <div className="space-y-3 md:hidden">
-        {collections.items.length ? (
-          collections.items.map((collection: (typeof collections.items)[number]) => (
+        {filteredCollections.length ? (
+          filteredCollections.map((collection: (typeof filteredCollections)[number]) => (
             <div
               key={collection.id}
               className="rounded-lg border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900"
@@ -231,7 +277,7 @@ function DashboardHome() {
                 <Link
                   to="/dashboard/collections/$name"
                   params={{ name: collection.slug }}
-                  search={{ page: 1, projectId: selectedProjectId || undefined }}
+                  search={{ page: 1, projectId: selectedProjectId || undefined, env: undefined }}
                   className="flex items-center gap-2.5 min-w-0"
                 >
                   <Folder className="h-4 w-4 shrink-0 text-stone-400" />
@@ -290,7 +336,7 @@ function DashboardHomeSkeleton() {
         <Skeleton className="h-9 w-36 rounded-lg" />
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border border-stone-200 md:block">
+      <div className="hidden max-h-[600px] overflow-auto rounded-lg border border-stone-200 md:block">
         <table className="min-w-full divide-y divide-stone-200 text-sm">
           <thead className="bg-stone-50">
             <tr>
@@ -763,7 +809,7 @@ function CollectionActionsMenu(props: {
           <Link
             to="/dashboard/collections/$name"
             params={{ name: props.collection.slug }}
-            search={{ page: 1, projectId: props.projectId || undefined }}
+            search={{ page: 1, projectId: props.projectId || undefined, env: undefined }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-stone-700 transition hover:bg-stone-50"
             onClick={() => setOpen(false)}
           >

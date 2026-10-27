@@ -1,0 +1,199 @@
+/*
+ * Design tokens for the dashboard.
+ *
+ * Tailwind v4 reads @theme at build time and turns each namespace into
+ * utilities:
+ *   --color-*       bg-background, text-muted-foreground, border-border
+ *   --font-*        font-sans, font-mono
+ *   --text-*        text-sm, text-2xl
+ *   --font-weight-* font-medium, font-semibold
+ *   --tracking-*    tracking-label
+ *   --leading-*     leading-tight
+ *   --radius-*      rounded-lg, rounded-xl
+ *   --shadow-*      shadow-sm, shadow-lg
+ *   --spacing       p-4, gap-2, h-8 (numeric spacing utilities)
+ *   --breakpoint-*  md:, lg:
+ *   --container-*   max-w-md, max-w-2xl
+ *
+ * The .dark block overrides colour variables, so utilities follow the active
+ * theme without component-level dark: variants.
+ */
+
+/* ── Typography ──────────────────────────────────────────────── */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: calc(1 / 0.625);
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: calc(1 / 0.6875);
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: calc(1.5 / 1);
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: calc(2.25 / 1.875);
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: calc(2.5 / 2.25);
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1;
+
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+  --tracking-label: 0.22em;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+}
+
+/* ── Spacing ─────────────────────────────────────────────────── */
+@theme {
+  /*
+   * Tailwind derives every numeric spacing utility (p-4, gap-2, h-8, ...)
+   * from this multiplier. Changing it rescales the whole layout.
+   */
+  --spacing: 0.25rem;
+}
+
+/* ── Radius ──────────────────────────────────────────────────── */
+@theme {
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+}
+
+/* ── Shadows ─────────────────────────────────────────────────── */
+@theme {
+  --shadow-2xs: 0 1px rgb(0 0 0 / 0.05);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+/* ── Breakpoints ─────────────────────────────────────────────── */
+@theme {
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
+}
+
+/* ── Containers ──────────────────────────────────────────────── */
+@theme {
+  --container-3xs: 16rem;
+  --container-2xs: 18rem;
+  --container-xs: 20rem;
+  --container-sm: 24rem;
+  --container-md: 28rem;
+  --container-lg: 32rem;
+  --container-xl: 36rem;
+  --container-2xl: 42rem;
+  --container-3xl: 48rem;
+  --container-4xl: 56rem;
+  --container-5xl: 64rem;
+  --container-6xl: 72rem;
+  --container-7xl: 80rem;
+}
+
+/* ── shadcn/ui semantic colours ──────────────────────────────── */
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #1c1917;
+  --color-card: #ffffff;
+  --color-card-foreground: #1c1917;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1c1917;
+  --color-primary: #1c1917;
+  --color-primary-foreground: #f5f5f4;
+  --color-secondary: #f5f5f4;
+  --color-secondary-foreground: #1c1917;
+  --color-muted: #f5f5f4;
+  --color-muted-foreground: #78716c;
+  --color-accent: #f5f5f4;
+  --color-accent-foreground: #1c1917;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #fef2f2;
+  --color-border: #e7e5e4;
+  --color-input: #e7e5e4;
+  --color-ring: #1c1917;
+  --color-sidebar: #f5f5f4;
+  --color-sidebar-foreground: #1c1917;
+  --color-sidebar-accent: #e7e5e4;
+  --color-sidebar-accent-foreground: #1c1917;
+  --color-sidebar-border: #e7e5e4;
+  --color-sidebar-ring: #1c1917;
+}
+
+/* ── Skeleton shimmer ────────────────────────────────────────── */
+:root {
+  --skeleton-from: #e7e5e4;
+  --skeleton-via: #d6d3d1;
+}
+
+.dark {
+  --color-background: #0c0a09;
+  --color-foreground: #f5f5f4;
+  --color-card: #0c0a09;
+  --color-card-foreground: #f5f5f4;
+  --color-popover: #0c0a09;
+  --color-popover-foreground: #f5f5f4;
+  --color-primary: #f5f5f4;
+  --color-primary-foreground: #1c1917;
+  --color-secondary: #292524;
+  --color-secondary-foreground: #f5f5f4;
+  --color-muted: #292524;
+  --color-muted-foreground: #a8a29e;
+  --color-accent: #292524;
+  --color-accent-foreground: #f5f5f4;
+  --color-destructive: #7f1d1d;
+  --color-destructive-foreground: #fef2f2;
+  --color-border: #292524;
+  --color-input: #292524;
+  --color-ring: #d6d3d1;
+  --color-sidebar: #1c1917;
+  --color-sidebar-foreground: #f5f5f4;
+  --color-sidebar-accent: #292524;
+  --color-sidebar-accent-foreground: #f5f5f4;
+  --color-sidebar-border: #44403c;
+  --color-sidebar-ring: #d6d3d1;
+
+  --skeleton-from: #292524;
+  --skeleton-via: #44403c;
+}

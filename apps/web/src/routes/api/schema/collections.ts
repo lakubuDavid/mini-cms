@@ -113,7 +113,11 @@ export async function handleSchemaCollections(
       return json({ error: "Collection not found." }, 404);
     }
 
-    await deps.deleteCollectionAction(collection.id, collection.slug);
+    await deps.deleteCollectionAction(
+      collection.id,
+      collection.slug,
+      body.workspaceId,
+    );
 
     return json({ success: true, id: collection.id });
   } catch (error) {

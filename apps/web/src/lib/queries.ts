@@ -5,11 +5,15 @@ import {
   getCollectionSchemaServerFn,
   getCollectionItemCountsServerFn,
 } from "./collections-helpers";
+import { listEnvironmentsServerFn } from "./environment-helpers";
 import { listAssetsServerFn } from "./assets-helpers";
 import { listProjectsServerFn, getProjectServerFn } from "./projects-helpers";
+import { getDashboardBootstrapServerFn } from "./auth-helpers";
 import { getAnalyticsOverviewServerFn } from "./analytics-helpers";
+import { getCollectionSnippetsServerFn } from "./codegen-helpers";
 import {
   getActiveOrganization,
+  getTeamProjectAccessServerFn,
   listAdminUsers,
   listPendingInvitations,
   listApiKeysServerFn,
@@ -30,6 +34,7 @@ const STALE_SHORT = 30_000; // 30 seconds
 export const queryKeys = {
   organization: () => ["organization"] as const,
   organizations: () => ["organizations"] as const,
+  dashboardBootstrap: () => ["dashboard-bootstrap"] as const,
   projects: () => ["projects"] as const,
   project: (id: string) => ["project", id] as const,
   collections: (page: number, limit: number) =>
@@ -37,15 +42,19 @@ export const queryKeys = {
   collectionPage: (slug: string, page: number, limit: number, projectId?: string) =>
     ["collection-page", slug, { page, limit, projectId }] as const,
   collectionSchema: (slug: string) => ["collection-schema", slug] as const,
+  collectionSnippets: (slug: string, projectId?: string) =>
+    ["collection-snippets", slug, { projectId }] as const,
   collectionItemCounts: (collectionIds: string[]) =>
     ["collection-item-counts", collectionIds] as const,
   team: () => ["team"] as const,
+  teamProjectAccess: () => ["team-project-access"] as const,
   invites: () => ["invites"] as const,
   apiKeys: () => ["api-keys"] as const,
   analytics: (projectId: string, range: DateRange) =>
     ["analytics", { projectId, range }] as const,
   assets: (page: number, limit: number, projectId?: string, status?: "pending" | "active") =>
     ["assets", { page, limit, projectId, status }] as const,
+  environments: (projectId: string) => ["environments", projectId] as const,
 };
 
 // ── Query options factories ─────────────────────────────────
@@ -74,6 +83,14 @@ export function projectsQueryOptions() {
   });
 }
 
+export function dashboardBootstrapQueryOptions() {
+  return queryOptions({
+    queryKey: queryKeys.dashboardBootstrap(),
+    queryFn: () => getDashboardBootstrapServerFn(),
+    staleTime: STALE_LONG,
+  });
+}
+
 export function projectQueryOptions(projectId: string) {
   return queryOptions({
     queryKey: queryKeys.project(projectId),
@@ -96,19 +113,29 @@ export function collectionPageQueryOptions(
   page = 1,
   limit = 10,
   projectId?: string,
+  env?: string,
 ) {
   return queryOptions({
-    queryKey: queryKeys.collectionPage(slug, page, limit, projectId),
-    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit, projectId } }),
+    queryKey: [...queryKeys.collectionPage(slug, page, limit, projectId), { env }] as const,
+    queryFn: () => getCollectionPageServerFn({ data: { slug, page, limit, projectId, env } }),
     staleTime: STALE_SHORT,
   });
 }
 
-export function collectionSchemaQueryOptions(slug: string) {
+export function collectionSchemaQueryOptions(slug: string, projectId?: string) {
   return queryOptions({
-    queryKey: queryKeys.collectionSchema(slug),
-    queryFn: () => getCollectionSchemaServerFn({ data: { slug } }),
+    queryKey: [...queryKeys.collectionSchema(slug), { projectId }],
+    queryFn: () => getCollectionSchemaServerFn({ data: { slug, projectId } }),
     staleTime: STALE_LONG,
+  });
+}
+
+export function collectionSnippetsQueryOptions(slug: string, projectId: string) {
+  return queryOptions({
+    queryKey: queryKeys.collectionSnippets(slug, projectId),
+    queryFn: () => getCollectionSnippetsServerFn({ data: { slug, projectId } }),
+    staleTime: STALE_LONG,
+    enabled: Boolean(projectId),
   });
 }
 
@@ -121,26 +148,34 @@ export function collectionItemCountsQueryOptions(collectionIds: string[]) {
   });
 }
 
-export function teamQueryOptions() {
+export function teamQueryOptions(page = 1, limit = 25) {
   return queryOptions({
-    queryKey: queryKeys.team(),
-    queryFn: () => listAdminUsers(),
+    queryKey: [...queryKeys.team(), { page, limit }] as const,
+    queryFn: () => listAdminUsers({ data: { page, limit } }),
     staleTime: STALE_LONG,
   });
 }
 
-export function invitesQueryOptions() {
+export function teamProjectAccessQueryOptions() {
   return queryOptions({
-    queryKey: queryKeys.invites(),
-    queryFn: () => listPendingInvitations(),
+    queryKey: queryKeys.teamProjectAccess(),
+    queryFn: () => getTeamProjectAccessServerFn(),
     staleTime: STALE_MEDIUM,
   });
 }
 
-export function apiKeysQueryOptions() {
+export function invitesQueryOptions(page = 1, limit = 25) {
   return queryOptions({
-    queryKey: queryKeys.apiKeys(),
-    queryFn: () => listApiKeysServerFn(),
+    queryKey: [...queryKeys.invites(), { page, limit }] as const,
+    queryFn: () => listPendingInvitations({ data: { page, limit } }),
+    staleTime: STALE_MEDIUM,
+  });
+}
+
+export function apiKeysQueryOptions(page = 1, limit = 25) {
+  return queryOptions({
+    queryKey: [...queryKeys.apiKeys(), { page, limit }] as const,
+    queryFn: () => listApiKeysServerFn({ data: { page, limit } }),
     staleTime: STALE_MEDIUM,
   });
 }
@@ -155,15 +190,30 @@ export function analyticsQueryOptions(projectId: string, range: DateRange) {
   });
 }
 
+export function environmentsQueryOptions(projectId: string) {
+  return queryOptions({
+    queryKey: queryKeys.environments(projectId),
+    queryFn: () => listEnvironmentsServerFn({ data: { projectId } }),
+    staleTime: STALE_MEDIUM,
+    enabled: !!projectId,
+  });
+}
+
 export function assetsQueryOptions(
   page = 1,
   limit = 24,
   projectId?: string,
   status?: "pending" | "active",
+  q?: string,
+  type?: "images" | "videos" | "documents",
+  sortBy?: "filename" | "contentType" | "size" | "createdAt",
+  order?: "asc" | "desc",
 ) {
   return queryOptions({
-    queryKey: queryKeys.assets(page, limit, projectId, status),
-    queryFn: () => listAssetsServerFn({ data: { page, limit, projectId, status } }),
+    queryKey: [...queryKeys.assets(page, limit, projectId, status), q, type, sortBy, order],
+    queryFn: () =>
+      listAssetsServerFn({ data: { page, limit, projectId, status, q, type, sortBy, order } }),
     staleTime: STALE_SHORT,
+    placeholderData: (previous) => previous,
   });
 }

@@ -3,11 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteAssetServerFn,
+  deleteAssetsServerFn,
   requestAssetUploadServerFn,
   confirmAssetUploadServerFn,
 } from "@/lib/assets-helpers";
 import { projectsQueryOptions, assetsQueryOptions } from "@/lib/queries";
+import { useDialogA11y } from "@/lib/use-dialog-a11y";
 import { ALLOWED_ASSET_MIME_TYPES, MAX_ASSET_FILE_SIZE } from "@/lib/assets";
+import { formatDate, formatDateTime } from "@/lib/format-date";
+import { DataToolbar } from "@workspace/ui/components/data-table";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import {
   Check,
@@ -17,7 +21,9 @@ import {
   Film,
   Image as ImageIcon,
   LoaderCircle,
+  Play,
   Plus,
+  Search,
   Trash2,
   Upload,
   X,
@@ -27,8 +33,17 @@ import {
 // Route
 // ---------------------------------------------------------------------------
 
+type AssetsSearch = {
+  projectId?: string;
+  type?: "images" | "videos" | "documents";
+  page?: number;
+  q?: string;
+  sortBy?: "filename" | "contentType" | "size" | "createdAt";
+  order?: "asc" | "desc";
+};
+
 export const Route = createFileRoute("/dashboard/assets")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): AssetsSearch => ({
     projectId:
       typeof search.projectId === "string" && search.projectId.length > 0
         ? search.projectId
@@ -37,6 +52,17 @@ export const Route = createFileRoute("/dashboard/assets")({
       typeof search.type === "string" &&
       ["images", "videos", "documents"].includes(search.type)
         ? (search.type as "images" | "videos" | "documents")
+        : undefined,
+    page: typeof search.page === "number" ? search.page : undefined,
+    q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
+    sortBy:
+      typeof search.sortBy === "string" &&
+      ["filename", "contentType", "size", "createdAt"].includes(search.sortBy)
+        ? (search.sortBy as "filename" | "contentType" | "size" | "createdAt")
+        : undefined,
+    order:
+      typeof search.order === "string" && ["asc", "desc"].includes(search.order)
+        ? (search.order as "asc" | "desc")
         : undefined,
   }),
   component: DashboardAssetsPage,
@@ -48,49 +74,36 @@ export const Route = createFileRoute("/dashboard/assets")({
 
 function DashboardAssetsPage() {
   const queryClient = useQueryClient();
-  const search = Route.useSearch() as {
-    projectId?: string;
-    type?: "images" | "videos" | "documents";
-  };
-
-  const { projects: ssrProjects } = Route.useRouteContext();
-  const projectsQuery = useQuery({ ...projectsQueryOptions(), initialData: ssrProjects });
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
+  const projectsQuery = useQuery(projectsQueryOptions());
   const projects = projectsQuery.data ?? [];
   const selectedProjectId = search.projectId ?? "";
   const selectedType = search.type;
+  const page = search.page ?? 1;
+  const q = search.q ?? "";
+  const sortBy = search.sortBy ?? "createdAt";
+  const order = search.order ?? "desc";
+
   const effectiveProjectId = selectedProjectId;
 
   const assetsQuery = useQuery({
-    ...assetsQueryOptions(1, 100, effectiveProjectId || undefined),
+    ...assetsQueryOptions(page, 24, effectiveProjectId || undefined, undefined, q || undefined, selectedType, sortBy, order),
     enabled: !!effectiveProjectId,
   });
 
-  const allAssets = assetsQuery.data?.items ?? [];
+  const data = assetsQuery.data;
+  const allAssets = data?.items ?? [];
+  const pagination = data?.pagination;
+  const counts = data?.counts;
   const isLoading = projectsQuery.isLoading || assetsQuery.isLoading;
 
-  // Client-side type filter
-  const assets = useMemo(() => {
-    if (!selectedType) return allAssets;
-    return allAssets.filter((asset) => {
-      if (selectedType === "images") return asset.contentType.startsWith("image/");
-      if (selectedType === "videos") return asset.contentType.startsWith("video/");
-      if (selectedType === "documents") return asset.contentType === "application/pdf";
-      return true;
-    });
-  }, [allAssets, selectedType]);
+  const assets = allAssets;
+  const typeCounts = counts ?? { all: allAssets.length, images: 0, videos: 0, documents: 0 };
 
-  // Counts per type
-  const typeCounts = useMemo(() => {
-    let images = 0;
-    let videos = 0;
-    let documents = 0;
-    for (const asset of allAssets) {
-      if (asset.contentType.startsWith("image/")) images++;
-      else if (asset.contentType.startsWith("video/")) videos++;
-      else if (asset.contentType === "application/pdf") documents++;
-    }
-    return { all: allAssets.length, images, videos, documents };
-  }, [allAssets]);
+  function updateSearch(next: Partial<typeof search>) {
+    void navigate({ search: (prev) => ({ ...prev, ...next }), replace: true });
+  }
 
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -99,8 +112,20 @@ function DashboardAssetsPage() {
   const projectName =
     projects.find((p) => p.id === effectiveProjectId)?.name ?? null;
 
+  const [imageFit, setImageFit] = useState<"cover" | "contain">("cover");
+
+  useEffect(() => {
+    if (window.localStorage.getItem("assets-image-fit") === "contain") {
+      setImageFit("contain");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("assets-image-fit", imageFit);
+  }, [imageFit]);
+
   return (
-    <section className="space-y-6">
+    <section className="flex min-h-0 flex-1 flex-col gap-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -108,7 +133,7 @@ function DashboardAssetsPage() {
             <h2 className="text-2xl font-semibold tracking-tight">Assets</h2>
             {!isLoading && (
               <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium tabular-nums text-stone-600 dark:bg-stone-800 dark:text-stone-300">
-                {allAssets.length}
+                {pagination?.total ?? allAssets.length}
               </span>
             )}
           </div>
@@ -141,18 +166,14 @@ function DashboardAssetsPage() {
               <button
                 key={chip.label}
                 type="button"
-                  onClick={() => {
-                    const params = new URLSearchParams(window.location.search);
-                    if (chip.key) {
-                      params.set("type", chip.key);
-                    } else {
-                      params.delete("type");
-                    }
-                    const query = params.toString();
-                    window.history.replaceState({}, "", query ? `${window.location.pathname}?${query}` : window.location.pathname);
-                    window.dispatchEvent(new PopStateEvent("popstate"));
-                  }}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                onClick={() => {
+                  if (chip.key) {
+                    updateSearch({ type: chip.key as "images" | "videos" | "documents", page: 1 });
+                  } else {
+                    updateSearch({ type: undefined, page: 1 });
+                  }
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:focus-visible:ring-stone-500 ${
                   isActive
                     ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
                     : "bg-stone-100 text-stone-600 hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-stone-700"
@@ -168,7 +189,59 @@ function DashboardAssetsPage() {
             );
           })}
         </div>
+
+        <div
+          role="group"
+          aria-label="Image fit"
+          className="ml-auto inline-flex rounded-lg border border-stone-300 p-0.5 dark:border-stone-700"
+        >
+          {(
+            [
+              { key: "cover", label: "Fill" },
+              { key: "contain", label: "Fit" },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setImageFit(option.key)}
+              aria-pressed={imageFit === option.key}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
+                imageFit === option.key
+                  ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                  : "text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Toolbar */}
+      <DataToolbar
+        query={q}
+        onQueryChange={(value) => updateSearch({ q: value || undefined, page: 1 })}
+        refresh={{
+          onRefresh: invalidate,
+          isRefreshing: assetsQuery.isFetching,
+        }}
+        sortColumns={[
+          { id: "filename", label: "Name" },
+          { id: "contentType", label: "Type" },
+          { id: "size", label: "Size" },
+          { id: "createdAt", label: "Created" },
+        ]}
+        sort={sortBy ? { by: sortBy, order: order } : null}
+        onSortChange={(value) =>
+          updateSearch({
+            sortBy: (value?.by as "filename" | "contentType" | "size" | "createdAt") ?? undefined,
+            order: (value?.order as "asc" | "desc") ?? undefined,
+            page: 1,
+          })
+        }
+        filterPlaceholder="Filter by filename…"
+      />
 
       {!effectiveProjectId ? (
         <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
@@ -181,8 +254,61 @@ function DashboardAssetsPage() {
         </div>
       ) : isLoading ? (
         <AssetsGridSkeleton />
+      ) : assets.length === 0 && pagination && pagination.total > 0 ? (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <h3 className="text-base font-medium text-stone-900 dark:text-stone-100">
+            Nothing on this page
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            The last item on this page was removed.
+          </p>
+          <button
+            type="button"
+            onClick={() => updateSearch({ page: 1 })}
+            className="mt-4 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+          >
+            Back to first page
+          </button>
+        </div>
       ) : (
-        <AssetsGrid assets={assets} onDeleted={invalidate} />
+        <>
+          <AssetsGrid
+            assets={assets}
+            projectId={effectiveProjectId}
+            projectName={projectName}
+            hasFilters={Boolean(q || selectedType)}
+            imageFit={imageFit}
+            onClearFilters={() =>
+              updateSearch({ q: undefined, type: undefined, page: 1 })
+            }
+            onChanged={invalidate}
+          />
+          {pagination && pagination.totalPages > 1 ? (
+            <div className="flex items-center justify-between text-sm text-stone-500">
+              <span>
+                Page {pagination.page} of {pagination.totalPages} ({pagination.total} assets)
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => updateSearch({ page: page - 1 })}
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 disabled:opacity-50 dark:focus-visible:ring-stone-500"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= pagination.totalPages}
+                  onClick={() => updateSearch({ page: page + 1 })}
+                  className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 disabled:opacity-50 dark:focus-visible:ring-stone-500"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -201,13 +327,114 @@ function AssetsGrid(props: {
     size: number;
     createdAt: string;
   }>;
-  onDeleted: () => void;
+  projectId: string;
+  projectName: string | null;
+  hasFilters: boolean;
+  imageFit: "cover" | "contain";
+  onClearFilters: () => void;
+  onChanged: () => void;
 }) {
   const [selectedAsset, setSelectedAsset] = useState<
     (typeof props.assets)[number] | null
   >(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Drop selections that disappeared after a refetch or page change.
+  useEffect(() => {
+    setSelectedIds((previous) => {
+      const available = new Set(props.assets.map((asset) => asset.id));
+      const next = new Set(
+        [...previous].filter((id) => available.has(id)),
+      );
+
+      return next.size === previous.size ? previous : next;
+    });
+  }, [props.assets]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 2000);
+
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  const selectedAssets = props.assets.filter((asset) =>
+    selectedIds.has(asset.id),
+  );
+
+  function toggleSelection(id: string) {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+
+      return next;
+    });
+    setConfirmingDelete(false);
+  }
+
+  async function copySelectedUrls() {
+    const text = selectedAssets.map((asset) => asset.publicUrl).join("\n");
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+  }
+
+  async function deleteSelected() {
+    setBulkDeleting(true);
+    setBulkError(null);
+
+    try {
+      const result = await deleteAssetsServerFn({
+        data: { ids: [...selectedIds] },
+      });
+
+      if (result.failed > 0) {
+        setBulkError(`${result.failed} asset(s) could not be deleted.`);
+      }
+
+      setSelectedIds(new Set());
+      setConfirmingDelete(false);
+      props.onChanged();
+    } catch (error) {
+      setBulkError(
+        error instanceof Error ? error.message : "Unable to delete assets.",
+      );
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   if (!props.assets.length) {
+    if (props.hasFilters) {
+      return (
+        <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm dark:bg-stone-800 dark:text-stone-400">
+            <Search className="h-5 w-5" />
+          </div>
+          <h3 className="mt-4 text-base font-medium text-stone-900 dark:text-stone-100">
+            No matching assets
+          </h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+            Try a different search term or clear the active filters.
+          </p>
+          <button
+            type="button"
+            onClick={props.onClearFilters}
+            className="mt-4 rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+          >
+            Clear filters
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-6 py-14 text-center dark:border-stone-700 dark:bg-stone-900/60">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-stone-500 shadow-sm dark:bg-stone-800 dark:text-stone-400">
@@ -219,56 +446,180 @@ function AssetsGrid(props: {
         <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
           Upload your first file to create a project asset library.
         </p>
+        <div className="mt-4 flex justify-center">
+          <AssetUploadDialog
+            projectId={props.projectId}
+            projectName={props.projectName}
+            onUploaded={props.onChanged}
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {props.assets.map((asset) => (
+      {selectedIds.size > 0 ? (
+        <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur dark:border-stone-700 dark:bg-stone-900/95">
+          <span className="text-sm font-medium tabular-nums text-stone-900 dark:text-stone-100">
+            {selectedIds.size} selected
+          </span>
           <button
-            key={asset.id}
             type="button"
-            onClick={() => setSelectedAsset(asset)}
-            className="group overflow-hidden rounded-xl border border-stone-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-stone-800 dark:bg-stone-900"
+            onClick={() =>
+              setSelectedIds(new Set(props.assets.map((asset) => asset.id)))
+            }
+            className="rounded-md px-2 py-1 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
           >
-            <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-              {asset.contentType.startsWith("image/") ? (
-                <img
-                  src={asset.publicUrl}
-                  alt={asset.filename}
-                  className="h-full w-full object-cover"
-                />
-              ) : asset.contentType.startsWith("video/") ? (
-                <video
-                  src={asset.publicUrl}
-                  className="h-full w-full object-cover"
-                  muted
-                  preload="metadata"
-                />
-              ) : (
-                <AssetTypeIcon
-                  contentType={asset.contentType}
-                  className="h-10 w-10 text-stone-400 dark:text-stone-500"
-                />
-              )}
-            </div>
-            <div className="space-y-2 p-4">
-              <div>
-                <p className="line-clamp-1 text-sm font-medium text-stone-900 dark:text-stone-100">
-                  {asset.filename}
-                </p>
-                <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-                  {formatAssetSize(asset.size)} &middot; {asset.contentType}
-                </p>
-              </div>
-              <p className="text-xs text-stone-400 dark:text-stone-500">
-                Added {new Date(asset.createdAt).toLocaleDateString()}
-              </p>
-            </div>
+            Select all
           </button>
-        ))}
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={copySelectedUrls}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1.5 text-xs font-medium transition hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-stone-700 dark:hover:bg-stone-800"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copied ? "Copied" : "Copy URLs"}
+            </button>
+            {confirmingDelete ? (
+              <>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={bulkDeleting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-60"
+                >
+                  {bulkDeleting ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                  Delete {selectedIds.size}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={bulkDeleting}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-stone-500 transition hover:bg-stone-100 dark:hover:bg-stone-800"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-stone-300 px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:border-stone-700 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIds(new Set());
+                setConfirmingDelete(false);
+              }}
+              aria-label="Clear selection"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:hover:bg-stone-800 dark:hover:text-stone-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {bulkError ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {bulkError}
+        </p>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-xl">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {props.assets.map((asset) => {
+            const isSelected = selectedIds.has(asset.id);
+
+            return (
+              <div key={asset.id} className="group/card relative">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAsset(asset)}
+                  className={`group block w-full overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:bg-stone-900 dark:focus-visible:ring-stone-500 ${
+                    isSelected
+                      ? "border-stone-900 ring-2 ring-stone-900 dark:border-stone-100 dark:ring-stone-100"
+                      : "border-stone-200 dark:border-stone-800"
+                  }`}
+                >
+                  <div className="relative flex aspect-[16/10] items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100 via-stone-50 to-stone-200 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
+                    {asset.contentType.startsWith("image/") ? (
+                      <AssetThumb
+                        src={asset.publicUrl}
+                        alt={asset.filename}
+                        fit={props.imageFit}
+                      />
+                    ) : asset.contentType.startsWith("video/") ? (
+                      <>
+                        <video
+                          src={asset.publicUrl}
+                          className={`h-full w-full ${props.imageFit === "contain" ? "object-contain" : "object-cover"}`}
+                          muted
+                          preload="metadata"
+                        />
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white shadow-sm">
+                            <Play className="ml-0.5 h-4 w-4" />
+                          </span>
+                        </span>
+                      </>
+                    ) : (
+                      <AssetTypeIcon
+                        contentType={asset.contentType}
+                        className="h-10 w-10 text-stone-400 dark:text-stone-500"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <div>
+                      <p className="line-clamp-1 text-sm font-medium text-stone-900 dark:text-stone-100">
+                        {asset.filename}
+                      </p>
+                      <p className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                        {formatAssetSize(asset.size)} &middot; {asset.contentType}
+                      </p>
+                    </div>
+                    <p className="text-xs text-stone-400 dark:text-stone-500">
+                      Added {formatDate(asset.createdAt)}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleSelection(asset.id)}
+                  aria-pressed={isSelected}
+                  aria-label={
+                    isSelected
+                      ? `Deselect ${asset.filename}`
+                      : `Select ${asset.filename}`
+                  }
+                  className={`absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border shadow-sm transition focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 ${
+                    isSelected
+                      ? "border-stone-900 bg-stone-900 text-white opacity-100 dark:border-stone-100 dark:bg-stone-100 dark:text-stone-900"
+                      : "border-stone-300 bg-white/90 text-transparent opacity-0 hover:bg-white group-hover/card:opacity-100 dark:border-stone-600 dark:bg-stone-800/90"
+                  }`}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {selectedAsset ? (
@@ -277,7 +628,7 @@ function AssetsGrid(props: {
           onClose={() => setSelectedAsset(null)}
           onDeleted={() => {
             setSelectedAsset(null);
-            props.onDeleted();
+            props.onChanged();
           }}
         />
       ) : null}
@@ -294,6 +645,7 @@ function AssetUploadDialog(props: {
   projectName: string | null;
   onUploaded: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -304,15 +656,7 @@ function AssetUploadDialog(props: {
 
   const acceptedTypes = useMemo(() => ALLOWED_ASSET_MIME_TYPES.join(","), []);
 
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pending) setOpen(false);
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, pending]);
+  useDialogA11y(dialogRef, () => { if (!pending) setOpen(false); }, open);
 
   function handleFileSelect(selectedFile: File | null) {
     if (!selectedFile) return;
@@ -479,10 +823,15 @@ function AssetUploadDialog(props: {
           aria-modal="true"
           aria-label="Upload asset"
         >
-          <div className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900">
+          <div
+            ref={dialogRef}
+            tabIndex={-1}
+            aria-labelledby="asset-upload-title"
+            className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold tracking-tight">
+                <h3 id="asset-upload-title" className="text-lg font-semibold tracking-tight">
                   Upload asset
                 </h3>
                 <p className="mt-1 text-sm text-stone-500">
@@ -638,32 +987,21 @@ function AssetDetailsDialog(props: {
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Close on Escape
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !pendingDelete) {
-        props.onClose();
-      }
-    }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [pendingDelete, props]);
+  useDialogA11y(dialogRef, props.onClose, !pendingDelete);
 
   async function handleDelete() {
-    if (!confirm(`Delete asset "${props.asset.filename}"?`)) {
-      return;
-    }
-
     setPendingDelete(true);
-
     try {
       await deleteAssetServerFn({ data: { id: props.asset.id } });
       props.onDeleted();
     } finally {
       setPendingDelete(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -685,10 +1023,15 @@ function AssetDetailsDialog(props: {
       aria-modal="true"
       aria-label="Asset details"
     >
-      <div className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-labelledby="asset-details-title"
+        className="w-full max-w-xl rounded-xl border border-stone-200 bg-white p-6 shadow-xl dark:border-stone-700 dark:bg-stone-900"
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-semibold tracking-tight">
+            <h3 id="asset-details-title" className="truncate text-lg font-semibold tracking-tight">
               {props.asset.filename}
             </h3>
             <p className="mt-1 text-sm text-stone-500">
@@ -738,7 +1081,7 @@ function AssetDetailsDialog(props: {
             <Detail label="Size" value={formatAssetSize(props.asset.size)} />
             <Detail
               label="Uploaded"
-              value={new Date(props.asset.createdAt).toLocaleString()}
+              value={formatDateTime(props.asset.createdAt)}
             />
             <Detail label="Asset ID" value={props.asset.id} mono />
             <Detail
@@ -770,19 +1113,38 @@ function AssetDetailsDialog(props: {
               </>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={pendingDelete}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {pendingDelete ? (
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-            ) : (
+          {confirmDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-red-600 dark:text-red-400">
+                Delete this asset?
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                disabled={pendingDelete}
+                className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete()}
+                disabled={pendingDelete}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {pendingDelete ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+            >
               <Trash2 className="h-4 w-4" />
-            )}
-            {pendingDelete ? "Deleting..." : "Delete asset"}
-          </button>
+              Delete asset
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -815,6 +1177,27 @@ function AssetsGridSkeleton() {
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+function AssetThumb(props: {
+  src: string;
+  alt: string;
+  fit: "cover" | "contain";
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return <ImageIcon className="h-10 w-10 text-stone-400 dark:text-stone-500" />;
+  }
+  return (
+    <img
+      src={props.src}
+      alt={props.alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className={`h-full w-full ${props.fit === "contain" ? "object-contain" : "object-cover"}`}
+    />
+  );
+}
 
 function AssetTypeIcon(props: { contentType: string; className?: string }) {
   if (props.contentType.startsWith("image/")) {

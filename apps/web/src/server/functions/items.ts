@@ -1,7 +1,9 @@
 import {
   createItem,
   deleteItem,
+  duplicateItemsToEnvironment,
   listItems,
+  promoteItemsToProduction,
   reorderItems,
   updateItem,
   type CollectionItemData,
@@ -27,12 +29,16 @@ export async function createItemAction(
   slug: string,
   data: CollectionItemData,
   order?: number,
+  organizationId?: string,
 ) {
   const identity = createAnonymousServerIdentity({ subject: collectionId });
 
   try {
     await ensureItemLimit(collectionId);
-    const item = await createItem(collectionId, data, order);
+    const item = await createItem(collectionId, data, {
+      order,
+      organizationId,
+    });
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({
@@ -63,11 +69,12 @@ export async function updateItemAction(
   id: string,
   slug: string,
   data: CollectionItemData,
+  organizationId?: string,
 ) {
   const identity = createAnonymousServerIdentity({ subject: id });
 
   try {
-    const item = await updateItem(id, data);
+    const item = await updateItem(id, data, organizationId);
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({
@@ -93,11 +100,15 @@ export async function updateItemAction(
   }
 }
 
-export async function deleteItemAction(id: string, slug: string) {
+export async function deleteItemAction(
+  id: string,
+  slug: string,
+  organizationId?: string,
+) {
   const identity = createAnonymousServerIdentity({ subject: id });
 
   try {
-    await deleteItem(id);
+    await deleteItem(id, organizationId);
     await invalidateCollectionCache(slug);
 
     await captureServerEvent({
@@ -114,6 +125,96 @@ export async function deleteItemAction(id: string, slug: string) {
       properties: {
         area: "items",
         operation: "delete",
+      },
+    });
+    throw error;
+  }
+}
+
+/**
+ * Promote items to the project's production environment.
+ * Items are moved (environment_id updated) — they leave the current env.
+ */
+export async function promoteItemsAction(
+  itemIds: string[],
+  productionEnvironmentId: string,
+  collectionSlug: string,
+) {
+  const identity = createAnonymousServerIdentity({
+    subject: `promote:${productionEnvironmentId}`,
+  });
+
+  try {
+    await promoteItemsToProduction(itemIds, productionEnvironmentId);
+    await invalidateCollectionCache(collectionSlug, productionEnvironmentId);
+
+    await captureServerEvent({
+      event: "items_promoted",
+      identity,
+      properties: {
+        item_count: itemIds.length,
+        target_env_id: productionEnvironmentId,
+        collection_slug_hash: anonymizeServerValue(collectionSlug, "collection"),
+      },
+    });
+
+    return { success: true, promotedCount: itemIds.length };
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "promote",
+      },
+    });
+    throw error;
+  }
+}
+
+/**
+ * Duplicate items to another environment.
+ * Items are copied (new IDs) — the originals remain in the source env.
+ */
+export async function duplicateItemsAction(
+  itemIds: string[],
+  sourceEnvironmentId: string,
+  targetEnvironmentId: string,
+  collectionSlug: string,
+) {
+  const identity = createAnonymousServerIdentity({
+    subject: `duplicate:${sourceEnvironmentId}->${targetEnvironmentId}`,
+  });
+
+  try {
+    const newIds = await duplicateItemsToEnvironment(
+      itemIds,
+      sourceEnvironmentId,
+      targetEnvironmentId,
+    );
+
+    await invalidateCollectionCache(collectionSlug, targetEnvironmentId);
+    await invalidateCollectionCache(collectionSlug, sourceEnvironmentId);
+
+    await captureServerEvent({
+      event: "items_duplicated",
+      identity,
+      properties: {
+        item_count: itemIds.length,
+        source_env_id: sourceEnvironmentId,
+        target_env_id: targetEnvironmentId,
+        collection_slug_hash: anonymizeServerValue(collectionSlug, "collection"),
+      },
+    });
+
+    return { success: true, duplicatedCount: itemIds.length, newIds };
+  } catch (error) {
+    await captureServerError({
+      error,
+      identity,
+      properties: {
+        area: "items",
+        operation: "duplicate",
       },
     });
     throw error;

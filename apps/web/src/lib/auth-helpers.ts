@@ -28,7 +28,7 @@ function toPlainJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-async function ensureActiveOrganization(ctx?: unknown) {
+export async function ensureActiveOrganization(ctx?: unknown) {
   const { auth } = await import("./auth");
   const headers = getHeaders(ctx);
   const session = await auth.api.getSession({ headers });
@@ -42,6 +42,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
       auth,
       headers,
       organizationId: session.session.activeOrganizationId,
+      userId: session.user.id,
     };
   }
 
@@ -53,6 +54,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
       auth,
       headers,
       organizationId: null,
+      userId: session.user.id,
     };
   }
 
@@ -67,6 +69,7 @@ async function ensureActiveOrganization(ctx?: unknown) {
     auth,
     headers,
     organizationId: fallbackOrganization.id,
+    userId: session.user.id,
   };
 }
 
@@ -95,15 +98,60 @@ export const getActiveOrganization = createServerFn({ method: "GET" }).handler(
   },
 );
 
-export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
+export const getDashboardBootstrapServerFn = createServerFn({ method: "GET" }).handler(
   async (ctx) => {
+    const { auth, headers, organizationId, userId } = await ensureActiveOrganization(ctx);
+    const { resolveProjectAccess } = await import("./project-access");
+
+    const [organizations, fullOrganization, access] = await Promise.all([
+      auth.api.listOrganizations({ headers }),
+      organizationId
+        ? auth.api.getFullOrganization({ headers, query: { organizationId } })
+        : Promise.resolve(null),
+      organizationId
+        ? resolveProjectAccess(organizationId, userId)
+        : Promise.resolve(undefined),
+    ]);
+
+    const { listProjects } = await import("../db/queries/projects");
+    const projects = organizationId
+      ? await listProjects(organizationId, access)
+      : [];
+
+    return {
+      organization: fullOrganization,
+      organizations,
+      projects,
+      organizationId,
+    };
+  },
+);
+
+type PaginatedItems = { [x: string]: {} };
+type MemberRecord = PaginatedItems;
+type InviteRecord = PaginatedItems;
+
+export const listPendingInvitations = createServerFn({ method: "GET" })
+  .validator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth, headers, organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
-      return [];
+      return {
+        items: [] as InviteRecord[],
+        total: 0,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      };
     }
 
-    const invitations = await auth.api.listInvitations({
+    const { page = 1, limit = 25 } = data ?? {};
+    const offset = (page - 1) * limit;
+
+    const result = await auth.api.listInvitations({
       headers,
       query: {
         organizationId,
@@ -115,34 +163,200 @@ export const listPendingInvitations = createServerFn({ method: "GET" }).handler(
     // Only return invitations that are:
     // 1. Still pending (not accepted, rejected, or canceled)
     // 2. Not expired (expiresAt is in the future or not set)
-    return (Array.isArray(invitations) ? invitations : []).filter((inv) => {
+    const pending = (Array.isArray(result) ? result : []).filter((inv) => {
       if (inv.status !== "pending") return false;
       if (inv.expiresAt && new Date(inv.expiresAt) <= now) return false;
       return true;
     });
-  },
-);
 
-export const listAdminUsers = createServerFn({ method: "GET" }).handler(
-  async (ctx) => {
+    const total = pending.length;
+    const items = pending.slice(offset, offset + limit) as InviteRecord[];
+    return toPlainJson({
+      items,
+      total,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  });
+
+export const listAdminUsers = createServerFn({ method: "GET" })
+  .validator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
     const headers = getHeaders(ctx);
     const { organizationId } = await ensureActiveOrganization(ctx);
 
     if (!organizationId) {
-      return { users: [] };
+      return {
+        items: [] as MemberRecord[],
+        total: 0,
+        page: 1,
+        pageSize: 25,
+        totalPages: 1,
+      };
     }
 
-    return auth.api.listMembers({
+    const { page = 1, limit = 25 } = data ?? {};
+    const offset = (page - 1) * limit;
+
+    const result = await auth.api.listMembers({
       headers,
       query: {
         organizationId,
-        limit: 100,
-        offset: 0,
+        limit,
+        offset,
       },
     });
-  },
-);
+
+    const members = ((result as { members?: MemberRecord[] }).members ??
+      []) as MemberRecord[];
+    const total = Number((result as { total?: number }).total ?? members.length);
+    return toPlainJson({
+      items: members,
+      total,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  });
+
+export const getTeamProjectAccessServerFn = createServerFn({
+  method: "GET",
+}).handler(async (ctx) => {
+  const { getActiveProjectContext } = await import("./project-access");
+  const { access, organizationId } = await getActiveProjectContext(ctx);
+
+  if (!access.all) {
+    throw new Error("Forbidden: team management requires owner or admin");
+  }
+
+  const { db } = await import("@/db");
+  const { projectMembers } = await import("@/db/schema/project-members");
+  const { projects } = await import("@/db/schema/projects");
+  const { asc, eq } = await import("drizzle-orm");
+
+  const [projectRows, memberRows] = await Promise.all([
+    db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(eq(projects.organizationId, organizationId))
+      .orderBy(asc(projects.name)),
+    db
+      .select({
+        memberId: projectMembers.memberId,
+        projectId: projectMembers.projectId,
+      })
+      .from(projectMembers)
+      .where(eq(projectMembers.organizationId, organizationId)),
+  ]);
+
+  const byMember = new Map<string, string[]>();
+
+  for (const row of memberRows) {
+    const projectIds = byMember.get(row.memberId) ?? [];
+    projectIds.push(row.projectId);
+    byMember.set(row.memberId, projectIds);
+  }
+
+  return toPlainJson({
+    projects: projectRows,
+    members: Array.from(byMember, ([memberId, projectIds]) => ({
+      memberId,
+      projectIds,
+    })),
+  });
+});
+
+export const setMemberProjectAccessServerFn = createServerFn({
+  method: "POST",
+})
+  .validator((data: { memberId: string; projectIds: string[] }) => data)
+  .handler(async ({ data, ...ctx }) => {
+    const { getActiveProjectContext } = await import("./project-access");
+    const { access, organizationId } = await getActiveProjectContext(ctx);
+
+    if (!access.all) {
+      throw new Error("Forbidden: team management requires owner or admin");
+    }
+
+    const { db } = await import("@/db");
+    const { members } = await import("@/db/schema/auth");
+    const { projectMembers } = await import("@/db/schema/project-members");
+    const { projects } = await import("@/db/schema/projects");
+    const { and, eq, inArray } = await import("drizzle-orm");
+    const { nanoid } = await import("nanoid");
+
+    const [member] = await db
+      .select({ id: members.id, role: members.role })
+      .from(members)
+      .where(
+        and(
+          eq(members.id, data.memberId),
+          eq(members.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!member) {
+      throw new Error("Member not found in this workspace.");
+    }
+
+    if (
+      member.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin")
+    ) {
+      throw new Error("Owner and admin access cannot be restricted.");
+    }
+
+    const projectIds = [...new Set(data.projectIds)];
+
+    if (projectIds.length > 0) {
+      const projectRows = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.organizationId, organizationId),
+            inArray(projects.id, projectIds),
+          ),
+        );
+
+      if (projectRows.length !== projectIds.length) {
+        throw new Error("One or more projects were not found in this workspace.");
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.organizationId, organizationId),
+            eq(projectMembers.memberId, data.memberId),
+          ),
+        );
+
+      if (projectIds.length > 0) {
+        await tx.insert(projectMembers).values(
+          projectIds.map((projectId) => ({
+            id: nanoid(),
+            organizationId,
+            projectId,
+            memberId: data.memberId,
+            createdAt: now,
+          })),
+        );
+      }
+    });
+
+    return { memberId: data.memberId, projectIds };
+  });
 
 export const createOrganizationAction = createServerFn({ method: "POST" })
   .validator((data: { name: string; slug: string }) => data)
@@ -409,15 +623,84 @@ export const updateMemberRoleAction = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { getActiveProjectContext } = await import("./project-access");
+      const { db } = await import("@/db");
+      const { members } = await import("@/db/schema/auth");
+      const { projectMembers } = await import("@/db/schema/project-members");
+      const { projects } = await import("@/db/schema/projects");
+      const { and, eq } = await import("drizzle-orm");
+      const { nanoid } = await import("nanoid");
       const headers = getHeaders(ctx);
+      const { organizationId, access } = await getActiveProjectContext(ctx);
 
-      return await auth.api.updateMemberRole({
+      if (!access.all) {
+        throw new Error("Forbidden: team management requires owner or admin");
+      }
+
+      const [existing] = await db
+        .select({ role: members.role })
+        .from(members)
+        .where(
+          and(
+            eq(members.id, data.memberId),
+            eq(members.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+
+      if (!existing) {
+        throw new Error("Member not found in this workspace.");
+      }
+
+      const result = await auth.api.updateMemberRole({
         headers,
         body: {
           memberId: data.memberId,
           role: data.role,
         },
       });
+
+      const wasFullAccess = existing.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin");
+      const isFullAccess = data.role
+        .split(",")
+        .some((role) => role === "owner" || role === "admin");
+
+      // A demoted owner/admin keeps workspace-wide access until an admin
+      // restricts them explicitly.
+      if (wasFullAccess && !isFullAccess) {
+        const projectRows = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.organizationId, organizationId));
+        const now = new Date().toISOString();
+
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(projectMembers)
+            .where(
+              and(
+                eq(projectMembers.organizationId, organizationId),
+                eq(projectMembers.memberId, data.memberId),
+              ),
+            );
+
+          if (projectRows.length > 0) {
+            await tx.insert(projectMembers).values(
+              projectRows.map((project) => ({
+                id: nanoid(),
+                organizationId,
+                projectId: project.id,
+                memberId: data.memberId,
+                createdAt: now,
+              })),
+            );
+          }
+        });
+      }
+
+      return result;
     } catch (error) {
       await captureServerError({
         error,
@@ -441,7 +724,7 @@ export const removeMemberAction = createServerFn({ method: "POST" })
       return await auth.api.removeMember({
         headers,
         body: {
-          memberId: data.memberId,
+          memberIdOrEmail: data.memberId,
           organizationId: data.organizationId,
         },
       });
@@ -507,7 +790,7 @@ export const getInvitationById = createServerFn({ method: "GET" })
     }
 
     const now = Date.now();
-    if (invitationRow.expiresAt && invitationRow.expiresAt < now) {
+    if (invitationRow.expiresAt && invitationRow.expiresAt.getTime() < now) {
       return {
         id: data.id,
         organizationId: invitationRow.organizationId,
@@ -667,24 +950,64 @@ export async function requireSessionUserId(ctx?: unknown) {
   return session.user.id;
 }
 
-export const listApiKeysServerFn = createServerFn({ method: "GET" }).handler(
-  async (ctx) => {
+export const listApiKeysServerFn = createServerFn({ method: "GET" })
+  .validator(
+    (data: { page?: number; limit?: number } = {}) => data,
+  )
+  .handler(async ({ data, ...ctx }) => {
     const { auth } = await import("./auth");
+    const { getActiveProjectContext } = await import("./project-access");
     const headers = getHeaders(ctx);
-    const organizationId = await requireActiveOrganizationId(ctx);
+    const { organizationId, access } = await getActiveProjectContext(ctx);
 
-    const result = await auth.api.listApiKeys({
-      headers,
-      query: {
-        organizationId,
-      },
-    });
+    const { page = 1, limit = 25 } = data ?? {};
+
+    const allKeys = [];
+    let offset = 0;
+    const batchSize = 100;
+
+    while (true) {
+      const result = await auth.api.listApiKeys({
+        headers,
+        query: {
+          organizationId,
+          limit: batchSize,
+          offset,
+        },
+      });
+      const batch = result.apiKeys ?? [];
+      allKeys.push(...batch);
+      const total = Number(result.total ?? 0);
+      offset += batch.length;
+
+      if (batch.length === 0 || batch.length < batchSize || allKeys.length >= total) {
+        break;
+      }
+    }
+
+    const filtered = access.all
+      ? allKeys
+      : allKeys.filter((apiKey) => {
+          const metadata = apiKey.metadata;
+          const projectId =
+            metadata &&
+            typeof metadata === "object" &&
+            typeof metadata.projectId === "string"
+              ? metadata.projectId
+              : null;
+          return projectId !== null && access.projectIds.includes(projectId);
+        });
+
+    const pageOffset = (page - 1) * limit;
+    const pageKeys = filtered.slice(pageOffset, pageOffset + limit);
 
     return toPlainJson({
-      total: Number(result.total ?? 0),
-      limit: Number(result.limit ?? 0),
-      offset: Number(result.offset ?? 0),
-      apiKeys: result.apiKeys.map((apiKey) => ({
+      total: filtered.length,
+      limit,
+      offset: pageOffset,
+      page,
+      pageSize: limit,
+      apiKeys: pageKeys.map((apiKey) => ({
         id: String(apiKey.id),
         name: apiKey.name ? String(apiKey.name) : null,
         start: apiKey.start ? String(apiKey.start) : null,
@@ -712,8 +1035,26 @@ export const createApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
+      const { getActiveProjectContext } = await import("./project-access");
+      const { getProjectById } = await import("../db/queries/projects");
       const headers = getHeaders(ctx);
-      organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId: activeOrganizationId, access } =
+        await getActiveProjectContext(ctx);
+      organizationId = activeOrganizationId;
+
+      if (data.projectId) {
+        const project = await getProjectById(data.projectId, organizationId);
+
+        if (!project) {
+          throw new Error("Project not found in this workspace.");
+        }
+
+        if (!access.all && !access.projectIds.includes(data.projectId)) {
+          throw new Error("Forbidden: no access to this project");
+        }
+      } else if (!access.all) {
+        throw new Error("Forbidden: workspace API keys require owner or admin");
+      }
 
       const result = await auth.api.createApiKey({
         headers,
@@ -780,7 +1121,9 @@ export const deleteApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
       const headers = getHeaders(ctx);
+      await requireApiKeyAccess(ctx, data.keyId);
 
       const result = await auth.api.deleteApiKey({
         headers,
@@ -818,7 +1161,9 @@ export const updateApiKeyServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data, ...ctx }) => {
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
       const headers = getHeaders(ctx);
+      await requireApiKeyAccess(ctx, data.keyId);
 
       const result = await auth.api.updateApiKey({
         headers,
@@ -868,8 +1213,26 @@ export const rotateApiKeyServerFn = createServerFn({ method: "POST" })
 
     try {
       const { auth } = await import("./auth");
+      const { requireApiKeyAccess } = await import("./project-access");
+      const { getProjectById } = await import("../db/queries/projects");
       const headers = getHeaders(ctx);
-      organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId: activeOrganizationId, access } =
+        await requireApiKeyAccess(ctx, data.keyId);
+      organizationId = activeOrganizationId;
+
+      if (data.projectId) {
+        const project = await getProjectById(data.projectId, organizationId);
+
+        if (!project) {
+          throw new Error("Project not found in this workspace.");
+        }
+
+        if (!access.all && !access.projectIds.includes(data.projectId)) {
+          throw new Error("Forbidden: no access to this project");
+        }
+      } else if (!access.all) {
+        throw new Error("Forbidden: workspace API keys require owner or admin");
+      }
 
       // Delete old key
       await auth.api.deleteApiKey({

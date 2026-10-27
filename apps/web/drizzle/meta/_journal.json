@@ -50,6 +50,27 @@
       "when": 1774700035998,
       "tag": "0006_striped_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1782874150382,
+      "tag": "0007_deep_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792824937783,
+      "tag": "0008_dark_wrecker",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1792920000470,
+      "tag": "0009_project_members",
+      "breakpoints": true
     }
   ]
 }

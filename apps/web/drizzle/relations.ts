@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm/relations";
-import { users, accounts, invitations, organizations, members, sessions, collections, collectionItems, projects, requestLogs, assets } from "./schema";
+import { users, accounts, invitations, organizations, members, sessions, collections, collectionItems, environments, projects, requestLogs, assets } from "./schema";
 
 export const accountsRelations = relations(accounts, ({one}) => ({
 	user: one(users, {
@@ -58,6 +58,10 @@ export const collectionItemsRelations = relations(collectionItems, ({one}) => ({
 		fields: [collectionItems.collectionId],
 		references: [collections.id]
 	}),
+	environment: one(environments, {
+		fields: [collectionItems.environmentId],
+		references: [environments.id]
+	}),
 }));
 
 export const collectionsRelations = relations(collections, ({one, many}) => ({
@@ -78,8 +82,17 @@ export const projectsRelations = relations(projects, ({one, many}) => ({
 		references: [organizations.id]
 	}),
 	collections: many(collections),
+	environments: many(environments),
 	requestLogs: many(requestLogs),
 	assets: many(assets),
+}));
+
+export const environmentsRelations = relations(environments, ({one, many}) => ({
+	project: one(projects, {
+		fields: [environments.projectId],
+		references: [projects.id]
+	}),
+	collectionItems: many(collectionItems),
 }));
 
 export const requestLogsRelations = relations(requestLogs, ({one}) => ({

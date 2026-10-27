@@ -146,9 +146,23 @@ export async function listAssetsAction(input: {
   page?: number;
   limit?: number;
   projectId?: string;
+  projectIds?: string[];
   status?: "pending" | "active";
+  q?: string;
+  type?: "images" | "videos" | "documents";
+  sortBy?: "filename" | "contentType" | "size" | "createdAt";
+  order?: "asc" | "desc";
 }) {
-  return listAssets(input);
+  const { countAssetsByType } = await import("@/db/queries/assets");
+  const [result, counts] = await Promise.all([
+    listAssets(input),
+    countAssetsByType({
+      organizationId: input.organizationId,
+      projectId: input.projectId,
+      projectIds: input.projectIds,
+    }),
+  ]);
+  return { ...result, counts };
 }
 
 export async function getAssetInfoAction(input: {
@@ -156,6 +170,21 @@ export async function getAssetInfoAction(input: {
   organizationId: string;
 }) {
   return getAssetById(input.id, input.organizationId);
+}
+
+export async function deleteAssetsAction(input: {
+  ids: string[];
+  organizationId: string;
+}) {
+  const results = await Promise.allSettled(
+    input.ids.map((id) =>
+      deleteAssetAction({ id, organizationId: input.organizationId }),
+    ),
+  );
+
+  const deleted = results.filter((result) => result.status === "fulfilled").length;
+
+  return { deleted, failed: results.length - deleted };
 }
 
 export async function deleteAssetAction(input: {

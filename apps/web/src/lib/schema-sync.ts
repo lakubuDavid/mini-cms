@@ -31,6 +31,7 @@ export type SchemaPushPayload = {
   workspaceId: string;
   collectionId?: string;
   projectId?: string;
+  environmentId?: string;
   collections: SyncedCollection[];
 };
 
@@ -123,6 +124,7 @@ export async function loadWorkspaceCollectionsForSync(input: {
   workspaceId: string;
   collectionId?: string | null;
   projectId?: string | null;
+  environmentId?: string | null;
 }, deps: LoadWorkspaceCollectionsDeps = schemaSyncDeps) {
   if (input.collectionId) {
     const collection = await deps.getCollectionById(
@@ -226,12 +228,16 @@ export async function applyWorkspaceSchemaPush(
       continue;
     }
 
-    const updated = await deps.updateCollection(existing.id, {
-      name: incoming.name,
-      slug: incoming.slug,
-      description: incoming.description,
-      schema: incoming.schema,
-    });
+    const updated = await deps.updateCollection(
+      existing.id,
+      {
+        name: incoming.name,
+        slug: incoming.slug,
+        description: incoming.description,
+        schema: incoming.schema,
+      },
+      input.workspaceId,
+    );
 
     if (updated?.slug) {
       await deps.invalidateCollectionCache(updated.slug);

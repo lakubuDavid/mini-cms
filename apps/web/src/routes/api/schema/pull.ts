@@ -23,6 +23,7 @@ export async function handleSchemaPull(
     const workspaceId = url.searchParams.get("workspaceId");
     const collectionId = url.searchParams.get("collectionId");
     const projectId = url.searchParams.get("projectId");
+    const environmentId = url.searchParams.get("environmentId") ?? url.searchParams.get("env");
 
     if (!workspaceId || workspaceId !== auth.workspaceId) {
       return json(
@@ -46,6 +47,7 @@ export async function handleSchemaPull(
       workspaceId,
       collectionId,
       projectId: auth.projectId ?? projectId,
+      environmentId,
     });
 
     return json({

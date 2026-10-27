@@ -14,7 +14,7 @@ The dashboard is the easiest way to manage content if you are not working from c
 - define the fields each item should have
 - add and edit content with a generated form
 - create API keys for developers and automation
-- manage team members through invite links
+- manage team members, roles, and project access
 
 ## Workspace Overview
 
@@ -26,6 +26,45 @@ When you sign in, the dashboard shows your workspace:
 
 The workspace ID (`w`) is used in the public content API and schema API requests.
 
+Your role in the workspace determines what you can manage and which projects you can see.
+
+## Roles And Project Access
+
+Every workspace member has a role. The role controls workspace management and project visibility.
+
+| Role | Workspace management | Project visibility |
+| --- | --- | --- |
+| Owner | Manage the workspace, team, projects, and API keys | All projects |
+| Admin | Manage the team, projects, and API keys | All projects |
+| Member | Manage content and environments | Only assigned projects |
+| Reviewer | Manage content and environments | Only assigned projects |
+
+Owners and admins can create, edit, and delete projects, change API access settings, invite teammates, and manage API keys. Members and reviewers can work with collections, items, assets, environments, and analytics for the projects assigned to them. They cannot open the `Team` or `API Keys` pages.
+
+A member or reviewer with no assigned projects sees an empty project list. Assign at least one project before they sign in.
+
+### Assign Project Access
+
+1. Open `Team` in the sidebar.
+2. Find the member in the members table.
+3. In the `Projects` column, click `Manage`.
+4. Select the projects the member should see.
+5. Click `Save`.
+
+Use `Select all` to grant every current project or `Clear` to remove all project access. Owners and admins always see every project, so their Projects column shows `All projects`.
+
+When an owner or admin is demoted to member or reviewer, they keep access to all projects that exist at that moment. An owner or admin can then restrict them with the same dialog. Projects created later are not assigned automatically.
+
+## Sidebar
+
+The sidebar holds navigation, the project selector, and workspace utilities:
+
+- **Project selector**: switches the active project. The selection is kept in the URL. The selector only lists projects the current member can access.
+- **Environment selector**: appears when a project has more than one environment. It scopes collection views to the selected environment.
+- **Team and API Keys**: visible only to owners and admins. Members and reviewers work inside their assigned projects.
+- **Collapse toggle**: collapses the sidebar to icons to give content more room. Hovering a collapsed icon shows its label.
+- **Docs**: opens this documentation from the sidebar footer.
+
 ## Create A Project
 
 1. Sign in to the dashboard.
@@ -34,13 +73,15 @@ The workspace ID (`w`) is used in the public content API and schema API requests
 4. Enter a name and slug.
 5. Create the project.
 
+Only owners and admins can create, edit, or delete projects. Members and reviewers can open the projects assigned to them.
+
 Projects group related collections inside a workspace. Each project has its own:
 
 - Collections and items
 - Schema definitions
 - API key scope (optional)
 
-You can switch between projects using the dropdown selector in the Collections view.
+You can switch between the projects you can access using the selector at the top of the sidebar.
 
 ## Create A Collection
 
@@ -124,6 +165,8 @@ Use unpublished items for drafts or items you don't want exposed publicly.
 
 ## Generate An API Key
 
+Only owners and admins can open `API Keys` and create keys.
+
 1. Open `API Keys` in the sidebar.
 2. Enter a key name.
 3. Optionally scope it to a single project.
@@ -147,9 +190,17 @@ Assets are project-scoped, just like collections. Supported file types are commo
 The Assets page also lets you:
 
 - browse uploaded files in a visual grid
-- preview image assets
+- filter by type (`All`, `Images`, `Videos`, `Docs`)
+- search by filename, sort by name, type, size, or date, and page through results
+- toggle between `Fill` and `Fit` to crop or letterbox image previews
+- preview image assets and open a video to play it
 - copy the public URL for any asset
+- select multiple assets to copy their URLs or delete them in one action
 - delete files that are no longer needed
+
+Selections are per page and clear automatically when the files are removed or you change pages. Bulk deletion asks for confirmation and cannot be undone.
+
+When a project has no assets, the empty state offers an `Upload asset` button. If a search or filter returns nothing, the page shows a separate no-matches state with a `Clear filters` action.
 
 ### API Key Scopes
 
@@ -158,20 +209,22 @@ The Assets page also lets you:
 
 ## Invite Team Members
 
+Only owners and admins can invite teammates.
+
 1. Open `Team` in the sidebar.
 2. Click `Invite member`.
 3. Enter the email address.
-4. Send the invite.
+4. Choose a role: `Admin`, `Member`, or `Reviewer`.
+5. Send the invite.
 
 The invitee receives an email with a link to join your workspace. Existing users can sign in and join directly, while new users can create an account first and then continue with the invite.
+
+After the invitee joins, assign their projects from the `Projects` column on the Team page. Members and reviewers start with no project access. Owners are not available from the invite form.
 
 In demo environments, invites are also constrained by `DEMO_MAX_USERS_PER_WORKSPACE` when that limit is configured.
 
 ## Environment
 
-The Environment section shows:
+The sidebar shows an environment dropdown when the active project defines more than one environment. Use it to switch between environments such as production or staging. The selected environment is added to the URL as `env` and scopes collection views to items created for that environment.
 
-- Current deployment URL
-- API version information
-
-This helps developers verify their integration is pointing at the correct instance.
+Production is the default and is not written to the URL. This helps developers verify that they are editing the same environment their integration is pointing at.

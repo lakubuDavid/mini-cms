@@ -9,11 +9,11 @@ export const getProjectServerFn = createServerFn({ method: "GET" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data, ...ctx }) => {
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { getProjectById } = await import("../db/queries/projects");
-      const organizationId = await requireActiveOrganizationId(ctx);
+      const { organizationId, access } = await getActiveProjectContext(ctx);
 
-      return getProjectById(data.id, organizationId);
+      return getProjectById(data.id, organizationId, access);
     } catch (error) {
       await captureServerError({
         error,
@@ -29,10 +29,11 @@ export const getProjectServerFn = createServerFn({ method: "GET" })
 
 export const listProjectsServerFn = createServerFn({ method: "GET" }).handler(
   async (ctx) => {
-    const { requireActiveOrganizationId } = await import("./auth-helpers");
+    const { getActiveProjectContext } = await import("./project-access");
     const { listProjects } = await import("../db/queries/projects");
+    const { organizationId, access } = await getActiveProjectContext(ctx);
 
-    return listProjects(await requireActiveOrganizationId(ctx));
+    return listProjects(organizationId, access);
   },
 );
 
@@ -42,10 +43,15 @@ export const createProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { createProject } = await import("../db/queries/projects");
       const { ensureProjectLimit } = await import("./demo-limits");
-      organizationId = await requireActiveOrganizationId(ctx);
+      const context = await getActiveProjectContext(ctx);
+      organizationId = context.organizationId;
+
+      if (!context.access.all) {
+        throw new Error("Forbidden: project management requires owner or admin");
+      }
 
       await ensureProjectLimit(organizationId);
 
@@ -88,9 +94,14 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { updateProject } = await import("../db/queries/projects");
-      organizationId = await requireActiveOrganizationId(ctx);
+      const context = await getActiveProjectContext(ctx);
+      organizationId = context.organizationId;
+
+      if (!context.access.all) {
+        throw new Error("Forbidden: project management requires owner or admin");
+      }
 
       const project = await updateProject(data.id, organizationId, {
         name: data.name,
@@ -98,20 +109,22 @@ export const updateProjectServerFn = createServerFn({ method: "POST" })
         apiAccess: data.apiAccess,
       });
 
-      if (project) {
-        await captureServerEvent({
-          event: "project_updated",
-          identity: createAnonymousServerIdentity({
-            organizationId,
-            projectId: project.id,
-          }),
-          properties: {
-            name_updated: data.name !== undefined,
-            slug_updated: data.slug !== undefined,
-            apiAccess_updated: data.apiAccess !== undefined,
-          },
-        });
+      if (!project) {
+        throw new Error("Project not found");
       }
+
+      await captureServerEvent({
+        event: "project_updated",
+        identity: createAnonymousServerIdentity({
+          organizationId,
+          projectId: project.id,
+        }),
+        properties: {
+          name_updated: data.name !== undefined,
+          slug_updated: data.slug !== undefined,
+          apiAccess_updated: data.apiAccess !== undefined,
+        },
+      });
 
       return project;
     } catch (error) {
@@ -136,9 +149,14 @@ export const deleteProjectServerFn = createServerFn({ method: "POST" })
     let organizationId: string | undefined;
 
     try {
-      const { requireActiveOrganizationId } = await import("./auth-helpers");
+      const { getActiveProjectContext } = await import("./project-access");
       const { deleteProject } = await import("../db/queries/projects");
-      organizationId = await requireActiveOrganizationId(ctx);
+      const context = await getActiveProjectContext(ctx);
+      organizationId = context.organizationId;
+
+      if (!context.access.all) {
+        throw new Error("Forbidden: project management requires owner or admin");
+      }
 
       const result = await deleteProject(data.id, organizationId);
 
@@ -169,3 +187,4 @@ export const deleteProjectServerFn = createServerFn({ method: "POST" })
       throw error;
     }
   });
+
